@@ -1,5 +1,8 @@
 ---
-description: Clean a single markdown chunk from MinerU output
+name: md-cleanup-master
+description: use this agent to clean up markdown chunks
+model: haiku
+color: yellow
 ---
 
 ## Purpose

@@ -78,6 +78,36 @@ chunks = chunk_workflow("src/main.py", strategy="code")
 
 **Purpose:** Index documents into PostgreSQL with pgvector.
 
+### index_json_workflow (Recommended)
+
+Index from pre-chunked chunks.json file.
+
+**Input:** Path to chunks.json
+**Output:** Number of indexed chunks
+
+**Usage:**
+```python
+from src.rag.indexer import index_json_workflow
+
+count = index_json_workflow("./data/documents/paper1/chunks.json")
+```
+
+**chunks.json format:**
+```json
+{
+  "source_pdf": "/path/to/original.pdf",
+  "created": "2025-12-28T...",
+  "chunks": [
+    {"index": 0, "content": "..."},
+    {"index": 1, "content": "..."}
+  ]
+}
+```
+
+### index_workflow (Legacy)
+
+Index from directory, re-chunking files.
+
 **Input:** Directory path, file patterns
 **Output:** Number of indexed chunks
 
@@ -86,20 +116,21 @@ chunks = chunk_workflow("src/main.py", strategy="code")
 from src.rag.indexer import index_workflow
 
 count = index_workflow("./docs", file_patterns=["*.md"])
-count = index_workflow("./src", file_patterns=["*.py", "*.js"])
 ```
 
-**Environment Variables (.env):**
+### Environment Variables (.env)
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| PG_HOST | localhost | PostgreSQL host |
-| PG_PORT | 5433 | PostgreSQL port |
-| PG_USER | rag | Database user |
-| PG_PASSWORD | rag | Database password |
-| PG_DATABASE | rag | Database name |
-| EMBEDDING_DIM | 4096 | Vector dimension |
+| POSTGRES_HOST | localhost | PostgreSQL host |
+| POSTGRES_PORT | 5432 | PostgreSQL port |
+| POSTGRES_USER | rag | Database user |
+| POSTGRES_PASSWORD | rag | Database password |
+| POSTGRES_DB | rag | Database name |
+| VECTOR_DIMENSION | 4096 | Vector dimension |
 
-**Schema:**
+### Schema
+
 ```sql
 CREATE TABLE documents (
     id SERIAL PRIMARY KEY,
@@ -132,7 +163,7 @@ results = search_workflow("How to configure authentication?", top_k=5)
 [
     {
         "content": "The actual chunk text...",
-        "source": "/path/to/file.md",
+        "source": "/path/to/file.pdf",
         "chunk_index": 0,
         "score": 0.8742  # cosine similarity (1 - distance)
     }

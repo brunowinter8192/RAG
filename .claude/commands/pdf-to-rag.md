@@ -12,79 +12,78 @@ PDF Path: $ARGUMENTS
 
 ## Step Indicator Rule
 
-**MANDATORY:** Every response in this workflow MUST start with:
-`Phase X, Step Y: [Name]`
-
-Example: `Phase 1, Step 2: Run MinerU`
+**MANDATORY:** Every response MUST start with: `Phase X, Step Y: [Name]`
 
 ---
 
-## Phase 1: Convert + Pre-Cleanup
+## Phase 1: PDF to Markdown
 
 ### Step 1: Validate Input
 
-Check if PDF exists and is readable:
 ```bash
 ls -la "$PDF_PATH"
 ```
 
-If file not found, ask user for correct path.
+If not found, ask for correct path.
 
-### Step 2: Run MinerU Workflow
+### Step 2: Create Document Folder
 
-Execute PDF to Markdown conversion with automatic pre-cleanup:
+Extract filename stem and create folder:
+
+```bash
+STEM=$(basename "$PDF_PATH" .pdf)
+mkdir -p ./data/documents/$STEM
+```
+
+### Step 3: Run MinerU Workflow
+
 ```bash
 cd ${MINERU_PATH} && \
 ./venv/bin/python workflow.py convert \
   --input "$PDF_PATH" \
-  --output ./data/documents/<filename>.md
+  --output ./data/documents/$STEM/raw.md
 ```
 
-This runs:
-1. MinerU (PDF → Raw MD)
-2. postprocess.py (structural cleanup: fences, tables, newlines)
-3. Copy to RAG/data/documents/
+This runs: MinerU (PDF to MD) + postprocess.py (structural cleanup)
 
-### Step 3: Verify Output
+### Step 4: Verify
 
-Check that MD file was created:
 ```bash
-ls -la ./data/documents/
+ls -la ./data/documents/$STEM/
 ```
 
-### PHASE 1 REPORT (MANDATORY)
+### PHASE 1 REPORT
 
 ```
-PHASE 1 COMPLETE: Convert + Pre-Cleanup
-=======================================
-
+PHASE 1: PDF to Markdown
+========================
 INPUT: [PDF path]
-OUTPUT: [MD path in data/documents/]
-PRE-CLEANUP: Applied (fences, tables, newlines)
+OUTPUT: data/documents/$STEM/raw.md
 STATUS: [Success/Failed]
 ```
 
 ---
 
-**STOP** - Ask user: "Proceed to Phase 2 (Chunk + LLM Cleanup)?"
-
-**CRITICAL:** Do NOT proceed unless user explicitly confirms.
+**STOP** - Ask: "Proceed to Phase 2 (Chunk + LLM Cleanup)?"
 
 ---
 
 ## Phase 2: Chunk + LLM Cleanup
 
-### Step 1: Chunk the MD File
+### Step 1: Chunk the Document
 
-Use the RAG chunker to split the document:
 ```python
+import sys
+sys.path.insert(0, '.')
 from src.rag.chunker import chunk_workflow
-chunks = chunk_workflow("/path/to/document.md", strategy="semantic")
+
+chunks = chunk_workflow("/path/to/raw.md", strategy="semantic")
+print(f"Created {len(chunks)} chunks")
 ```
 
 ### Step 2: LLM Cleanup per Chunk
 
-For EACH chunk, spawn a cleanup subagent:
+For EACH chunk, spawn cleanup agent:
 
 ```
 Task(
@@ -92,69 +91,83 @@ Task(
   model="haiku",
   prompt="Clean this markdown chunk. Fix:
     1. Semantic issues (unclear sentences, broken context)
-    2. Formatting that pre-cleanup missed
-    3. Remove artifacts from PDF extraction
+    2. Residual formatting from PDF extraction
+    3. Remove artifacts (page numbers, headers, watermarks)
+    4. Fix hyphenation (e.g., 'docu-\\nment' to 'document')
 
-    Chunk content:
+    Do NOT remove incomplete content at chunk boundaries.
+    Do NOT add content that isn't there.
+
+    Chunk:
     ---
-    [chunk content here]
+    [chunk content]
     ---
 
-    Return ONLY the cleaned content, no explanation."
+    Return ONLY cleaned content, no explanation."
 )
 ```
 
-### Step 3: Reassemble Document
+### Step 3: Save as JSON
 
-Collect all cleaned chunks and write back to the MD file.
+Write cleaned chunks to `chunks.json`:
 
-### PHASE 2 REPORT (MANDATORY)
+```python
+import json
+from datetime import datetime
+
+output = {
+    "source_pdf": "$PDF_PATH",
+    "created": datetime.now().isoformat(),
+    "chunks": [
+        {"index": i, "content": cleaned_chunk}
+        for i, cleaned_chunk in enumerate(cleaned_chunks)
+    ]
+}
+
+with open("data/documents/$STEM/chunks.json", "w") as f:
+    json.dump(output, f, indent=2, ensure_ascii=False)
+```
+
+### PHASE 2 REPORT
 
 ```
-PHASE 2 COMPLETE: Chunk + LLM Cleanup
-=====================================
-
-CHUNKS PROCESSED: [N]
-FIXES APPLIED: [summary]
-OUTPUT: [path in data/documents/]
+PHASE 2: Chunk + LLM Cleanup
+============================
+CHUNKS: [N]
+OUTPUT: data/documents/$STEM/chunks.json
+STATUS: [Success/Failed]
 ```
 
 ---
 
-**STOP** - Ask user: "Proceed to Phase 3 (Index)?"
-
-**CRITICAL:** Do NOT proceed unless user explicitly confirms.
+**STOP** - Ask: "Proceed to Phase 3 (Index)?"
 
 ---
 
 ## Phase 3: Index
 
-### Step 1: Index Document
+### Step 1: Index from JSON
 
 ```bash
 cd . && \
-./venv/bin/python workflow.py index \
-  --input-dir ./data/documents \
-  --patterns "*.md"
+./venv/bin/python workflow.py index-json \
+  --input data/documents/$STEM/chunks.json
 ```
 
 ### Step 2: Verify
 
-Search for content from the new document to confirm indexing:
 ```bash
 cd . && \
 ./venv/bin/python workflow.py search --query "[topic from PDF]" --top-k 3
 ```
 
-### PHASE 3 REPORT (MANDATORY)
+### PHASE 3 REPORT
 
 ```
-PHASE 3 COMPLETE: Index
-=======================
-
+PHASE 3: Index
+==============
 CHUNKS INDEXED: [N]
 VERIFIED: [Yes/No]
-READY FOR SEARCH: Yes
 ```
 
 ---
@@ -162,3 +175,7 @@ READY FOR SEARCH: Yes
 ## Complete
 
 Document is now searchable via RAG MCP server.
+
+**Files created:**
+- `data/documents/$STEM/raw.md` - Human-readable markdown
+- `data/documents/$STEM/chunks.json` - Machine-indexed chunks

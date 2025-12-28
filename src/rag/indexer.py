@@ -1,4 +1,5 @@
 # INFRASTRUCTURE
+import json
 import logging
 import os
 from pathlib import Path
@@ -26,7 +27,29 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
 
 
-# ORCHESTRATOR
+# ORCHESTRATORS
+
+# Index from chunks.json (pre-chunked, LLM-cleaned)
+def index_json_workflow(json_path: str) -> int:
+    conn = get_connection()
+    ensure_schema(conn)
+
+    chunks = load_chunks_json(json_path)
+    if not chunks:
+        conn.close()
+        return 0
+
+    texts = [c["content"] for c in chunks]
+    embeddings = embed_workflow(texts)
+
+    store_chunks(conn, chunks, embeddings)
+    conn.close()
+
+    logging.info(f"Indexed {len(chunks)} chunks from {json_path}")
+    return len(chunks)
+
+
+# Index from directory (legacy: re-chunks files)
 def index_workflow(input_dir: str, file_patterns: list[str] = None) -> int:
     if file_patterns is None:
         file_patterns = ["*.md", "*.txt", "*.py", "*.js", "*.ts"]
@@ -54,6 +77,30 @@ def index_workflow(input_dir: str, file_patterns: list[str] = None) -> int:
 
 
 # FUNCTIONS
+
+# Load chunks from JSON file
+def load_chunks_json(json_path: str) -> list[dict]:
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"chunks.json not found: {json_path}")
+
+    with open(path) as f:
+        data = json.load(f)
+
+    source = data.get("source_pdf", str(path))
+    raw_chunks = data.get("chunks", [])
+    total = len(raw_chunks)
+
+    return [
+        {
+            "content": c["content"],
+            "source": source,
+            "chunk_index": c["index"],
+            "total_chunks": total
+        }
+        for c in raw_chunks
+    ]
+
 
 # Get PostgreSQL connection
 def get_connection():
