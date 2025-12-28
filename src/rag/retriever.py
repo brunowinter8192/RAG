@@ -1,9 +1,14 @@
 # INFRASTRUCTURE
 import logging
-from qdrant_client import QdrantClient
+import os
 
-# From embedder.py: Generate embeddings
+import psycopg2
+from pgvector.psycopg2 import register_vector
+from dotenv import load_dotenv
+
 from .embedder import embed_workflow
+
+load_dotenv()
 
 logging.basicConfig(
     filename='src/rag/logs/retriever.log',
@@ -11,26 +16,37 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-COLLECTION_NAME = "documents"
-QDRANT_PATH = "./qdrant_storage"
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "rag")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rag")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 DEFAULT_TOP_K = 5
 
 
 # ORCHESTRATOR
 def search_workflow(query: str, top_k: int = DEFAULT_TOP_K) -> list[dict]:
-    client = get_client()
+    conn = get_connection()
     query_vector = embed_query(query)
-    results = search_vectors(client, query_vector, top_k)
-    formatted = format_results(results)
-    logging.info(f"Search '{query[:50]}...' returned {len(formatted)} results")
-    return formatted
+    results = search_vectors(conn, query_vector, top_k)
+    conn.close()
+    logging.info(f"Search '{query[:50]}...' returned {len(results)} results")
+    return results
 
 
 # FUNCTIONS
 
-# Get Qdrant client
-def get_client() -> QdrantClient:
-    return QdrantClient(path=QDRANT_PATH)
+# Get PostgreSQL connection
+def get_connection():
+    conn = psycopg2.connect(
+        host=POSTGRES_HOST,
+        port=POSTGRES_PORT,
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD,
+        dbname=POSTGRES_DB
+    )
+    register_vector(conn)
+    return conn
 
 
 # Embed search query
@@ -39,24 +55,27 @@ def embed_query(query: str) -> list[float]:
     return embeddings[0]
 
 
-# Search vectors in Qdrant
-def search_vectors(client: QdrantClient, query_vector: list[float], top_k: int) -> list:
-    results = client.search(
-        collection_name=COLLECTION_NAME,
-        query_vector=query_vector,
-        limit=top_k
-    )
-    return results
+# Search vectors in PostgreSQL using cosine distance
+def search_vectors(conn, query_vector: list[float], top_k: int) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT content, source, chunk_index,
+                   1 - (embedding <=> %s::vector) as score
+            FROM documents
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
+            """,
+            (query_vector, query_vector, top_k)
+        )
+        rows = cur.fetchall()
 
-
-# Format results for output
-def format_results(results: list) -> list[dict]:
     return [
         {
-            "content": r.payload.get("content", ""),
-            "source": r.payload.get("source", ""),
-            "chunk_index": r.payload.get("chunk_index", 0),
-            "score": round(r.score, 4)
+            "content": row[0],
+            "source": row[1],
+            "chunk_index": row[2],
+            "score": round(float(row[3]), 4)
         }
-        for r in results
+        for row in rows
     ]

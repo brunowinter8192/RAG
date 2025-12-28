@@ -30,8 +30,11 @@ debug/
 .DS_Store
 Thumbs.db
 
-# Qdrant local storage
+# Qdrant local storage (legacy)
 qdrant_storage/
 
-# Model cache (optional - comment out if you want to cache)
-# models/
+# Model cache
+models/
+
+# RAG logs
+src/rag/logs/

@@ -55,10 +55,3 @@ Register in `.mcp.json`:
   }
 }
 ```
-
-## Roadmap
-
-- [ ] Milestone 1: Foundation (CLAUDE.md, README, requirements)
-- [ ] Milestone 2: Embedding Pipeline (embedder, chunker, indexer)
-- [ ] Milestone 3: MCP Server (search tool)
-- [ ] Milestone 4: Claude Code Agent Integration
