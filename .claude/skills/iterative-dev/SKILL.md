@@ -56,6 +56,34 @@ Before ANY action, ask yourself:
 - **Plan-File** (`.claude/plans/`) - Within a session (hours)
 - **TodoWrite** - Within an iteration (minutes)
 
+## Improvement Levers (Stellschrauben)
+
+Every improvement identified in RECAP MUST be evaluated for permanent integration:
+
+| Lever | Scope | When to Use |
+|-------|-------|-------------|
+| **CLAUDE.md** | Abstract, project-wide | Universal rules, philosophy, communication protocols |
+| **SKILL.md** | Skill-specific | Workflow patterns, phase behaviors, evaluation criteria |
+| **Slash Commands** | Task-specific | Repeatable workflows with phases/steps/stops |
+| **Agent System Prompts** | Agent-specific | Subagent behavior, output format, task scope |
+
+### Improvement Flow
+
+During RECAP Phase 6 (Improvements):
+
+1. For each improvement, ask: **"Is this a one-time fix or a pattern?"**
+2. If PATTERN → Identify the correct lever:
+   - Applies everywhere? → CLAUDE.md
+   - Applies to this skill/workflow? → SKILL.md
+   - Is a repeatable workflow? → New/Updated Slash Command
+   - Affects subagent behavior? → Agent System Prompt
+
+3. **NEVER** let recurring issues stay as "process improvements" without lever integration
+
+### When Creating Slash Commands
+
+Ask user for reference command. Don't invent patterns.
+
 ## CRITICAL CYCLE
 
 ```
