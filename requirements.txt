@@ -1,0 +1,13 @@
+# Embedding
+transformers>=4.40.0
+torch>=2.0.0
+sentence-transformers>=3.0.0
+
+# Vector DB
+qdrant-client>=1.9.0
+
+# MCP
+fastmcp>=0.1.0
+
+# Utilities
+python-dotenv>=1.0.0

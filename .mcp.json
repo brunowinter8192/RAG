@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rag": {
+      "command": "./venv/bin/fastmcp",
+      "args": ["run", "./server.py"]
+    }
+  }
+}
