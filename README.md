@@ -6,26 +6,35 @@ Vector-based retrieval system exposing search via MCP for Claude Code agents.
 
 | Component | Choice |
 |-----------|--------|
-| Embedding | Qwen3-Embedding-8B |
-| Vector DB | Qdrant |
+| Embedding | Qwen3-Embedding-8B (native llama.cpp + Metal GPU) |
+| Vector DB | PostgreSQL + pgvector |
 | MCP | FastMCP |
+
+## Quick Start
+
+```bash
+# Start services
+./start.sh
+```
+
+This starts:
+- PostgreSQL (Docker, port 5433)
+- llama.cpp embedding server (native, port 8081)
 
 ## Directory Structure
 
 ```
 RAG/
-├── CLAUDE.md
-├── README.md
-├── requirements.txt
 ├── server.py              # MCP Server
-├── workflow.py            # CLI for indexing
-├── src/
-│   └── rag/               [See DOCS.md](src/rag/DOCS.md)
-│       ├── embedder.py
-│       ├── chunker.py
-│       ├── indexer.py
-│       └── retriever.py
-└── .mcp.json
+├── workflow.py            # CLI for indexing/search
+├── start.sh               # Start all services
+├── docker-compose.yml     # PostgreSQL only
+├── llama.cpp/             # Native embedding server (Metal GPU)
+├── models/                # GGUF model files
+├── data/
+│   ├── raw/              # MinerU outputs
+│   └── documents/        # Cleaned MDs for indexing
+└── src/rag/              # [See DOCS.md](src/rag/DOCS.md)
 ```
 
 ## Usage
@@ -33,25 +42,25 @@ RAG/
 ### Index Documents
 
 ```bash
-python workflow.py index --input-dir /path/to/docs
+./venv/bin/python workflow.py index --input-dir ./data/documents
 ```
 
-### Start MCP Server
+### Search
 
 ```bash
-fastmcp run server.py
+./venv/bin/python workflow.py search --query "your query" --top-k 5
 ```
 
-### Claude Code Integration
+### PDF to RAG (Slash Command)
 
-Register in `.mcp.json`:
-```json
-{
-  "mcpServers": {
-    "rag": {
-      "command": "/path/to/venv/bin/fastmcp",
-      "args": ["run", "/path/to/RAG/server.py"]
-    }
-  }
-}
+```
+/pdf-to-rag /path/to/file.pdf
+```
+
+## Build llama.cpp (if needed)
+
+```bash
+cd llama.cpp
+cmake -B build -DGGML_METAL=ON
+cmake --build build --config Release -j --target llama-server
 ```

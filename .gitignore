@@ -38,3 +38,4 @@ models/
 
 # RAG logs
 src/rag/logs/
+llama.cpp/
