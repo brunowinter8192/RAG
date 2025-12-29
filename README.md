@@ -19,6 +19,28 @@ Vector-based retrieval system exposing search via MCP for Claude Code agents.
 
 Starts: PostgreSQL (Docker, port 5433) + llama.cpp embedding server (native, port 8081)
 
+## Prerequisites Check
+
+Before indexing/searching, verify services are running:
+
+```bash
+# PostgreSQL (should show rag-postgres as healthy)
+docker ps --filter name=rag-postgres --format "{{.Names}}: {{.Status}}"
+
+# llama.cpp embedding server (should show llama-ser on port 8081)
+lsof -i :8081 | head -2
+```
+
+| Service | Port | Required For |
+|---------|------|--------------|
+| PostgreSQL | 5433 | Index + Search |
+| llama.cpp | 8081 | Index + Search |
+
+```bash
+# Check indexed documents
+docker exec rag-postgres psql -U rag -d rag -c "SELECT source, COUNT(*) as chunks FROM documents GROUP BY source;"
+```
+
 ## Pipeline
 
 ### Full Flow (PDF to RAG)
@@ -42,7 +64,7 @@ data/documents/<name>/chunks.json
 pgvector
 ```
 
-**Use:** `/pdf-to-rag /path/to/file.pdf`
+**Use:** `/pdf-convert /path/to/file.pdf`
 
 ### Document Structure
 
@@ -91,14 +113,6 @@ RAG/
 ```bash
 ./venv/bin/python workflow.py index-json --input ./data/documents/paper1/chunks.json
 ```
-
-### Index from Directory (Legacy)
-
-```bash
-./venv/bin/python workflow.py index --input-dir ./data/documents
-```
-
-Re-chunks files. Use `index-json` for pre-chunked content.
 
 ### Search
 

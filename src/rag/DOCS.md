@@ -35,12 +35,26 @@ embeddings = embed_workflow("Your text here")
 embeddings = embed_workflow(["Text 1", "Text 2"])
 ```
 
+**Token Truncation:**
+
+Texts are automatically truncated to MAX_TOKENS (4000) before embedding using the llama.cpp `/tokenize` endpoint.
+
+```python
+count_tokens(text: str) -> int          # Count tokens via API
+truncate_to_tokens(text: str, max: int) # Truncate if needed
+```
+
 **Environment Variables (.env):**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | EMBEDDING_URL | http://localhost:8081/v1/embeddings | llama.cpp server endpoint |
 | EMBEDDING_MODEL | Qwen3-Embedding-8B | Model name for API |
-| EMBEDDING_DIM | 4096 | Vector dimension |
+| TOKENIZE_URL | http://localhost:8081/tokenize | Tokenization endpoint |
+
+**Constants:**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| MAX_TOKENS | 4000 | Max tokens per embedding request |
 
 ---
 
@@ -78,12 +92,17 @@ chunks = chunk_workflow("src/main.py", strategy="code")
 
 **Purpose:** Index documents into PostgreSQL with pgvector.
 
-### index_json_workflow (Recommended)
+### index_json_workflow
 
 Index from pre-chunked chunks.json file.
 
 **Input:** Path to chunks.json
 **Output:** Number of indexed chunks
+
+**Behavior:**
+- Deletes existing chunks for same source before inserting (no duplicates)
+- Processes chunks one at a time (BATCH_SIZE = 1)
+- Token truncation handled by embedder.py
 
 **Usage:**
 ```python
@@ -104,18 +123,13 @@ count = index_json_workflow("./data/documents/paper1/chunks.json")
 }
 ```
 
-### index_workflow (Legacy)
+### delete_source
 
-Index from directory, re-chunking files.
+Delete all chunks for a given source (used internally for re-indexing).
 
-**Input:** Directory path, file patterns
-**Output:** Number of indexed chunks
-
-**Usage:**
 ```python
-from src.rag.indexer import index_workflow
-
-count = index_workflow("./docs", file_patterns=["*.md"])
+from src.rag.indexer import delete_source
+deleted = delete_source(conn, source_path)
 ```
 
 ### Environment Variables (.env)

@@ -15,4 +15,6 @@ echo "Starting llama.cpp embedding server (Metal GPU)..."
   -m ./models/Qwen3-Embedding-8B-Q5_K_M.gguf \
   --embedding \
   --host 0.0.0.0 \
-  --port 8081
+  --port 8081 \
+  -ub 4096 \
+  -b 4096

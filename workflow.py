@@ -1,17 +1,13 @@
 # INFRASTRUCTURE
 import argparse
 
-from src.rag.indexer import index_workflow, index_json_workflow
+from src.rag.indexer import index_json_workflow
 from src.rag.retriever import search_workflow
 
 
 # ORCHESTRATOR
 def main(command: str, **kwargs) -> None:
-    if command == "index":
-        count = index_workflow(kwargs["input_dir"], kwargs.get("patterns"))
-        print(f"Indexed {count} chunks")
-
-    elif command == "index-json":
+    if command == "index-json":
         count = index_json_workflow(kwargs["input"])
         print(f"Indexed {count} chunks from JSON")
 
@@ -26,10 +22,6 @@ def main(command: str, **kwargs) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAG System CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
-
-    index_parser = subparsers.add_parser("index", help="Index documents (re-chunks files)")
-    index_parser.add_argument("--input-dir", required=True, help="Directory to index")
-    index_parser.add_argument("--patterns", nargs="+", default=None, help="File patterns")
 
     index_json_parser = subparsers.add_parser("index-json", help="Index from chunks.json")
     index_json_parser.add_argument("--input", required=True, help="Path to chunks.json")

@@ -8,7 +8,6 @@ import psycopg2
 from pgvector.psycopg2 import register_vector
 from dotenv import load_dotenv
 
-from .chunker import chunk_workflow
 from .embedder import embed_workflow
 
 load_dotenv()
@@ -30,7 +29,6 @@ VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
 # ORCHESTRATORS
 
 BATCH_SIZE = 1
-MAX_CHUNK_CHARS = 2000
 
 
 # Index from chunks.json (pre-chunked, LLM-cleaned)
@@ -43,10 +41,15 @@ def index_json_workflow(json_path: str) -> int:
         conn.close()
         return 0
 
+    source = chunks[0]["source"]
+    deleted = delete_source(conn, source)
+    if deleted > 0:
+        print(f"Deleted {deleted} existing chunks for {source}")
+
     total = len(chunks)
     for i in range(0, total, BATCH_SIZE):
         batch = chunks[i:i + BATCH_SIZE]
-        texts = [c["content"][:MAX_CHUNK_CHARS] for c in batch]
+        texts = [c["content"] for c in batch]
         embeddings = embed_workflow(texts)
         store_chunks(conn, batch, embeddings)
         print(f"Indexed {min(i + BATCH_SIZE, total)}/{total} chunks")
@@ -54,33 +57,6 @@ def index_json_workflow(json_path: str) -> int:
     conn.close()
     logging.info(f"Indexed {total} chunks from {json_path}")
     return total
-
-
-# Index from directory (legacy: re-chunks files)
-def index_workflow(input_dir: str, file_patterns: list[str] = None) -> int:
-    if file_patterns is None:
-        file_patterns = ["*.md", "*.txt", "*.py", "*.js", "*.ts"]
-
-    conn = get_connection()
-    ensure_schema(conn)
-
-    files = collect_files(input_dir, file_patterns)
-    total_indexed = 0
-
-    for file_path in files:
-        chunks = chunk_workflow(str(file_path))
-        if not chunks:
-            continue
-
-        texts = [c["content"] for c in chunks]
-        embeddings = embed_workflow(texts)
-
-        store_chunks(conn, chunks, embeddings)
-        total_indexed += len(chunks)
-
-    conn.close()
-    logging.info(f"Indexed {total_indexed} chunks from {len(files)} files")
-    return total_indexed
 
 
 # FUNCTIONS
@@ -143,14 +119,13 @@ def ensure_schema(conn) -> None:
     logging.info("Schema ensured")
 
 
-# Collect files matching patterns from directory
-def collect_files(input_dir: str, patterns: list[str]) -> list[Path]:
-    root = Path(input_dir)
-    files = []
-    for pattern in patterns:
-        files.extend(root.rglob(pattern))
-    logging.info(f"Found {len(files)} files in {input_dir}")
-    return files
+# Delete all chunks for a source
+def delete_source(conn, source: str) -> int:
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM documents WHERE source = %s", (source,))
+        deleted = cur.rowcount
+    conn.commit()
+    return deleted
 
 
 # Store chunks with embeddings in PostgreSQL
