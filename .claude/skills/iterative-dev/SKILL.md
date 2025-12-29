@@ -56,31 +56,50 @@ Before ANY action, ask yourself:
 - **Plan-File** (`.claude/plans/`) - Within a session (hours)
 - **TodoWrite** - Within an iteration (minutes)
 
-## Improvement Levers (Stellschrauben)
+## Automation Stellschrauben (Hierarchy)
 
-Every improvement identified in RECAP MUST be evaluated for permanent integration:
+Six layers for Claude Code automation, from project-wide to atomic:
 
-| Lever | Scope | When to Use |
-|-------|-------|-------------|
-| **CLAUDE.md** | Abstract, project-wide | Universal rules, philosophy, communication protocols |
-| **SKILL.md** | Skill-specific | Workflow patterns, phase behaviors, evaluation criteria |
-| **Slash Commands** | Task-specific | Repeatable workflows with phases/steps/stops |
-| **Agent System Prompts** | Agent-specific | Subagent behavior, output format, task scope |
+| Layer | Scope | Location | When to Modify |
+|-------|-------|----------|----------------|
+| **CLAUDE.md** | Project-wide | `/project/CLAUDE.md` | Universal rules, philosophy, communication protocols |
+| **Skills** | Session | `.claude/skills/*/SKILL.md` | Workflow patterns, phases, evaluation criteria |
+| **Commands** | Workflow | `.claude/commands/*.md` | Repeatable procedures with steps/stops |
+| **Agents** | Task | `.claude/agents/*.md` | Subagent behavior, output format, task scope |
+| **Hooks** | Atomic | `~/.claude/scripts/` | Event interception, blocking, output silencing |
+| **Scripts** | Pipeline | Project-specific (e.g., `postprocess.py`) | Automation logic, data transformations |
+
+### Relationships
+
+```
+CLAUDE.md ──── influences ────> Everything
+
+Skills ──┬── provide context for ──> Commands (optional)
+         └── spawn ────────────────> Agents
+
+Commands ──── spawn ───> Agents
+
+Hooks ──── fire on ───> User Prompts + Tool Calls (all layers)
+
+Scripts ──── called by ───> Commands, Agents, direct execution
+```
 
 ### Improvement Flow
 
-During RECAP Phase 6 (Improvements):
+For EVERY improvement in RECAP:
 
-1. For each improvement, ask: **"Is this a one-time fix or a pattern?"**
-2. If PATTERN → Identify the correct lever:
+1. Ask: **"Is this a one-time fix or a pattern?"**
+2. If PATTERN → Identify the correct Stellschraube:
    - Applies everywhere? → CLAUDE.md
    - Applies to this skill/workflow? → SKILL.md
-   - Is a repeatable workflow? → New/Updated Slash Command
-   - Affects subagent behavior? → Agent System Prompt
+   - Is a repeatable workflow? → Command
+   - Affects subagent behavior? → Agent
+   - Should intercept events? → Hook
+   - Is automation logic? → Script
 
-3. **NEVER** let recurring issues stay as "process improvements" without lever integration
+3. **NEVER** let recurring issues stay as "process improvements" without Stellschraube integration
 
-### When Creating Slash Commands
+### When Creating Commands
 
 Ask user for reference command. Don't invent patterns.
 
@@ -426,7 +445,28 @@ Same 3 categories, but graded by OUTCOME:
 
 Clean docs are CRITICAL. Every new script, changed behavior, or new parameter MUST be reflected.
 
-#### 7. Open Items
+#### 7. Stellschrauben Assessment
+
+For EVERY improvement from Section 6, explicitly map to a Stellschraube:
+
+| Improvement | Stellschraube | Action |
+|-------------|---------------|--------|
+| [description] | CLAUDE.md / SKILL.md / Command / Agent / Hook / Script | [specific change] |
+
+**Rules:**
+- One-time fix? → Just implement, no Stellschraube
+- Pattern/recurring? → MUST go into appropriate Stellschraube
+- Unsure which? → Ask user
+
+**Categories:**
+- **CLAUDE.md**: Universal rules, philosophy, communication protocols
+- **SKILL.md**: Workflow patterns, phase behaviors, evaluation criteria
+- **Command**: Repeatable procedures with defined steps/stops
+- **Agent**: Subagent behavior, output format, task scope
+- **Hook**: Event interception, blocking, output silencing
+- **Script**: Automation logic, data transformations
+
+#### 8. Open Items
 
 List any tasks from the original plan that were NOT executed.
 - These will be handled in CLOSING phase (create Bead or discard)

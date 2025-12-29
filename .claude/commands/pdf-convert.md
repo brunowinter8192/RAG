@@ -1,7 +1,6 @@
 ---
 description: Convert PDF to Markdown and index into RAG vector database
 argument-hint: [path/to/file.pdf]
-allowed-tools: Bash, Read, Write, Edit, Task
 ---
 
 ## Input
@@ -68,7 +67,9 @@ STATUS: [Success/Failed]
 
 ---
 
-## Phase 2: Chunk + LLM Cleanup
+## Phase 2: Chunk + Cleanup
+
+**Strategy:** Script-first, Agent only for semantic issues scripts can't fix.
 
 ### Step 1: Chunk the Document
 
@@ -77,39 +78,50 @@ import sys
 sys.path.insert(0, '.')
 from src.rag.chunker import chunk_workflow
 
-chunks = chunk_workflow("/path/to/raw.md", strategy="semantic")
+chunks = chunk_workflow("data/documents/$STEM/raw.md", strategy="semantic")
 print(f"Created {len(chunks)} chunks")
 ```
 
-### Step 2: LLM Cleanup per Chunk
+### Step 2: Scan for Semantic Issues
 
-For EACH chunk, spawn cleanup agent:
+Analyze chunks for issues that scripts CANNOT fix:
+
+```python
+import re
+
+issues = []
+for c in chunks:
+    content = c['content']
+    chunk_issues = []
+
+    # OCR errors (numbers in words)
+    if re.search(r'\b\w*[0-9]\w+[a-z]\w*\b', content):
+        chunk_issues.append('ocr')
+
+    # Run-on sentences (lowercase followed by uppercase mid-word)
+    if re.search(r'[a-z][A-Z][a-z]', content):
+        chunk_issues.append('run-on')
+
+    if chunk_issues:
+        issues.append({'index': c['chunk_index'], 'types': chunk_issues})
+
+print(f"Found {len(issues)} chunks with semantic issues")
+```
+
+### Step 3: Agent Cleanup (only if needed)
+
+**Only for chunks with semantic issues:**
 
 ```
 Task(
-  subagent_type="general-purpose",
-  model="haiku",
-  prompt="Clean this markdown chunk. Fix:
-    1. Semantic issues (unclear sentences, broken context)
-    2. Residual formatting from PDF extraction
-    3. Remove artifacts (page numbers, headers, watermarks)
-    4. Fix hyphenation (e.g., 'docu-\\nment' to 'document')
-
-    Do NOT remove incomplete content at chunk boundaries.
-    Do NOT add content that isn't there.
-
-    Chunk:
-    ---
-    [chunk content]
-    ---
-
-    Return ONLY cleaned content, no explanation."
+  subagent_type="md-cleanup-master",
+  prompt="[chunk content with issues]"
 )
 ```
 
-### Step 3: Save as JSON
+**If no semantic issues:** Skip agent, use chunks as-is.
 
-Write cleaned chunks to `chunks.json`:
+### Step 4: Save as JSON
 
 ```python
 import json
@@ -119,8 +131,8 @@ output = {
     "source_pdf": "$PDF_PATH",
     "created": datetime.now().isoformat(),
     "chunks": [
-        {"index": i, "content": cleaned_chunk}
-        for i, cleaned_chunk in enumerate(cleaned_chunks)
+        {"index": i, "content": c['content'], "source": c['source']}
+        for i, c in enumerate(chunks)
     ]
 }
 
@@ -131,9 +143,10 @@ with open("data/documents/$STEM/chunks.json", "w") as f:
 ### PHASE 2 REPORT
 
 ```
-PHASE 2: Chunk + LLM Cleanup
-============================
+PHASE 2: Chunk + Cleanup
+========================
 CHUNKS: [N]
+SEMANTIC ISSUES: [M] chunks required agent cleanup
 OUTPUT: data/documents/$STEM/chunks.json
 STATUS: [Success/Failed]
 ```

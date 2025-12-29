@@ -29,6 +29,10 @@ VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
 
 # ORCHESTRATORS
 
+BATCH_SIZE = 1
+MAX_CHUNK_CHARS = 2000
+
+
 # Index from chunks.json (pre-chunked, LLM-cleaned)
 def index_json_workflow(json_path: str) -> int:
     conn = get_connection()
@@ -39,14 +43,17 @@ def index_json_workflow(json_path: str) -> int:
         conn.close()
         return 0
 
-    texts = [c["content"] for c in chunks]
-    embeddings = embed_workflow(texts)
+    total = len(chunks)
+    for i in range(0, total, BATCH_SIZE):
+        batch = chunks[i:i + BATCH_SIZE]
+        texts = [c["content"][:MAX_CHUNK_CHARS] for c in batch]
+        embeddings = embed_workflow(texts)
+        store_chunks(conn, batch, embeddings)
+        print(f"Indexed {min(i + BATCH_SIZE, total)}/{total} chunks")
 
-    store_chunks(conn, chunks, embeddings)
     conn.close()
-
-    logging.info(f"Indexed {len(chunks)} chunks from {json_path}")
-    return len(chunks)
+    logging.info(f"Indexed {total} chunks from {json_path}")
+    return total
 
 
 # Index from directory (legacy: re-chunks files)

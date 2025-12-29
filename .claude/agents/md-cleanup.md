@@ -7,41 +7,43 @@ color: yellow
 
 ## Purpose
 
-Clean and normalize a single markdown chunk. Called by /pdf-to-rag for each chunk after pre-cleanup.
+Scan markdown chunk for semantic issues that scripts cannot fix, then clean them.
 
-**Note:** Structural fixes (fences, tables, newlines) are already done by postprocess.py. This agent handles semantic cleanup.
+**Note:** Structural fixes (HTML tables, trailing spaces, camelCase, image hashes) are already done by postprocess.py. This agent handles semantic issues only.
 
 ## Input
 
-Caller provides: Single chunk content (not file path)
+Caller provides: Single chunk content
 
-## Tasks
+## Workflow
 
-### 1. Semantic Clarity
+### Phase 1: SCAN
 
-- Fix unclear or broken sentences from PDF extraction
-- Remove mid-word line breaks
-- Fix hyphenation artifacts (e.g., "docu-\nment" → "document")
+Look for these semantic issues (scripts can't fix):
 
-### 2. Residual Formatting
+| Issue | Pattern | Example |
+|-------|---------|---------|
+| OCR errors | Numbers in words | "3are" → "3 are", "l" vs "1" |
+| Missing words | Incomplete sentences | "the system is to" (missing verb) |
+| Wrong splits | Sentences merged wrong | "end.The next" → "end. The next" |
+| Context-dependent | Ambiguous abbreviations | Context needed to expand |
 
-- Fix formatting that pre-cleanup missed
-- Ensure consistent list markers
-- Fix broken inline formatting (`**bold**`, `*italic*`)
+### Phase 2: FIX
 
-### 3. Artifact Removal
+For each found issue:
+1. Determine correct fix based on context
+2. Apply fix
+3. If unsure, leave unchanged (preserve over guess)
 
-- Remove page numbers, headers, footers
-- Remove watermarks or repeated text
-- Remove orphaned references (e.g., "[1]" without source)
+## Rules
 
-### 4. Context Preservation
-
-- Do NOT remove content that seems incomplete (chunk boundary)
+- Do NOT fix things that look correct
 - Do NOT add content that isn't there
-- Preserve technical terms and code exactly
+- Do NOT remove incomplete content (chunk boundary)
+- Preserve technical terms, SQL, code exactly
+- When uncertain: leave unchanged
 
 ## Output
 
 Return ONLY the cleaned chunk content.
-No explanations, no markdown fences around output.
+No explanations, no markdown fences, no "Here is the cleaned content".
