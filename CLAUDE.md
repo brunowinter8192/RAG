@@ -12,7 +12,7 @@ Long-term thinking. Brutal honesty. No overengineering.
 | Component | Choice | Reason |
 |-----------|--------|--------|
 | Embedding Model | Qwen3-Embedding-8B (gte-Qwen2-7B) | #1 MTEB, Programming Languages support, 32K context |
-| Vector DB | Qdrant (local) | Lightweight, MCP-friendly, production-ready |
+| Vector DB | PostgreSQL 18 + pgvector 0.8 | Production-ready, native SQL, HNSW index support |
 | MCP Framework | FastMCP | Consistent with other MCP servers |
 
 ### Chunking Strategies
@@ -83,25 +83,29 @@ if __name__ == "__main__":
 
 ```python
 # INFRASTRUCTURE
-from qdrant_client import QdrantClient
+import psycopg2
+from pgvector.psycopg2 import register_vector
 
-COLLECTION_NAME = "documents"
-QDRANT_PATH = "./qdrant_storage"
+POSTGRES_HOST = "localhost"
+POSTGRES_DB = "rag"
 
 
 # ORCHESTRATOR
 def search_workflow(query: str, top_k: int = 5) -> list[dict]:
-    client = get_client()
+    conn = get_connection()
     query_vector = embed_query(query)
-    results = search_vectors(client, query_vector, top_k)
+    results = search_vectors(conn, query_vector, top_k)
+    conn.close()
     return format_results(results)
 
 
 # FUNCTIONS
 
-# Get Qdrant client
-def get_client() -> QdrantClient:
-    return QdrantClient(path=QDRANT_PATH)
+# Get PostgreSQL connection
+def get_connection():
+    conn = psycopg2.connect(host=POSTGRES_HOST, dbname=POSTGRES_DB)
+    register_vector(conn)
+    return conn
 
 
 # Embed search query
@@ -109,8 +113,8 @@ def embed_query(query: str) -> list[float]:
     ...
 
 
-# Search vectors in Qdrant
-def search_vectors(client, query_vector, top_k) -> list:
+# Search vectors in PostgreSQL
+def search_vectors(conn, query_vector, top_k) -> list:
     ...
 
 
@@ -217,6 +221,17 @@ RAG/               -> README.md (tree + [See DOCS.md] links)
 ```
 
 **Principle:** README stops where DOCS begins. No redundancy.
+
+### README Content
+
+README.md contains:
+- Quick start / usage
+- Directory structure (tree)
+- **System configuration** (Docker, ports, breaking changes)
+- Troubleshooting / common issues
+- Links to DOCS.md for module details
+
+System-level gotchas (version-specific behavior, Docker quirks) belong in README, not DOCS.md.
 
 ---
 

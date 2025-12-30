@@ -33,6 +33,9 @@ Thumbs.db
 # Qdrant local storage (legacy)
 qdrant_storage/
 
+# Document data (PDFs, chunks, embeddings)
+data/
+
 # Model cache
 models/
 

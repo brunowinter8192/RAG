@@ -125,3 +125,37 @@ cd llama.cpp
 cmake -B build -DGGML_METAL=ON
 cmake --build build --config Release -j --target llama-server
 ```
+
+## System Configuration
+
+### PostgreSQL 18 Volume Path
+
+PostgreSQL 18 changed the data directory structure. Volume must mount at `/var/lib/postgresql` (not `/var/lib/postgresql/data`).
+
+```yaml
+# CORRECT (PG18+)
+volumes:
+  - rag_postgres_data:/var/lib/postgresql
+
+# WRONG (causes container crash on PG18)
+volumes:
+  - rag_postgres_data:/var/lib/postgresql/data
+```
+
+See: https://github.com/docker-library/postgres/pull/1259
+
+### Checking PostgreSQL: Docker vs CLI
+
+`psql --version` shows the **client** version (Homebrew), not the server.
+
+```bash
+# Client version (Homebrew) - NOT the running server
+psql --version
+# → psql (PostgreSQL) 17.6 (Homebrew)
+
+# Actual server version (Docker container)
+docker ps --filter name=postgres --format "{{.Names}}: {{.Image}}"
+# → rag-postgres: pgvector/pgvector:pg18
+```
+
+Always use `docker ps` to verify the actual PostgreSQL server version.

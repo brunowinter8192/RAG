@@ -502,10 +502,25 @@ After report:
 
 **Purpose:** Execute improvements from plan file (like IMPLEMENT, but for improvements).
 
-**Workflow:**
+### Content Improvements: Beads vs Direct Edit
+
+**CRITICAL:** IMPROVE has no validation/test phase after it.
+
+| Improvement Type | Action |
+|------------------|--------|
+| Code changes (*.py, *.yml, etc.) | → Create Bead (next cycle validates) |
+| Documentation (README, DOCS, CLAUDE.md) | → Direct edit in IMPROVE |
+| SKILL.md updates | → Direct edit in IMPROVE |
+
+**Rationale:** Code changes need testing. IMPROVE → CLOSING has no test step. So code changes become Beads and get their own PLAN → IMPLEMENT → RECAP cycle with proper validation.
+
+### Workflow
+
 1. Read plan file "## Improvements" section
-2. Execute each improvement (Edit, Write, Bash)
-3. Handle Beads (from RECAP evaluation):
+2. For each improvement:
+   - **Code change?** → `bd create --title "..." --type=...`
+   - **Docs change?** → Execute directly (Edit, Write)
+3. Handle other Beads (from RECAP evaluation):
    - Create new beads: `bd create --title "..." --type=...`
    - Update beads: `bd comment <id> "..."`
    - Close beads: `bd close <id> --reason="..."`

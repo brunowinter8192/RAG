@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg18
     container_name: rag-postgres
     ports:
       - "5433:5432"
@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: rag
       POSTGRES_DB: rag
     volumes:
-      - rag_postgres_data:/var/lib/postgresql/data
+      - rag_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
       interval: 5s
