@@ -47,20 +47,14 @@ docker exec rag-postgres psql -U rag -d rag -c "SELECT source, COUNT(*) as chunk
 
 ```
 PDF
- | MinerU (../Mineru/workflow.py)
- v
-raw MD
- | postprocess.py (structural cleanup)
- v
-data/documents/<name>/raw.md
- | chunker.py
- v
-chunks
- | md-cleanup agent (LLM cleanup per chunk)
- v
-data/documents/<name>/chunks.json
- | indexer.py
- v
+ ↓ MinerU (../Mineru/workflow.py)
+ ↓ postprocess.py (generic regex cleanup)
+raw.md
+ ↓ md-cleanup-master (creates debug/clean_<name>.py)
+cleaned.md
+ ↓ chunker.py
+chunks.json
+ ↓ indexer.py
 pgvector
 ```
 
@@ -71,8 +65,9 @@ pgvector
 ```
 data/documents/
 ├── paper1/
-│   ├── raw.md        # After postprocess (human-readable)
-│   └── chunks.json   # After LLM cleanup (indexed)
+│   ├── raw.md        # After MinerU + generic postprocess
+│   ├── cleaned.md    # After LLM cleanup (agent script)
+│   └── chunks.json   # Chunked for indexing
 ├── paper2/
 │   └── ...
 ```
@@ -100,9 +95,8 @@ RAG/
 ├── docker-compose.yml     # PostgreSQL only
 ├── llama.cpp/             # Native embedding server (Metal GPU)
 ├── models/                # GGUF model files
-├── data/
-│   ├── raw/              # Temporary MinerU outputs
-│   └── documents/        # Document folders (raw.md + chunks.json)
+├── data/documents/        # Document folders (raw.md, cleaned.md, chunks.json)
+├── debug/                 # Agent-generated cleanup scripts (gitignored)
 └── src/rag/              # [See DOCS.md](src/rag/DOCS.md)
 ```
 
