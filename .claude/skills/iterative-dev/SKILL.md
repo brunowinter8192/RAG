@@ -84,6 +84,17 @@ Hooks ──── fire on ───> User Prompts + Tool Calls (all layers)
 Scripts ──── called by ───> Commands, Agents, direct execution
 ```
 
+### Skill + Command Interaction
+
+When a **slash command** is called within a skill phase:
+
+1. Skill phase is **FROZEN**
+2. User exits Plan Mode
+3. Claude executes command until its stoppers
+4. After command completes → skill phase resumes
+
+Commands are self-contained workflows. Skills provide context but don't interfere with command execution.
+
 ### Improvement Flow
 
 For EVERY improvement in RECAP:

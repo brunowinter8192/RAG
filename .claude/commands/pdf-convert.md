@@ -9,6 +9,23 @@ PDF Path: $ARGUMENTS
 
 ---
 
+## Pipeline Flow
+
+```
+PDF
+ ↓ MinerU
+ ↓ postprocess.py (generic regex)
+raw.md
+ ↓ md-cleanup-master (creates debug/clean_{stem}.py)
+cleaned.md
+ ↓ chunker
+chunks.json
+ ↓ embedder + qdrant
+indexed
+```
+
+---
+
 ## Step Indicator Rule
 
 **MANDATORY:** Every response MUST start with: `Phase X, Step Y: [Name]`
@@ -27,8 +44,6 @@ If not found, ask for correct path.
 
 ### Step 2: Create Document Folder
 
-Extract filename stem and create folder:
-
 ```bash
 STEM=$(basename "$PDF_PATH" .pdf)
 mkdir -p ./data/documents/$STEM
@@ -43,7 +58,7 @@ cd ${MINERU_PATH} && \
   --output ./data/documents/$STEM/raw.md
 ```
 
-This runs: MinerU (PDF to MD) + postprocess.py (structural cleanup)
+Output: `raw.md` = MinerU output + generic postprocess.py cleanup
 
 ### Step 4: Verify
 
@@ -63,13 +78,56 @@ STATUS: [Success/Failed]
 
 ---
 
-**STOP** - Ask: "Proceed to Phase 2 (Chunk + LLM Cleanup)?"
+**STOP** - Ask: "Proceed to Phase 2 (LLM Cleanup)?"
 
 ---
 
-## Phase 2: Chunk + Cleanup
+## Phase 2: LLM Cleanup
 
-**Strategy:** Script-first, Agent only for semantic issues scripts can't fix.
+Agent analyzes raw.md, creates cleanup script, outputs cleaned.md.
+
+### Step 1: Run md-cleanup-master
+
+```
+Task(
+  subagent_type="md-cleanup-master",
+  prompt="Clean the PDF-converted markdown at ./data/documents/$STEM/raw.md"
+)
+```
+
+Agent will:
+1. Sample file structure
+2. Create `debug/clean_$STEM.py`
+3. Run script → `cleaned.md`
+4. Report issues fixed
+
+### Step 2: Verify
+
+```bash
+grep -c "0_\|1_\|\\\\mathbf" ./data/documents/$STEM/cleaned.md
+```
+
+If count > 0: Re-run agent (it will extend its script)
+If count = 0: Proceed
+
+### PHASE 2 REPORT
+
+```
+PHASE 2: LLM Cleanup
+====================
+SCRIPT: debug/clean_$STEM.py
+OUTPUT: data/documents/$STEM/cleaned.md
+REMAINING ISSUES: [N]
+STATUS: [Success/Failed]
+```
+
+---
+
+**STOP** - Ask: "Proceed to Phase 3 (Chunk)?"
+
+---
+
+## Phase 3: Chunk
 
 ### Step 1: Chunk the Document
 
@@ -78,50 +136,11 @@ import sys
 sys.path.insert(0, '.')
 from src.rag.chunker import chunk_workflow
 
-chunks = chunk_workflow("data/documents/$STEM/raw.md", strategy="semantic")
+chunks = chunk_workflow("data/documents/$STEM/cleaned.md", strategy="semantic")
 print(f"Created {len(chunks)} chunks")
 ```
 
-### Step 2: Scan for Semantic Issues
-
-Analyze chunks for issues that scripts CANNOT fix:
-
-```python
-import re
-
-issues = []
-for c in chunks:
-    content = c['content']
-    chunk_issues = []
-
-    # OCR errors (numbers in words)
-    if re.search(r'\b\w*[0-9]\w+[a-z]\w*\b', content):
-        chunk_issues.append('ocr')
-
-    # Run-on sentences (lowercase followed by uppercase mid-word)
-    if re.search(r'[a-z][A-Z][a-z]', content):
-        chunk_issues.append('run-on')
-
-    if chunk_issues:
-        issues.append({'index': c['chunk_index'], 'types': chunk_issues})
-
-print(f"Found {len(issues)} chunks with semantic issues")
-```
-
-### Step 3: Agent Cleanup (only if needed)
-
-**Only for chunks with semantic issues:**
-
-```
-Task(
-  subagent_type="md-cleanup-master",
-  prompt="[chunk content with issues]"
-)
-```
-
-**If no semantic issues:** Skip agent, use chunks as-is.
-
-### Step 4: Save as JSON
+### Step 2: Save as JSON
 
 ```python
 import json
@@ -140,24 +159,23 @@ with open("data/documents/$STEM/chunks.json", "w") as f:
     json.dump(output, f, indent=2, ensure_ascii=False)
 ```
 
-### PHASE 2 REPORT
+### PHASE 3 REPORT
 
 ```
-PHASE 2: Chunk + Cleanup
-========================
+PHASE 3: Chunk
+==============
 CHUNKS: [N]
-SEMANTIC ISSUES: [M] chunks required agent cleanup
 OUTPUT: data/documents/$STEM/chunks.json
 STATUS: [Success/Failed]
 ```
 
 ---
 
-**STOP** - Ask: "Proceed to Phase 3 (Index)?"
+**STOP** - Ask: "Proceed to Phase 4 (Index)?"
 
 ---
 
-## Phase 3: Index
+## Phase 4: Index
 
 ### Step 1: Index from JSON
 
@@ -174,10 +192,10 @@ cd . && \
 ./venv/bin/python workflow.py search --query "[topic from PDF]" --top-k 3
 ```
 
-### PHASE 3 REPORT
+### PHASE 4 REPORT
 
 ```
-PHASE 3: Index
+PHASE 4: Index
 ==============
 CHUNKS INDEXED: [N]
 VERIFIED: [Yes/No]
@@ -190,5 +208,7 @@ VERIFIED: [Yes/No]
 Document is now searchable via RAG MCP server.
 
 **Files created:**
-- `data/documents/$STEM/raw.md` - Human-readable markdown
-- `data/documents/$STEM/chunks.json` - Machine-indexed chunks
+- `data/documents/$STEM/raw.md` - After MinerU + generic postprocess
+- `data/documents/$STEM/cleaned.md` - After LLM cleanup
+- `data/documents/$STEM/chunks.json` - Chunked for indexing
+- `debug/clean_$STEM.py` - Reusable cleanup script
