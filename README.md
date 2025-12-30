@@ -60,6 +60,8 @@ pgvector
 
 **Use:** `/pdf-convert /path/to/file.pdf`
 
+**Module details:** [src/rag/DOCS.md](src/rag/DOCS.md)
+
 ### Document Structure
 
 ```
@@ -97,8 +99,10 @@ RAG/
 ├── models/                # GGUF model files
 ├── data/documents/        # Document folders (raw.md, cleaned.md, chunks.json)
 ├── debug/                 # Agent-generated cleanup scripts (gitignored)
-└── src/rag/              # [See DOCS.md](src/rag/DOCS.md)
+└── src/rag/               [See DOCS.md](src/rag/DOCS.md)
 ```
+
+**Details:** [src/rag/DOCS.md](src/rag/DOCS.md)
 
 ## Usage
 
