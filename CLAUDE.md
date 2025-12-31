@@ -7,21 +7,9 @@ Long-term thinking. Brutal honesty. No overengineering.
 
 ---
 
-## RAG STACK
+## SYSTEM CONFIG REFERENCE
 
-| Component | Choice | Reason |
-|-----------|--------|--------|
-| Embedding Model | Qwen3-Embedding-8B (gte-Qwen2-7B) | #1 MTEB, Programming Languages support, 32K context |
-| Vector DB | PostgreSQL 18 + pgvector 0.8 | Production-ready, native SQL, HNSW index support |
-| MCP Framework | FastMCP | Consistent with other MCP servers |
-
-### Chunking Strategies
-
-| Content Type | Strategy |
-|--------------|----------|
-| Docs/MD | Semantic chunking (paragraph-aware) |
-| Code | Function-level (AST-based where possible) |
-| Structured (JSON/YAML) | Keep intact or split by top-level keys |
+For system configuration, hardware specs, and parameter details: **See README.md**
 
 ---
 

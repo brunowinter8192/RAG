@@ -4,12 +4,20 @@ Vector-based retrieval system exposing search via MCP for Claude Code agents.
 
 ## Stack
 
-| Component | Choice |
-|-----------|--------|
-| PDF Extraction | MinerU (../Mineru/) |
-| Embedding | Qwen3-Embedding-8B (native llama.cpp + Metal GPU) |
-| Vector DB | PostgreSQL + pgvector |
-| MCP | FastMCP |
+| Component | Choice | Reason |
+|-----------|--------|--------|
+| PDF Extraction | MinerU (../Mineru/) | Best open-source PDF extraction |
+| Embedding Model | Qwen3-Embedding-8B | #1 MTEB, Programming Languages support, 32K context |
+| Vector DB | PostgreSQL 18 + pgvector 0.8 | Production-ready, native SQL, HNSW index support |
+| MCP Framework | FastMCP | Consistent with other MCP servers |
+
+### Chunking Strategies
+
+| Content Type | Strategy |
+|--------------|----------|
+| Docs/MD | Semantic chunking (paragraph-aware) |
+| Code | Function-level (AST-based where possible) |
+| Structured (JSON/YAML) | Keep intact or split by top-level keys |
 
 ## Quick Start
 
@@ -127,6 +135,10 @@ cmake --build build --config Release -j --target llama-server
 ```
 
 ## System Configuration
+
+### Development Hardware
+
+MacBook Pro M4 Pro, 14 Cores, 48GB Unified Memory
 
 ### PostgreSQL 18 Volume Path
 

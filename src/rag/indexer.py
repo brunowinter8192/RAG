@@ -28,7 +28,7 @@ VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
 
 # ORCHESTRATORS
 
-BATCH_SIZE = 1
+BATCH_SIZE = 32
 
 
 # Index from chunks.json (pre-chunked, LLM-cleaned)

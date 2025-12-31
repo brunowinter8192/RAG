@@ -137,6 +137,12 @@ EVERY RESPONSE STARTS WITH A PHASE INDICATOR:
 
 ## Planning Phase (PLAN)
 
+### Beads Check (BEFORE Exploration)
+
+**MANDATORY:** Run `bd list` BEFORE launching any exploration agents.
+
+Beads provide cross-session context. Agent exploration without bead context = wasted effort.
+
 ### Scoping (BEFORE Exploration)
 
 BEFORE you explore, clarify with the user:
