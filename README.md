@@ -159,3 +159,42 @@ docker ps --filter name=postgres --format "{{.Names}}: {{.Image}}"
 ```
 
 Always use `docker ps` to verify the actual PostgreSQL server version.
+
+### Embedding Server (llama.cpp)
+
+**Model:** [Qwen3-Embedding-8B](https://huggingface.co/Qwen/Qwen3-Embedding-8B-GGUF) - #1 MTEB Multilingual Leaderboard
+
+**Quantization Quality:**
+
+| Quant | Bits | Size | Quality | Recommendation |
+|-------|------|------|---------|----------------|
+| F16/BF16 | 16 | 15.1 GB | 100% | Gold standard |
+| Q8_0 | 8 | 8.05 GB | ~99.9% | **Sweet spot** |
+| Q5_K_M | 5 | 5.42 GB | ~96-98% | Acceptable |
+| Q4_K_M | 4 | 4.68 GB | ~90-95% | Noticeable loss |
+
+**Q8_0 = "Near-FP16":** 8-bit quantization mit nur +0.001 Perplexity-Unterschied zu FP16. Praktisch identische Embedding-Qualität bei halber Größe.
+
+Source: [llama.cpp Quantization](https://github.com/ggml-org/llama.cpp/discussions/2094)
+
+**SOTA Config:**
+
+```bash
+./llama.cpp/build/bin/llama-server \
+  -m ./models/Qwen3-Embedding-8B-Q8_0.gguf \
+  --embedding \
+  --host 0.0.0.0 \
+  --port 8081 \
+  -ngl 99 \        # Full GPU offload (Metal)
+  -ub 4096 \       # ubatch size
+  -b 4096          # batch size
+```
+
+Source: [Qwen llama.cpp Guide](https://qwen.readthedocs.io/en/latest/quantization/llama.cpp.html)
+
+**Download Q8_0:**
+
+```bash
+huggingface-cli download Qwen/Qwen3-Embedding-8B-GGUF \
+  Qwen3-Embedding-8B-Q8_0.gguf --local-dir ./models/
+```
