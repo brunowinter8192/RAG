@@ -95,12 +95,19 @@ data/documents/
 }
 ```
 
+## Entry Points
+
+| Entry Point | Purpose | Trigger |
+|-------------|---------|---------|
+| `server.py` | MCP server - exposes `search` tool to Claude Code | Claude Code (via .mcp.json) |
+| `workflow.py` | Pipeline CLI - chunking, indexing, search | Human (terminal) |
+
 ## Directory Structure
 
 ```
 RAG/
-├── server.py              # MCP Server
-├── workflow.py            # CLI for indexing/search
+├── server.py              # MCP Entry Point (Claude Code)
+├── workflow.py            # Pipeline Entry Point (CLI)
 ├── start.sh               # Start all services
 ├── docker-compose.yml     # PostgreSQL only
 ├── llama.cpp/             # Native embedding server (Metal GPU)

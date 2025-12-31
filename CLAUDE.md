@@ -27,9 +27,9 @@ For system configuration, hardware specs, and parameter details: **See README.md
 
 ---
 
-## server.py PATTERN
+## server.py (MCP Entry Point)
 
-**CRITICAL:** server.py is the orchestrator. Only imports and tool definitions.
+**Purpose:** MCP server exposing tools to Claude Code. Only imports and tool definitions.
 
 ```python
 # INFRASTRUCTURE
@@ -62,6 +62,52 @@ if __name__ == "__main__":
 - Each tool delegates to module orchestrator
 - All parameters use Annotated + Field
 - Literal for enum-like choices with clear descriptions
+
+---
+
+## workflow.py (Pipeline Entry Point)
+
+**Purpose:** CLI for pipeline operations (chunking, indexing). Human-triggered, not MCP.
+
+```python
+# INFRASTRUCTURE
+import argparse
+
+# From src/rag/indexer.py: Index chunks into PostgreSQL
+from src.rag.indexer import index_json_workflow
+
+# From src/rag/retriever.py: Search indexed documents
+from src.rag.retriever import search_workflow
+
+
+# ORCHESTRATOR
+def main(command: str, **kwargs) -> None:
+    if command == "index-json":
+        count = index_json_workflow(kwargs["input"])
+        print(f"Indexed {count} chunks from JSON")
+
+    elif command == "search":
+        results = search_workflow(kwargs["query"], kwargs.get("top_k", 5))
+        for r in results:
+            print(f"[{r['score']:.2f}] {r['source']}: {r['content'][:100]}...")
+
+
+if __name__ == "__main__":
+    # argparse setup...
+    main(args.command, **kwargs)
+```
+
+**Rules:**
+- Filename MUST be `workflow.py` at project root
+- Imports from src/ package using absolute imports
+- Only INFRASTRUCTURE + ORCHESTRATOR sections
+- No FUNCTIONS section (delegates to modules)
+
+**Usage:**
+```bash
+./venv/bin/python workflow.py index-json --input ./data/documents/paper1/chunks.json
+./venv/bin/python workflow.py search --query "your query" --top-k 5
+```
 
 ---
 

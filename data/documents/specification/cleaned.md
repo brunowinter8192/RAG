@@ -205,6 +205,7 @@ While the benchmark models a business environment in which refresh functions are
 
 Comment: The benchmark does not include any test or measure to verify continuous database availability or particular system features which would make the benchmarked configuration appropriate for 7 x 24 operation. References to continuous availability and 7 x 24 operation are included in the benchmark specification to provide a more complete picture of the anticipated decision support environment. A configuration offering less that 7 x 24 availability can produce compliant benchmark results as long as it meets all the requirements described in this specification.
 
+![](images/.jpg)
 Figure 1: The TPC-H Business Environment illustrates the TPC-H business environment and highlights the basic differences between TPC-H and other TPC benchmarks.
 
 # Figure 1: The TPC-H Business Environment
@@ -215,6 +216,7 @@ Other TPC benchmarks model the operational end of the business environment where
 
 The components of the TPC-H database are defined to consist of eight separate and individual tables (the Base Tables). The relationships between columns of these tables are illustrated in Figure 2: The TPC-H Schema.
 
+![](images/.jpg)
 Figure 2: The TPC-H Schema
 
 # Legend:
@@ -392,7 +394,7 @@ PS_SUPPLYCOST >= 0
 O_TOTALPRICE >= 0
 L_QUANTITY >= 0
 L_EXTENDEDPRICE >= 0
-L \underline { { \partial } T A X } >= 03. Closed-interval constraints
+L \underline { { partial } T A X } >= 03. Closed-interval constraints
 
 L_DISCOUNT between 0.00 and 1.004. Multi-column constraints L_SHIPDATE <= L_RECEIPTDATE
 
@@ -706,7 +708,7 @@ The Pricing Summary Report Query provides a summary pricing report for all linei
 
 select
 
-l_returnflag, l_linestatus, sum(l_quantity) as sum_qty, sum(l_extendedprice) as sum_base_price, sum(l_extendedprice\*(1-l_discount)) as sum_disc_price, sum(l_extendedprice\*(1-l_discount) * ( 1 + 1 \_t a x ) ) as sum_charge, avg(l_quantity) as avg_qty, avg(l_extendedprice) as avg_price, avg(l_discount) as avg_disc, count(\*) as count_order
+l_returnflag, l_linestatus, sum(l_quantity) as sum_qty, sum(l_extendedprice) as sum_base_price, sum(l_extendedprice\*(1-l_discount)) as sum_disc_price, sum(l_extendedprice\*(1-l_discount) * ( 1 + 1 _t a x ) ) as sum_charge, avg(l_quantity) as avg_qty, avg(l_extendedprice) as avg_price, avg(l_discount) as avg_disc, count(\*) as count_order
 from lineitem
 where l_shipdate <= date '1998-12-01' - interval '[DELTA]' day (3)
 group by l_returnflag, l_linestatus
@@ -793,7 +795,7 @@ The Shipping Priority Query retrieves the shipping priority and potential revenu
 Return the first 10 selected rows
 select l_orderkey, sum(l_extendedprice\*(1-l_discount)) as revenue, o_orderdate, o_shippriority
 from customer, orders, lineitem
-where c_mktsegment = '[SEGMENT]' and c_custkey = c_custkey and l_orderkey = o_orderkey and o_orderdate < date '[DATE]' and l_shipdate > date '[DATE]'
+where c_mktsegment = '[SEGMENT]' and c_custkey = c_custkey and l_orderkey = l_orderkey and o_orderdate < date '[DATE]' and l_shipdate > date '[DATE]'
 group by l_orderkey, o_orderdate, o_shippriority
 order by revenue desc, o_orderdate;
 
@@ -802,7 +804,7 @@ order by revenue desc, o_orderdate;
 Values for the following substitution parameters must be generated and used to build the executable query text:
 
 1. SEGMENT is randomly selected within the list of values defined for Segments in Clause 4.2.2.13;
-2. DATE is a randomly selected day within [1995-03-01 and 1995-03-31].
+2. DATE is a randomly selected day within [1995-03-011995-03-31].
 
 # 2.4.3.4 Query Validation
 
@@ -811,7 +813,7 @@ For validation against the qualification database the query must be executed usi
 Values for substitution parameters:
 
 1. SEGMENT = BUILDING;
-2. DATE = 1995-03-15 Sample Output
+2. DATE= 1995 – 03 – 15.2.4.3.5 Sample Output
 
 | L_ORDERKEY | REVENUE | O_ORDERDATE | O_SHIPPRIORITY |
 |---|---|---|---|
@@ -829,7 +831,7 @@ The Order Priority Checking Query counts the number of orders ordered in a given
 
 select o_orderpriority, count(\*) as order_count
 from orders
-where o_orderdate >= date '[DATE]' and o_orderdate < date '[DATE]' + interval '3' month and exists ( select \* from lineitem where l_orderkey = o_orderkey and l_commitdate < l_receiptdate )
+where o_orderdate >= date '[DATE]' and o_orderdate < date '[DATE]' + interval '3' month and exists ( select \* from lineitem where l_orderkey = l_orderkey and l_commitdate < l_receiptdate )
 group by o_orderpriority
 order by o_orderpriority;
 
@@ -845,7 +847,7 @@ For validation against the qualification database the query must be executed usi
 
 Values for substitution parameters:
 
-1. DATE = 1993-07-01.
+1. ) A T E = 1993.07-01.
 
 # 2.4.4.5 Sample Output
 
@@ -865,7 +867,7 @@ The Local Supplier Volume Query lists for each nation in a region the revenue vo
 
 select n_name, sum(l_extendedprice \* (1 - l_discount)) as revenue
 from customer, orders, lineitem, supplier, nation, region
-where c_custkey = c_custkey and l_orderkey = o_orderkey and l_suppkey = s_suppkey and c_nationkey = s_nationkey and s_nationkey = n_nationkey and n_regionkey = r_regionkey and r_name = '[REGION]' and o_orderdate >= date '[DATE]' and o_orderdate < date '[DATE]' + interval '1' year
+where c_custkey = c_custkey and l_orderkey = l_orderkey and l_suppkey = s_suppkey and c_nationkey = s_nationkey and s_nationkey = n_nationkey and n_regionkey = r_regionkey and r_name = '[REGION]' and o_orderdate >= date '[DATE]' and o_orderdate < date '[DATE]' + interval '1' year
 group by n_name
 order by revenue desc;
 
@@ -873,7 +875,7 @@ order by revenue desc;
 
 Values for the following substitution parameters must be generated and used to build the executable query text:
 
-1. REGION is randomly selected within the list of values defined for R_NAME in Clause 4.2.3;
+1. REGION is randomly selected within the list of values defined for R_NAME in C;aise 4.2.3;
 2. DATE is the first of January of a randomly selected year within [19931997].
 
 # 2.4.5.4 Query Validation
@@ -882,8 +884,8 @@ For validation against the qualification database the query must be executed usi
 
 Values for substitution parameters:
 
-1. REGION= A S I A ;
-2. DATE= 1994-01-01 .
+1. R EGION= A S I A ;
+2. DATE= 1994 – 01 – 01 .
 
 | N_NAME | REVENUE |
 |---|---|
@@ -917,7 +919,7 @@ For validation against the qualification database the query must be executed usi
 
 Values for substitution parameters:
 
-1. DATE= 1994-01-01 ;
+1. DATE= 1994 – 01 – 01 ;
 2. D I S COUNT= 0.06 ;
 3. QUANTITY = 24.2.4.6.5 Sample Output
 
@@ -941,7 +943,7 @@ The Volume Shipping Query finds, for two given nations, the gross discounted rev
 # 2.4.7.2 Functional Query Definition
 
 select supp_nation, cust_nation, l_year, sum(volume) as revenue
-from ( select n1.n_name as supp_nation, n2.n_name as cust_nation, extract(year from l_shipdate) as l_year, l_extendedprice \* (1 - l_discount) as volume from supplier, lineitem, orders, customer, nation n1, nation n2 where s_suppkey = l_suppkey and o_orderkey = l_orderkey and c_custkey { \bf \equiv 0 } _custkey and s_nationkey = n l . n_nationkey and c_nationkey = { \tt n } 2 . { \tt n } _nationkey and ( (n1.n_name = '[NATION1]' and n2.n_name = '[NATION2]') or (n1.n_name = '[NATION2]' and n2.n_name = '[NATION1]') ) and l_shipdate between date '1995-01-01' and date '1996-12-31' ) as shipping
+from ( select n1.n_name as supp_nation, n2.n_name as cust_nation, extract(year from l_shipdate) as l_year, l_extendedprice \* (1 - l_discount) as volume from supplier, lineitem, orders, customer, nation n1, nation n2 where s_suppkey = l_suppkey and o_orderkey = l_orderkey and c_custkey = c_custkey and s_nationkey = n1.n_nationkey and c_nationkey = n2.n_nationkey and ( (n1.n_name = '[NATION1]' and n2.n_name = '[NATION2]') or (n1.n_name = '[NATION2]' and n2.n_name = '[NATION1]') ) and l_shipdate between date '1995-01-01' and date '1996-12-31' ) as shipping
 group by supp_nation, cust_nation, l_year
 order by supp_nation, cust_nation, l_year;
 
@@ -979,7 +981,7 @@ The market share for a given nation within a given region is defined as the frac
 select
 
 o_year, sum(case when nation = '[NATION]' then volume else 0 end) / sum(volume) as mkt_share
-from ( select extract(year from o_orderdate) as o_year, l_extendedprice \* (1-l_discount) as volume, n2.n_name as nation from part, supplier, lineitem, orders, customer, nation n1, nation n2, region where p_partkey = l_partkey and s_suppkey = 1_suppkey and l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = { \mathfrak { n } } 1 . { \mathfrak { n } } _nationkey and n1.n_regionkey = r_regionkey and r_name = '[REGION]' and s_nationkey = { \tt n } 2 . { \tt n } . _nationkey and o_orderdate between date '1995-01-01' and date '1996-12-31' and p_type = '[TYPE]' ) as all_nations
+from ( select extract(year from o_orderdate) as o_year, l_extendedprice \* (1-l_discount) as volume, n2.n_name as nation from part, supplier, lineitem, orders, customer, nation n1, nation n2, region where p_partkey = l_partkey and s_suppkey = l_suppkey and l_orderkey = l_orderkey and o_custkey = c_custkey and c_nationkey = n1.n_nationkey and n1.n_regionkey = r_regionkey and r_name = '[REGION]' and s_nationkey = n2.n_nationkey and o_orderdate between date '1995-01-01' and date '1996-12-31' and p_type = '[TYPE]' ) as all_nations
 group by o_year
 order by o_year;
 
@@ -1051,7 +1053,7 @@ The Returned Item Reporting Query finds the top 20 customers, in terms of their 
 Return the first 20 selected rows
 select c_custkey, c_name, sum(l_extendedprice \* (1 - l_discount)) as revenue, c_acctbal, n_name, c_address, c_phone, c_comment
 from customer, orders, lineitem, nation
-where c_custkey = c_custkey and l_orderkey = o_orderkey and o_orderdate >= date '[DATE]' and o_orderdate < date '[DATE]' + interval '3' month and l_returnflag = " R " and c_nationkey = n_nationkey
+where c_custkey = c_custkey and l_orderkey = l_orderkey and o_orderdate >= date '[DATE]' and o_orderdate < date '[DATE]' + interval '3' month and l_returnflag = " R " and c_nationkey = n_nationkey
 group by c_custkey, c_name, c_acctbal, c_phone, n_name, c_address, c_comment
 order by revenue desc;
 
@@ -1127,7 +1129,7 @@ select
 
 l_shipmode, sum(case when o_orderpriority = 11 -URGENT' or o_orderpriority = 12 -HIGH' then 1 else 0 end) as high_line_count, sum(case when o_orderpriority \textless \textless 1 -URGENT' and o_orderpriority \textless > 2 -HIGH' then 1 else 0 end) as low_line_count
 from orders, lineitem
-where o_orderkey = 1_orderkey and l_shipmode in ('[SHIPMODE1]', '[SHIPMODE2]') and l_commitdate < 1_receiptdate and l_shipdate < l_commitdate and l_receiptdate >= date '[DATE]' and l_receiptdate < date '[DATE]' + interval '1' year
+where o_orderkey = l_orderkey and l_shipmode in ('[SHIPMODE1]', '[SHIPMODE2]') and l_commitdate < l_receiptdate and l_shipdate < l_commitdate and l_receiptdate >= date '[DATE]' and l_receiptdate < date '[DATE]' + interval '1' year
 group by l_shipmode
 order by l_shipmode;
 
@@ -1145,7 +1147,7 @@ For validation against the qualification database the query must be executed usi
 
 Values for substitution parameters:
 
-| 1. SHIPMODE { \bf \Phi } | = { \bf M } { \bf A } IL; |
+| 1. SHIPMODE \Phi  | = M  A  IL; |
 
 2. SHIPMODE2 = SHIP;
 3. DATE = 1994-01-01.
@@ -1205,7 +1207,7 @@ select
 
 100.00 \* sum(case when p_type like 'PROMO%' then l_extendedprice\*(1-l_discount) else 0 end) / sum(l_extendedprice \* (1 - l_discount)) as promo_revenue
 from lineitem, part
-where l_partkey { \bf \Xi } = { \bf p } . _partkey and l_shipdate >= date '[DATE]' and l_shipdate < date '[DATE]' + interval '1' month;
+where l_partkey \Xi  = p  . _partkey and l_shipdate >= date '[DATE]' and l_shipdate < date '[DATE]' + interval '1' month;
 
 # 2.4.14.3 Substitution Parameters
 
@@ -1443,7 +1445,7 @@ For validation against the qualification database the query must be executed usi
 Values for substitution parameters:
 
 1. COLOR= forest.
-2. DATE= 1994-01-01.3. NATION = CANADA.
+2. DATE= 1994 – 01 – 01.3. NATION = CANADA.
 
 2.4.20.5 Sample Output
 
@@ -1464,7 +1466,7 @@ The Suppliers Who Kept Orders Waiting query identifies suppliers, for a given na
 Return the
 select s_name, count ( * ) as numwait
 from supplier, lineitem l1, orders, nation
-where s_suppkey = 11.1_suppkey and o_orderkey = 11.1_orderkey and o_orderstatus = 'F' and l1.l_receiptdate > 11.1 \__commitdate and exists ( select \* from lineitem l2 where l2.l_orderkey = 11.1 \__orderkey and l2.l_suppkey = 11.1_suppkey ) and not exists ( select \* from lineitem l3 where l3.l_orderkey = 11.1 \__orderkey and l3.l_suppkey <> 11.1_suppkey and l3.l_receiptdate > 13.1 \__commitdate ) and s_nationkey = n_nationkey and n_name = '[NATION]'
+where s_suppkey = l1.l_suppkey and o_orderkey = l1.l_orderkey and o_orderstatus = 'F' and l1.l_receiptdate > l1.l_commitdate and exists ( select \* from lineitem l2 where l2.l_orderkey = l1.l_orderkey and l2.l_suppkey = l1.l_suppkey ) and not exists ( select \* from lineitem l3 where l3.l_orderkey = l1.l_orderkey and l3.l_suppkey <> l1.l_suppkey and l3.l_receiptdate > l3.l_commitdate ) and s_nationkey = n_nationkey and n_name = '[NATION]'
 group by s_name
 order by numwait desc, s_name;
 
@@ -1624,7 +1626,7 @@ Since this benchmark does not contain any OLTP transaction, a special ACID Trans
 3.1.6.1 Both the ACID transaction and the ACID Query utilize a truncation function to guarantee arithmetic function portability and consistency of results. Define trunc(n,p) as
 
 { T r u n k } ( n , p ) = \left\lfloor n * 10 ^ { p } \right\rfloor / 10 ^ { p }
-which truncates n to the { \mathfrak { p } } ^ { t h } decimal place (e.g., trunc ( 1.357 , 2 ) = 1.35 ) ).
+which truncates n to the p  ^ { t h } decimal place (e.g., trunc ( 1.357 , 2 ) = 1.35 ) ).
 
 Comment: The intent of this clause is to specify the required functionality without dictating a particular implementation.
 
@@ -1636,7 +1638,7 @@ O_KEY selected at random from the same distribution as that used to p qualificat
 L_KEY selected at random from [1 .. M] where
 M = SELECT MAX(L_LINENUMBER) FROM LINEITEM WHERE L_O using the qualification database, and [delta] selected at random within [1 .. BEGIN TRANSACTION
 Read O_TOTALPRICE from ORDERS into [ototal] where O_ORDERKEY Read L_QUANTITY, L_EXTENDEDPRICE, L_PARTKEY, L_SUPPKEY [quantity], [extprice], [pkey], [skey], [tax], [disc]
-where L_ORDERKEY = [o_key] and L_LINENUMBER = [ 1 \_k e y ] Set [ototal] = [ototal] -
+where L_ORDERKEY = [o_key] and L_LINENUMBER = [ 1 _k e y ] Set [ototal] = [ototal] -
 trunc( trunc([extprice] \* (1 - [disc]), 2) \* (1 + [tax]), 2)
 Set [rprice] = trunc([extprice]/[quantity], 2)
 Set [cost] = trunc([rprice] \* [delta], 2)
@@ -1895,7 +1897,7 @@ The durability success file is required only for the durability tests and must c
 |---|---|
 | P_KEY | Identifier‘Foreign Key’ to P_PARTKEY |
 | S_KEY | Identifier ‘Foreign Key’ to S_SUPPKEY |
-| 0_KEY | Identifier‘Foreign Key’ to O_ORDERKEY |
+| O_KEY | Identifier‘Foreign Key’ to O_ORDERKEY |
 | L_KEY | integer |
 | DELTA | Integer |
 | DATE_T | date and time to second |
@@ -1979,7 +1981,7 @@ The database size is defined with reference to scale factor 1 (i.e., S F = 1 ; a
 
 Where GB stands for gigabyte, defined to be 2 ^ { 30 } bytes.
 
-Comment 1: Although the minimum size of the test database for a valid performance test is 1GB (i.e., S F = 1 \_ ), a test database of 3GB (i.e., S F = 3 ) is not permitted. This requirement is intended to encourage comparability of results at the low end and to ensure a substantial actual difference in test database sizes.
+Comment 1: Although the minimum size of the test database for a valid performance test is 1GB (i.e., S F = 1 _ ), a test database of 3GB (i.e., S F = 3 ) is not permitted. This requirement is intended to encourage comparability of results at the low end and to ensure a substantial actual difference in test database sizes.
 
 Comment 2: The maximum size of the test database for a valid performance test is currently set at 100000 (i.e., SF = 100 { , } 000 \Omega ). The TPC recognizes that additional benchmark development work is necessary to allow TPC-H to scale beyond that limit.
 
@@ -2233,7 +2235,7 @@ auxiliary: selected from Auxiliary (as defined in Clause 4.2.2.13)
 The data generated by DBGEN (see Clause 4.2.1) must be used to populate the database as follows (where SF is the scale factor, see Clause 4.1.3.1):
 
 S F * 10 { , } 000 rows in the SUPPLIER table with:
-S_SUPPKEY unique within [SF ^ { \ast } _ 10 , 000 ] .
+S_SUPPKEY unique within [SF ^ { \ast } _10 , 000 ] .
 S_NAME text appended with minimum 9 digits with leading zeros ["Supplie#r", S_SUPPKEY].
 S_ADDRESS random v-string[10,40].
 S_NATIONKEY random value [024].
@@ -2278,7 +2280,7 @@ Comment: Orders are not present for all customers. Every third customer (in C_CU
 
 O_ORDERSTATUS set to the following value: "F" if all lineitems of this order have L_LINESTATUS set to "F". "O" if all lineitems of this order have L_LINESTATUS set to "O".
 "P" otherwise.
-O_TOTALPRICE computed as: sum (L_EXTENDEDPRICE * \left( 1 { + } L \_T A X \right) ^ * (1-L_DISCOUNT)) for all LINEITEM of this order.
+O_TOTALPRICE computed as: sum (L_EXTENDEDPRICE * \left( 1 { + } L _T A X \right) ^ * (1-L_DISCOUNT)) for all LINEITEM of this order.
 O_ORDERDATE uniformly distributed between STARTDATE and (ENDDATE - 151 days).
 O_ORDERPRIORITY random string [Priorities].
 O_CLERK text appended with minimum 9 digits with leading zeros ["Clerk#", C] where C = random value [000000001 .. ( S F * 1000 ) \big ] .
@@ -2287,9 +2289,9 @@ O_COMMENT text string [19,78].
 
 For each row in the ORDERS table, a random number of rows within [17] in the LINEITEM table with:
 
-L_ORDERKEY { \mathbf \xi } = { \mathbf O } _\xi_ORDERKEY.
+L_ORDERKEY \xi  = O  _\xi_ORDERKEY.
 L_PARTKEY random value [1 .. ( S F * 200 , 000 ) ] .
-L \_ S U PPKEY= ( L \_ P A R T K E Y + ( i \ast ( ( \ S / 4 \pi ) + ( i n t ) ( L \_ p a r t k e y - 1 \ ) / S ) ) ) ) modulo S + 1 where i is the corresponding supplier within [03] and S = S F * 10 , 000 .
+L _ S U PPKEY= ( L _ P A R T K E Y + ( i \ast ( ( \ S / 4 \pi ) + ( i n t ) ( L _p a r t k e y - 1 \ ) / S ) ) ) ) modulo S + 1 where i is the corresponding supplier within [03] and S = S F * 10 , 000 .
 L_LINENUMBER unique within [7].
 L_QUANTITY random value [150].
 L_EXTENDEDPRICE = L_QUANTITY \* P_RETAILPRICE Where P_RETAILPRICE is from the part with P_PARTKEY = L_PARTKEY.
@@ -2297,8 +2299,8 @@ L_DISCOUNT random value [0.000.10].
 L_TAX random value [0.000.08].
 L_RETURNFLAG set to a value selected as follows: If L_RECEIPTDATE <= CURRENTDATE then either "R" or "A" is selected at random else "N" is selected.
 L_LINESTATUS set the following value: "O" if L_SHIPDATE > CURRENTDATE "F" otherwise.
-L_SH \Delta I I PDATE= O \_ O R D E R D A ^ { \prime } TE + random value [1121].
-\Delta L \ C O M M I TDATE= O \ O R D E R D A T E + random value [3090].
+L_SH Delta I I PDATE= O _ O R D E R D A ^ { \prime } TE + random value [1121].
+Delta L \ C O M M I TDATE= O \ O R D E R D A T E + random value [3090].
 L_RECEIPTDATE = L_SHIPDATE + random value [130].
 L_SHIPINSTRUCT random string [Instructions].
 L_SHIPMODE random string [Modes].
@@ -2711,7 +2713,7 @@ Where:
 
 \ln ( x ) is the natural logarithm of x
 
-5.4.1.4 If the ratio between the longest query timing interval and the shortest query timing interval in the power test is greater than 1000 (i.e., \ m a x [ Q I ( i , 0 ) ] / m i n [ Q I ( i , 0 ) ] > 1000 ), then all query timing intervals which are smaller than \operatorname* { m a x } [ Q I ( i , 0 ) ] / 1000 must be increased to \mathfrak { n a x } [ Q I ( i , 0 ) ] / 1000 . The quantity max[QI(i,0)]/1000 must be treated as a timing interval as specified in Clause 5.3.7.5 for the purposes of computing the TPC-H Power@Size.
+5.4.1.4 If the ratio between the longest query timing interval and the shortest query timing interval in the power test is greater than 1000 (i.e., \ m a x [ Q I ( i , 0 ) ] / m i n [ Q I ( i , 0 ) ] > 1000 ), then all query timing intervals which are smaller than max [ Q I ( i , 0 ) ] / 1000 must be increased to nax [ Q I ( i , 0 ) ] / 1000 . The quantity max[QI(i,0)]/1000 must be treated as a timing interval as specified in Clause 5.3.7.5 for the purposes of computing the TPC-H Power@Size.
 
 Comment: The adjusted query timings affect only TPC-H Power @ Size and no other component of the FDR.
 
@@ -2782,6 +2784,7 @@ Example 2: The RALF/3000 Server, which will start shipping on 1-Apr-99, is rated
 
 6.1.2 Figure 3: Two driver/SUT configurations, a “host-based” and a “client/server” configuration illustrates examples of driver/SUT configurations. The driver is the shaded area. The diagram also depicts the driver/SUT boundary (see Clause 5.2 and Clause 5.3) where timing intervals are measured.
 
+![](images/.jpg)
 Figure 3: Two driver/SUT configurations, a “host-based” and a “client/server” configuration
 
 # 6.2 System Under Test (SUT) Definition
@@ -2797,6 +2800,7 @@ Data storage media sufficient to satisfy both the scaling rules in Clause 4: and
 
 6.2.3 An implementation specific layer can be implemented on the SUT. This layer must be logically located between the driver and the SUT, as depicted by Figure 4: Implementation Specific Layer.
 
+![](images/.jpg)
 Figure 4: Implementation Specific Layer
 
 6.2.4 An implementation specific layer, if present on the SUT, must be minimal, general purpose (i.e., not limited to the TPC-H queries) and its source code must be disclosed. Furthermore, the functions performed by an implementation specific layer must be strictly limited to the following:
@@ -2891,6 +2895,7 @@ Comment: Active components (e.g., workstations, PCs, concentrators, etc.) can on
 
 7.1.2.4 The following diagram illustrates the boundary between what is priced (on the right) and what is not (on the left):
 
+![](images/.jpg)
 Figure 5: The Pricing Boundary
 
 # 7.1.3 Database Storage and Recovery Log
@@ -3004,6 +3009,7 @@ Total number of nodes used, total number and type of processors used/total numbe
 
 The following sample diagram illustrates a measured benchmark configuration using Ethernet, an external driver, and four processors each with two cores and four threads per node in the SUT. Note that this diagram does not depict or imply any optimal configuration for the TPC-H benchmark measurement.
 
+![](images/.jpg)
 Figure 1: Sample Configuration Diagram (the front system box describes one node)
 
 LAN: Ethernet using NETplus routers
@@ -3540,7 +3546,7 @@ round(45.897,0)
 y { = } 45.897 { + } 0.5 { = } 46.397
 z=46.397
 q=46
-{ \tt z } { = } 46
+z  { = } 46
 
 # Appendix A: ORDERED SETS
 
@@ -3583,7 +3589,7 @@ To obtain a copy of the machine-readable appendices, please contact the TPC (see
 This variant replaces the CASE statement from the Functional Query Definition with equivalent DECODE() syntax. The justification for this variant was Clause 2.2.4.3 (d)), which allows for vendor-specific syntax that, while not SQL-92, provides a simple and direct mapping to approved SQL-92 syntax.
 
 select o_year, sum(decode(nation, ‘[NATION]’, volume, 0)) / sum(volume) as mkt_share
-from ( select extract(year from o_orderdate) as o_year, l_extendedprice \* (1 - l_discount) as volume, n2.n_name as nation from part, supplier, lineitem, orders, customer, nation n1, nation n2, region where p_partkey = l_partkey and s_suppkey = l_suppkey and l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n1.n_nationkey and n1.n_regionkey = r_regionkey and r_name = \ ' [REGION] \Psi and s_nationkey = { \tt n } 2 . { \tt n } _nationkey and o_orderdate between date '1995-01-01' and date '1996-12-3 and p_type = '[TYPE]’ ) all_nations
+from ( select extract(year from o_orderdate) as o_year, l_extendedprice \* (1 - l_discount) as volume, n2.n_name as nation from part, supplier, lineitem, orders, customer, nation n1, nation n2, region where p_partkey = l_partkey and s_suppkey = l_suppkey and l_orderkey = l_orderkey and o_custkey = c_custkey and c_nationkey = n1.n_nationkey and n1.n_regionkey = r_regionkey and r_name = \ ' [REGION] and s_nationkey = n2.n_nationkey and o_orderdate between date '1995-01-01' and date '1996-12-3 and p_type = '[TYPE]’ ) all_nations
 group by o_year
 order by o_year;
 
@@ -3597,7 +3603,7 @@ select
 
 l_shipmode, sum(decode(o_orderpriority, '1-URGENT', 1, '2-HIGH', 1, 0)) as high_line_count, sum(decode(o_orderpriority, '1-URGENT', 0, '2-HIGH', 0, 1)) as low_line_count
 from orders, lineitem
-where o_orderkey = 1_orderkey and l_shipmode in ('[SHIPMODE1]', '[SHIPMODE2]') and l_commitdate < l_receiptdate and l_shipdate < 1 commitdate and l_receiptdate >= date '[DATE]' and l_receiptdate < date '[DATE]' + interval '1' year
+where o_orderkey = l_orderkey and l_shipmode in ('[SHIPMODE1]', '[SHIPMODE2]') and l_commitdate < l_receiptdate and l_shipdate < l_commitdate and l_receiptdate >= date '[DATE]' and l_receiptdate < date '[DATE]' + interval '1' year
 group by l_shipmode
 order by l_shipmode;
 
@@ -3635,7 +3641,7 @@ lineitem, part
 
 where
 
-l_partkey { \bf \Xi } = { \bf p } . _partkey
+l_partkey \Xi  = p  . _partkey
 and l_shipdate >= date '[DATE]'
 and l_shipdate < date '[DATE]' + interval '1' month;
 

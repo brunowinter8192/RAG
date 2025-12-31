@@ -133,22 +133,37 @@ After PDF-to-markdown conversion when postprocess.py has run but semantic issues
 
 ### How to Prompt
 
-**Minimal:**
-```
-Clean the PDF-converted markdown at {filepath}
-```
-
-**With context (faster - agent skips discovery):**
+**CRITICAL CONSTRAINTS (always include):**
 ```
 Clean the PDF-converted markdown at {filepath}
 
+EXISTING SCRIPT: debug/clean_{name}.py exists from last session. Use and extend it if needed.
+(Or: No existing script. Create new one.)
+
+SAFETY CONSTRAINTS:
+1. Before ANY changes: verify line count (wc -l). After changes: check again.
+   If line count drops >1%, REVERT immediately (git checkout).
+2. Do NOT read full file (>250KB). Use grep -nC 3 to inspect patterns locally.
+3. Regex MUST be surgical: use word boundaries (\bpattern\b).
+   NEVER use greedy wildcards (.*) that span lines.
+4. After cleanup: verify structural syntax intact (operators, keywords preserved).
+
+OUTPUT: {output_filepath}
+```
+
+**With known issues (faster):**
+```
 Known issues:
-- OCR: 0/o and 1/l confusion in identifiers
-- Dates: Format issues like YYYY.MM-DD
-- LaTeX remnants
+- OCR: [describe specific patterns found, e.g., "1/l confusion in identifiers"]
+- LaTeX: [describe remnants, e.g., "mathbf, prime symbols"]
+- Structure: [describe structural issues, e.g., "broken table aliases"]
 ```
 
-If you have prior knowledge about the document's issues, include them. Agent will skip discovery phase.
+**Pattern for prompting:**
+1. Always include SAFETY CONSTRAINTS block
+2. Mention existing script if one exists (agent extends it)
+3. Add known issues if available (skips discovery phase)
+4. Specify output filename
 
 ### What Agent Does
 
@@ -170,6 +185,6 @@ If remaining issues after first run:
 
 ### After Agent Returns
 
-1. Spot check: `grep -c "0_\|1_\|\\\\mathbf" {cleaned_file}`
+1. Spot check: `grep -c "{patterns_from_known_issues}" {cleaned_file}`
 2. If count > 0 → re-run agent (iteration)
-3. If count = 0 → done, rename/move cleaned file
+3. If count = 0 → done, move cleaned file to final location

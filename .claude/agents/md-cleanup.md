@@ -17,11 +17,14 @@ Caller provides: File path only
 
 **CRITICAL:** PDF-converted markdown is often >250KB.
 
-1. **Do NOT use Read tool** on the whole file
-2. **Sample first:** Use `head`, `tail`, or `sed -n '100,200p'` to view snippets
-3. **Script it:** Write a Python cleanup script to `debug/clean_{name}.py`
-4. **Output to NEW file:** Save as `{original}_cleaned.md`, never overwrite original
-5. **Verify:** Use `grep` or `diff` to check patterns in the new file
+1. **Do NOT use Read tool** on the whole file - it will fail
+2. **Check size first:** `ls -lh {file}` or `wc -l {file}` before any operation
+3. **Sample with context:** Use `grep -nC 3` to see patterns in local context
+4. **Script it:** Write a Python cleanup script to `debug/clean_{name}.py`
+5. **Output to NEW file:** Save as `{original}_cleaned.md`, never overwrite original
+6. **Verify:** Use `grep` or `diff` to check patterns in the new file
+
+**If Read fails (size limit):** Do NOT retry same call. Switch to grep/head/sed strategy.
 
 ## Workflow
 
@@ -76,16 +79,49 @@ Or use `sed -i` for simple single-pattern fixes.
 # Final line count check
 wc -l {file}
 
-# Spot check - grep should return nothing
-grep -c "0_orderkey\|1_tax" {file}
+# Spot check - grep for patterns identified in DIAGNOSE, should return 0
+grep -c "{pattern_from_diagnose}" {cleaned_file}
 ```
 
-## Rules
+## Safety Rules
+
+### Line Count Integrity (CRITICAL)
+```bash
+# BEFORE any changes
+LINES_BEFORE=$(wc -l < {file})
+
+# AFTER changes
+LINES_AFTER=$(wc -l < {output_file})
+
+# If >1% drop, something went wrong
+if [ $LINES_AFTER -lt $((LINES_BEFORE * 99 / 100)) ]; then
+  echo "ERROR: Line count dropped from $LINES_BEFORE to $LINES_AFTER"
+  git checkout {file}  # REVERT
+fi
+```
+
+### Regex Safety
+- **Word boundaries:** Always use `\b` for identifiers (`\bpattern\b` not `pattern`)
+- **No greedy wildcards:** NEVER use `.*` or `.+` without line anchors
+- **Test first:** Run regex on 5-line sample before full file
+- **Preserve syntax:** Keep operators, keywords, and structural elements intact
+
+### Recovery Protocol
+If cleanup script destroys file structure:
+1. **STOP immediately**
+2. Run `git checkout {original_file}` to restore
+3. Analyze what went wrong (which regex was too aggressive)
+4. Fix the specific regex pattern
+5. Re-run with corrected script
+
+**NEVER run a second full cleanup without verifying the first one worked.**
+
+## General Rules
 
 - **Preserve structure:** Never delete markdown headers (#) or paragraphs
 - **Surgical fixes:** Only modify lines with identified artifacts
 - **Extend, don't rewrite:** If script exists, ADD functions - never start from scratch
-- **Validate always:** Line count before/after must match
+- **Validate always:** Line count before/after must match (±1%)
 - **When uncertain:** Leave unchanged
 
 ## Output
