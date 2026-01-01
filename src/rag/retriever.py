@@ -24,7 +24,8 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 DEFAULT_TOP_K = 5
 
 
-# ORCHESTRATOR
+# ORCHESTRATORS
+
 def search_workflow(
     query: str,
     top_k: int = DEFAULT_TOP_K,
@@ -36,6 +37,20 @@ def search_workflow(
     results = search_vectors(conn, query_vector, top_k, collection, document)
     conn.close()
     logging.info(f"Search '{query[:50]}...' returned {len(results)} results")
+    return results
+
+
+def list_collections_workflow() -> list[dict]:
+    conn = get_connection()
+    results = query_collections(conn)
+    conn.close()
+    return results
+
+
+def list_documents_workflow(collection: str) -> list[dict]:
+    conn = get_connection()
+    results = query_documents(conn, collection)
+    conn.close()
     return results
 
 
@@ -107,7 +122,7 @@ def search_vectors(
     ]
 
 
-# Format results for display
+# Format search results for display
 def format_results(results: list[dict]) -> str:
     lines = []
     for i, r in enumerate(results, 1):
@@ -115,4 +130,51 @@ def format_results(results: list[dict]) -> str:
         lines.append(f"Collection: {r['collection']} | Document: {r['document']}")
         lines.append(r['content'][:500])
         lines.append("")
+    return "\n".join(lines)
+
+
+# Query all collections with chunk counts
+def query_collections(conn) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT collection, COUNT(*) as chunk_count
+            FROM documents
+            GROUP BY collection
+            ORDER BY collection
+        """)
+        rows = cur.fetchall()
+    return [{"collection": row[0], "chunks": row[1]} for row in rows]
+
+
+# Query all documents in a collection with chunk counts
+def query_documents(conn, collection: str) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT document, COUNT(*) as chunk_count
+            FROM documents
+            WHERE collection = %s
+            GROUP BY document
+            ORDER BY document
+        """, (collection,))
+        rows = cur.fetchall()
+    return [{"document": row[0], "chunks": row[1]} for row in rows]
+
+
+# Format collections list for display
+def format_collections(results: list[dict]) -> str:
+    if not results:
+        return "No collections indexed."
+    lines = ["Indexed Collections:", ""]
+    for r in results:
+        lines.append(f"  {r['collection']} ({r['chunks']} chunks)")
+    return "\n".join(lines)
+
+
+# Format documents list for display
+def format_documents(results: list[dict]) -> str:
+    if not results:
+        return "No documents in this collection."
+    lines = ["Documents:", ""]
+    for r in results:
+        lines.append(f"  {r['document']} ({r['chunks']} chunks)")
     return "\n".join(lines)

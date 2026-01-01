@@ -207,3 +207,25 @@ results = search_workflow("query execution", collection="specification", documen
 ```
 
 **Environment Variables:** Same as indexer.py (PostgreSQL connection)
+
+### list_collections_workflow
+
+List all indexed collections with chunk counts.
+
+```python
+from src.rag.retriever import list_collections_workflow
+
+results = list_collections_workflow()
+# [{"collection": "specification", "chunks": 402}]
+```
+
+### list_documents_workflow
+
+List all documents in a collection with chunk counts.
+
+```python
+from src.rag.retriever import list_documents_workflow
+
+results = list_documents_workflow("specification")
+# [{"document": "specification.md", "chunks": 402}]
+```

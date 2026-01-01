@@ -3,7 +3,17 @@ name: RAG_MCP
 description: Vector search over indexed documents
 ---
 
-# RAG MCP Tool Usage
+# RAG MCP Tools
+
+## Available Tools
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__rag__search` | Semantic search over documents |
+| `mcp__rag__list_collections` | List all indexed collections |
+| `mcp__rag__list_documents` | List documents in a collection |
+
+---
 
 ## Tool: `mcp__rag__search`
 
@@ -94,9 +104,48 @@ data/documents/
 
 ## Indexed Collections
 
-Check available collections:
-```bash
-ls data/documents/
+Use `mcp__rag__list_collections` to see available collections.
+
+---
+
+## Tool: `mcp__rag__list_collections`
+
+List all indexed collections with chunk counts.
+
+**Parameters:** None
+
+**Example:**
+```
+mcp__rag__list_collections()
 ```
 
-Current: `specification` (TPC-H specification)
+**Output:**
+```
+Indexed Collections:
+
+  specification (402 chunks)
+```
+
+---
+
+## Tool: `mcp__rag__list_documents`
+
+List all documents in a collection with chunk counts.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `collection` | string | Yes | Collection name |
+
+**Example:**
+```
+mcp__rag__list_documents(collection="specification")
+```
+
+**Output:**
+```
+Documents:
+
+  specification.md (402 chunks)
+```
