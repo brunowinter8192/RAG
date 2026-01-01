@@ -25,10 +25,15 @@ DEFAULT_TOP_K = 5
 
 
 # ORCHESTRATOR
-def search_workflow(query: str, top_k: int = DEFAULT_TOP_K) -> list[dict]:
+def search_workflow(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    collection: str | None = None,
+    document: str | None = None
+) -> list[dict]:
     conn = get_connection()
     query_vector = embed_query(query)
-    results = search_vectors(conn, query_vector, top_k)
+    results = search_vectors(conn, query_vector, top_k, collection, document)
     conn.close()
     logging.info(f"Search '{query[:50]}...' returned {len(results)} results")
     return results
@@ -56,26 +61,58 @@ def embed_query(query: str) -> list[float]:
 
 
 # Search vectors in PostgreSQL using cosine distance
-def search_vectors(conn, query_vector: list[float], top_k: int) -> list[dict]:
+def search_vectors(
+    conn,
+    query_vector: list[float],
+    top_k: int,
+    collection: str | None = None,
+    document: str | None = None
+) -> list[dict]:
+    where_clauses = []
+    where_params = []
+
+    if collection:
+        where_clauses.append("collection = %s")
+        where_params.append(collection)
+    if document:
+        where_clauses.append("document = %s")
+        where_params.append(document)
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    params = [query_vector] + where_params + [query_vector, top_k]
+
     with conn.cursor() as cur:
         cur.execute(
-            """
-            SELECT content, source, chunk_index,
+            f"""
+            SELECT content, collection, document, chunk_index,
                    1 - (embedding <=> %s::vector) as score
             FROM documents
+            {where_sql}
             ORDER BY embedding <=> %s::vector
             LIMIT %s
             """,
-            (query_vector, query_vector, top_k)
+            params
         )
         rows = cur.fetchall()
 
     return [
         {
             "content": row[0],
-            "source": row[1],
-            "chunk_index": row[2],
-            "score": round(float(row[3]), 4)
+            "collection": row[1],
+            "document": row[2],
+            "chunk_index": row[3],
+            "score": round(float(row[4]), 4)
         }
         for row in rows
     ]
+
+
+# Format results for display
+def format_results(results: list[dict]) -> str:
+    lines = []
+    for i, r in enumerate(results, 1):
+        lines.append(f"--- Result {i} (score: {r['score']}) ---")
+        lines.append(f"Collection: {r['collection']} | Document: {r['document']}")
+        lines.append(r['content'][:500])
+        lines.append("")
+    return "\n".join(lines)

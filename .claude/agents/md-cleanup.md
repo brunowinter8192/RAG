@@ -11,7 +11,9 @@ Clean markdown files converted from PDF. Fix semantic issues that regex scripts 
 
 ## Input
 
-Caller provides: File path only
+Caller provides:
+- Input file path (in `raw/` folder)
+- Output file path (in parent folder, same filename)
 
 ## Large File Protocol
 
@@ -21,7 +23,7 @@ Caller provides: File path only
 2. **Check size first:** `ls -lh {file}` or `wc -l {file}` before any operation
 3. **Sample with context:** Use `grep -nC 3` to see patterns in local context
 4. **Script it:** Write a Python cleanup script to `debug/clean_{name}.py`
-5. **Output to NEW file:** Save as `{original}_cleaned.md`, never overwrite original
+5. **Output path:** Use the output path provided by caller (NOT `_cleaned.md` suffix)
 6. **Verify:** Use `grep` or `diff` to check patterns in the new file
 
 **If Read fails (size limit):** Do NOT retry same call. Switch to grep/head/sed strategy.

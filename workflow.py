@@ -15,7 +15,7 @@ def main(command: str, **kwargs) -> None:
         results = search_workflow(kwargs["query"], kwargs.get("top_k", 5))
         for i, r in enumerate(results, 1):
             print(f"\n--- Result {i} (score: {r['score']}) ---")
-            print(f"Source: {r['source']}")
+            print(f"Collection: {r['collection']} | Document: {r['document']}")
             print(r['content'][:500])
 
 

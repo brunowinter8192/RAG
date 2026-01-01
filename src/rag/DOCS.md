@@ -100,22 +100,23 @@ Index from pre-chunked chunks.json file.
 **Output:** Number of indexed chunks
 
 **Behavior:**
-- Deletes existing chunks for same source before inserting (no duplicates)
-- Processes chunks one at a time (BATCH_SIZE = 1)
+- Deletes existing chunks for same collection before inserting (no duplicates)
+- Processes in batches (BATCH_SIZE = 32)
 - Token truncation handled by embedder.py
 
 **Usage:**
 ```python
 from src.rag.indexer import index_json_workflow
 
-count = index_json_workflow("./data/documents/paper1/chunks.json")
+count = index_json_workflow("./data/documents/specification/chunks.json")
 ```
 
 **chunks.json format:**
 ```json
 {
-  "source_pdf": "/path/to/original.pdf",
-  "created": "2025-12-28T...",
+  "source": "data/documents/specification/specification.md",
+  "document": "specification.md",
+  "created": "2025-12-31T...",
   "chunks": [
     {"index": 0, "content": "..."},
     {"index": 1, "content": "..."}
@@ -123,13 +124,17 @@ count = index_json_workflow("./data/documents/paper1/chunks.json")
 }
 ```
 
-### delete_source
+**Metadata Extraction:**
+- `collection` = parent folder name (e.g., "specification")
+- `document` = from chunks.json "document" field or fallback to stem + ".md"
 
-Delete all chunks for a given source (used internally for re-indexing).
+### delete_collection
+
+Delete all chunks for a given collection (used internally for re-indexing).
 
 ```python
-from src.rag.indexer import delete_source
-deleted = delete_source(conn, source_path)
+from src.rag.indexer import delete_collection
+deleted = delete_collection(conn, "specification")
 ```
 
 ### Environment Variables (.env)
@@ -148,10 +153,11 @@ deleted = delete_source(conn, source_path)
 ```sql
 CREATE TABLE documents (
     id SERIAL PRIMARY KEY,
-    content TEXT,
-    source TEXT,
-    chunk_index INTEGER,
-    total_chunks INTEGER,
+    content TEXT NOT NULL,
+    collection TEXT NOT NULL,
+    document TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    total_chunks INTEGER NOT NULL,
     embedding vector(4096)
 )
 ```
@@ -162,22 +168,38 @@ CREATE TABLE documents (
 
 **Purpose:** Search indexed documents via vector cosine similarity.
 
-**Input:** Query string, number of results
+**Input:** Query string, optional filters
 **Output:** List of matching chunks with scores
 
 **Usage:**
 ```python
 from src.rag.retriever import search_workflow
 
+# Basic search
 results = search_workflow("How to configure authentication?", top_k=5)
+
+# Filter by collection
+results = search_workflow("pricing", top_k=5, collection="specification")
+
+# Filter by document
+results = search_workflow("query execution", collection="specification", document="specification.md")
 ```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| query | str | required | Search query |
+| top_k | int | 5 | Number of results (max 20) |
+| collection | str | None | Filter by collection name |
+| document | str | None | Filter by document name |
 
 **Output Format:**
 ```python
 [
     {
         "content": "The actual chunk text...",
-        "source": "/path/to/file.pdf",
+        "collection": "specification",
+        "document": "specification.md",
         "chunk_index": 0,
         "score": 0.8742  # cosine similarity (1 - distance)
     }

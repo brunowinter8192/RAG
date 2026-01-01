@@ -15,12 +15,12 @@ PDF Path: $ARGUMENTS
 PDF
  ↓ MinerU
  ↓ postprocess.py (generic regex)
-raw.md
+raw/{stem}.md
  ↓ md-cleanup-master (creates debug/clean_{stem}.py)
-cleaned.md
+{stem}.md
  ↓ chunker
 chunks.json
- ↓ embedder + qdrant
+ ↓ embedder + postgres
 indexed
 ```
 
@@ -46,7 +46,7 @@ If not found, ask for correct path.
 
 ```bash
 STEM=$(basename "$PDF_PATH" .pdf)
-mkdir -p ./data/documents/$STEM
+mkdir -p ./data/documents/$STEM/raw
 ```
 
 ### Step 3: Run MinerU Workflow
@@ -55,10 +55,10 @@ mkdir -p ./data/documents/$STEM
 cd ${MINERU_PATH} && \
 ./venv/bin/python workflow.py convert \
   --input "$PDF_PATH" \
-  --output ./data/documents/$STEM/raw.md
+  --output ./data/documents/$STEM/raw/$STEM.md
 ```
 
-Output: `raw.md` = MinerU output + generic postprocess.py cleanup
+Output: `raw/{stem}.md` = MinerU output + generic postprocess.py cleanup
 
 ### Step 4: Verify
 
@@ -72,7 +72,7 @@ ls -la ./data/documents/$STEM/
 PHASE 1: PDF to Markdown
 ========================
 INPUT: [PDF path]
-OUTPUT: data/documents/$STEM/raw.md
+OUTPUT: data/documents/$STEM/raw/$STEM.md
 STATUS: [Success/Failed]
 ```
 
@@ -84,27 +84,27 @@ STATUS: [Success/Failed]
 
 ## Phase 2: LLM Cleanup
 
-Agent analyzes raw.md, creates cleanup script, outputs cleaned.md.
+Agent analyzes raw/{stem}.md, creates cleanup script, outputs {stem}.md in parent folder.
 
 ### Step 1: Run md-cleanup-master
 
 ```
 Task(
   subagent_type="md-cleanup-master",
-  prompt="Clean the PDF-converted markdown at ./data/documents/$STEM/raw.md"
+  prompt="Clean the PDF-converted markdown at ./data/documents/$STEM/raw/$STEM.md. Output to ./data/documents/$STEM/$STEM.md"
 )
 ```
 
 Agent will:
 1. Sample file structure
 2. Create `debug/clean_$STEM.py`
-3. Run script → `cleaned.md`
+3. Run script → `$STEM.md` (in parent folder)
 4. Report issues fixed
 
 ### Step 2: Verify
 
 ```bash
-grep -c "0_\|1_\|\\\\mathbf" ./data/documents/$STEM/cleaned.md
+grep -c "0_\|1_\|\\\\mathbf" ./data/documents/$STEM/$STEM.md
 ```
 
 If count > 0: Re-run agent (it will extend its script)
@@ -116,7 +116,7 @@ If count = 0: Proceed
 PHASE 2: LLM Cleanup
 ====================
 SCRIPT: debug/clean_$STEM.py
-OUTPUT: data/documents/$STEM/cleaned.md
+OUTPUT: data/documents/$STEM/$STEM.md
 REMAINING ISSUES: [N]
 STATUS: [Success/Failed]
 ```
@@ -136,7 +136,7 @@ import sys
 sys.path.insert(0, '.')
 from src.rag.chunker import chunk_workflow
 
-chunks = chunk_workflow("data/documents/$STEM/cleaned.md", strategy="semantic")
+chunks = chunk_workflow("data/documents/$STEM/$STEM.md", strategy="semantic")
 print(f"Created {len(chunks)} chunks")
 ```
 
@@ -208,7 +208,7 @@ VERIFIED: [Yes/No]
 Document is now searchable via RAG MCP server.
 
 **Files created:**
-- `data/documents/$STEM/raw.md` - After MinerU + generic postprocess
-- `data/documents/$STEM/cleaned.md` - After LLM cleanup
+- `data/documents/$STEM/raw/$STEM.md` - After MinerU + generic postprocess
+- `data/documents/$STEM/$STEM.md` - After LLM cleanup
 - `data/documents/$STEM/chunks.json` - Chunked for indexing
 - `debug/clean_$STEM.py` - Reusable cleanup script

@@ -514,23 +514,27 @@ After report:
 
 | Improvement Type | Action |
 |------------------|--------|
-| Code changes (*.py, *.yml, etc.) | → Create Bead (next cycle validates) |
-| Documentation (README, DOCS, CLAUDE.md) | → Direct edit in IMPROVE |
+| Code changes (*.py, *.yml, etc.) | **ALWAYS** → Create Bead (next cycle validates) |
+| DOCS.md updates | **ALWAYS** → Direct edit NOW in IMPROVE (not CLOSING) |
+| Other docs (README, CLAUDE.md) | → Direct edit in IMPROVE |
 | SKILL.md updates | → Direct edit in IMPROVE |
 
-**Rationale:** Code changes need testing. IMPROVE → CLOSING has no test step. So code changes become Beads and get their own PLAN → IMPLEMENT → RECAP cycle with proper validation.
+**Rationale:**
+- Code changes need testing. IMPROVE → CLOSING has no test step. So code changes become Beads and get their own PLAN → IMPLEMENT → RECAP cycle with proper validation.
+- DOCS.md must stay in sync. Never delay documentation updates to CLOSING.
 
 ### Workflow
 
 1. Read plan file "## Improvements" section
-2. For each improvement:
-   - **Code change?** → `bd create --title "..." --type=...`
+2. **MANDATORY first:** If DOCS.md needs update → Edit NOW
+3. For each Content Improvement:
+   - **Code change?** → `bd create --title "..." --type=...` (ALWAYS)
    - **Docs change?** → Execute directly (Edit, Write)
-3. Handle other Beads (from RECAP evaluation):
+4. Handle other Beads (from RECAP evaluation):
    - Create new beads: `bd create --title "..." --type=...`
    - Update beads: `bd comment <id> "..."`
    - Close beads: `bd close <id> --reason="..."`
-4. Ask: "Proceed to CLOSING?"
+5. Ask: "Proceed to CLOSING?"
 
 User confirms → next response starts with ✅ CLOSING
 

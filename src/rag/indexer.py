@@ -41,10 +41,10 @@ def index_json_workflow(json_path: str) -> int:
         conn.close()
         return 0
 
-    source = chunks[0]["source"]
-    deleted = delete_source(conn, source)
+    collection = chunks[0]["collection"]
+    deleted = delete_collection(conn, collection)
     if deleted > 0:
-        print(f"Deleted {deleted} existing chunks for {source}")
+        print(f"Deleted {deleted} existing chunks for {collection}")
 
     total = len(chunks)
     for i in range(0, total, BATCH_SIZE):
@@ -70,14 +70,16 @@ def load_chunks_json(json_path: str) -> list[dict]:
     with open(path) as f:
         data = json.load(f)
 
-    source = data.get("source_pdf", str(path))
+    collection = path.parent.name
+    document = data.get("document", path.stem + ".md")
     raw_chunks = data.get("chunks", [])
     total = len(raw_chunks)
 
     return [
         {
             "content": c["content"],
-            "source": source,
+            "collection": collection,
+            "document": document,
             "chunk_index": c["index"],
             "total_chunks": total
         }
@@ -106,7 +108,8 @@ def ensure_schema(conn) -> None:
             CREATE TABLE IF NOT EXISTS documents (
                 id SERIAL PRIMARY KEY,
                 content TEXT NOT NULL,
-                source TEXT NOT NULL,
+                collection TEXT NOT NULL,
+                document TEXT NOT NULL,
                 chunk_index INTEGER NOT NULL,
                 total_chunks INTEGER NOT NULL,
                 embedding vector({VECTOR_DIMENSION})
@@ -119,10 +122,10 @@ def ensure_schema(conn) -> None:
     logging.info("Schema ensured")
 
 
-# Delete all chunks for a source
-def delete_source(conn, source: str) -> int:
+# Delete all chunks for a collection
+def delete_collection(conn, collection: str) -> int:
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM documents WHERE source = %s", (source,))
+        cur.execute("DELETE FROM documents WHERE collection = %s", (collection,))
         deleted = cur.rowcount
     conn.commit()
     return deleted
@@ -134,12 +137,13 @@ def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]]) -> Non
         for chunk, embedding in zip(chunks, embeddings):
             cur.execute(
                 """
-                INSERT INTO documents (content, source, chunk_index, total_chunks, embedding)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO documents (content, collection, document, chunk_index, total_chunks, embedding)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     chunk["content"],
-                    chunk["source"],
+                    chunk["collection"],
+                    chunk["document"],
                     chunk["chunk_index"],
                     chunk["total_chunks"],
                     embedding
