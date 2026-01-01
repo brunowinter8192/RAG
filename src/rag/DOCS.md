@@ -137,6 +137,31 @@ from src.rag.indexer import delete_collection
 deleted = delete_collection(conn, "specification")
 ```
 
+### delete_workflow
+
+Delete chunks by collection and/or document (CLI interface).
+
+```python
+from src.rag.indexer import delete_workflow
+
+# Delete entire collection
+deleted = delete_workflow(collection="specification")
+
+# Delete specific document
+deleted = delete_workflow(document="chapter1.md")
+
+# Delete specific document in collection
+deleted = delete_workflow(collection="specification", document="specification.md")
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| collection | str | None | Filter by collection name |
+| document | str | None | Filter by document name |
+
+At least one of `collection` or `document` is required.
+
 ### Environment Variables (.env)
 
 | Variable | Default | Description |

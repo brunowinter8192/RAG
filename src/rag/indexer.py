@@ -59,6 +59,16 @@ def index_json_workflow(json_path: str) -> int:
     return total
 
 
+# Delete chunks by collection and/or document
+def delete_workflow(collection: str | None = None, document: str | None = None) -> int:
+    if not collection and not document:
+        raise ValueError("At least --collection or --document required")
+    conn = get_connection()
+    deleted = delete_chunks(conn, collection, document)
+    conn.close()
+    return deleted
+
+
 # FUNCTIONS
 
 # Load chunks from JSON file
@@ -126,6 +136,25 @@ def ensure_schema(conn) -> None:
 def delete_collection(conn, collection: str) -> int:
     with conn.cursor() as cur:
         cur.execute("DELETE FROM documents WHERE collection = %s", (collection,))
+        deleted = cur.rowcount
+    conn.commit()
+    return deleted
+
+
+# Delete chunks by collection and/or document
+def delete_chunks(conn, collection: str | None, document: str | None) -> int:
+    conditions = []
+    params = []
+    if collection:
+        conditions.append("collection = %s")
+        params.append(collection)
+    if document:
+        conditions.append("document = %s")
+        params.append(document)
+
+    where = " AND ".join(conditions)
+    with conn.cursor() as cur:
+        cur.execute(f"DELETE FROM documents WHERE {where}", params)
         deleted = cur.rowcount
     conn.commit()
     return deleted
