@@ -75,9 +75,19 @@ chunks = chunk_workflow("src/main.py", strategy="code")
 **Strategies:**
 | Strategy | Use Case |
 |----------|----------|
-| semantic | Markdown, text documents (paragraph-aware) |
+| semantic | Markdown, text documents (sentence-aware recursive splitting) |
 | code | Source code (function/class-level) |
 | fixed | Fallback (fixed size with overlap) |
+
+**Semantic Chunking (Recursive Split):**
+
+Uses hierarchical separators to split at natural boundaries:
+1. `\n\n` (paragraphs)
+2. `\n` (lines)
+3. `. ` / `! ` / `? ` (sentences)
+4. ` ` (words - last resort)
+
+Chunks never break mid-sentence. If a paragraph exceeds chunk_size, it splits at sentence boundaries first.
 
 **Variables:**
 | Variable | Default | Description |
@@ -207,6 +217,9 @@ results = search_workflow("pricing", top_k=5, collection="specification")
 
 # Filter by document
 results = search_workflow("query execution", collection="specification", document="specification.md")
+
+# With context expansion (include neighboring chunks)
+results = search_workflow("authentication", top_k=3, neighbors=1)
 ```
 
 **Parameters:**
@@ -216,6 +229,19 @@ results = search_workflow("query execution", collection="specification", documen
 | top_k | int | 5 | Number of results (max 20) |
 | collection | str | None | Filter by collection name |
 | document | str | None | Filter by document name |
+| neighbors | int | 0 | Include N chunks before/after each match (0-2) |
+
+**Context Expansion:**
+
+When `neighbors > 0`, each result's content is expanded to include adjacent chunks:
+- `neighbors=1`: Returns [prev_chunk + match + next_chunk]
+- `neighbors=2`: Returns [prev-2 + prev-1 + match + next+1 + next+2]
+
+**Behavior:**
+- Chunks concatenated with `\n\n`
+- Overlapping matches are deduplicated and merged into contiguous blocks
+- Results sorted by document order (collection, document, chunk_index)
+- Edge cases (first/last chunk) handled automatically
 
 **Output Format:**
 ```python

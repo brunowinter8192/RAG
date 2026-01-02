@@ -1,6 +1,7 @@
 # INFRASTRUCTURE
 import logging
 import os
+from pathlib import Path
 
 import psycopg2
 from pgvector.psycopg2 import register_vector
@@ -10,8 +11,10 @@ from .embedder import embed_workflow
 
 load_dotenv()
 
+LOG_DIR = Path(__file__).parent / "logs"
+
 logging.basicConfig(
-    filename='src/rag/logs/retriever.log',
+    filename=LOG_DIR / "retriever.log",
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -30,13 +33,16 @@ def search_workflow(
     query: str,
     top_k: int = DEFAULT_TOP_K,
     collection: str | None = None,
-    document: str | None = None
+    document: str | None = None,
+    neighbors: int = 0
 ) -> list[dict]:
     conn = get_connection()
     query_vector = embed_query(query)
     results = search_vectors(conn, query_vector, top_k, collection, document)
+    if neighbors > 0:
+        results = expand_results(conn, results, neighbors)
     conn.close()
-    logging.info(f"Search '{query[:50]}...' returned {len(results)} results")
+    logging.info(f"Search '{query[:50]}...' returned {len(results)} results (neighbors={neighbors})")
     return results
 
 
@@ -122,13 +128,90 @@ def search_vectors(
     ]
 
 
+# Expand results with neighboring chunks, deduplicated and merged
+def expand_results(conn, results: list[dict], neighbors: int) -> list[dict]:
+    groups = group_by_document(results, neighbors)
+    expanded = []
+
+    for (collection, document), group_data in groups.items():
+        ranges = find_contiguous_ranges(group_data['indices'])
+        for start_idx, end_idx in ranges:
+            chunks = fetch_chunk_range(conn, collection, document, start_idx, end_idx)
+            expanded.append({
+                'content': "\n\n".join([c['content'] for c in chunks]),
+                'collection': collection,
+                'document': document,
+                'chunk_index': start_idx,
+                'score': group_data['max_score']
+            })
+
+    expanded.sort(key=lambda r: (r['collection'], r['document'], r['chunk_index']))
+    return expanded
+
+
+# Group results by document and collect all needed indices
+def group_by_document(results: list[dict], neighbors: int) -> dict:
+    groups = {}
+    for r in results:
+        key = (r['collection'], r['document'])
+        if key not in groups:
+            groups[key] = {'indices': set(), 'max_score': 0}
+
+        idx = r['chunk_index']
+        for i in range(max(0, idx - neighbors), idx + neighbors + 1):
+            groups[key]['indices'].add(i)
+        groups[key]['max_score'] = max(groups[key]['max_score'], r['score'])
+
+    return groups
+
+
+# Find contiguous ranges from a set of indices
+def find_contiguous_ranges(indices: set) -> list[tuple]:
+    if not indices:
+        return []
+
+    sorted_indices = sorted(indices)
+    ranges = []
+    start = sorted_indices[0]
+    end = start
+
+    for idx in sorted_indices[1:]:
+        if idx == end + 1:
+            end = idx
+        else:
+            ranges.append((start, end))
+            start = idx
+            end = idx
+
+    ranges.append((start, end))
+    return ranges
+
+
+# Fetch chunks for a contiguous range
+def fetch_chunk_range(conn, collection: str, document: str, start_idx: int, end_idx: int) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT content, chunk_index
+            FROM documents
+            WHERE collection = %s AND document = %s
+              AND chunk_index BETWEEN %s AND %s
+            ORDER BY chunk_index
+            """,
+            (collection, document, start_idx, end_idx)
+        )
+        rows = cur.fetchall()
+
+    return [{"content": row[0], "chunk_index": row[1]} for row in rows]
+
+
 # Format search results for display
 def format_results(results: list[dict]) -> str:
     lines = []
     for i, r in enumerate(results, 1):
         lines.append(f"--- Result {i} (score: {r['score']}) ---")
         lines.append(f"Collection: {r['collection']} | Document: {r['document']}")
-        lines.append(r['content'][:500])
+        lines.append(r['content'])
         lines.append("")
     return "\n".join(lines)
 

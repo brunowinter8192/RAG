@@ -12,8 +12,10 @@ from .embedder import embed_workflow
 
 load_dotenv()
 
+LOG_DIR = Path(__file__).parent / "logs"
+
 logging.basicConfig(
-    filename='src/rag/logs/indexer.log',
+    filename=LOG_DIR / "indexer.log",
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )

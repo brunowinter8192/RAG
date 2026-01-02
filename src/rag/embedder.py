@@ -1,6 +1,7 @@
 # INFRASTRUCTURE
 import logging
 import os
+from pathlib import Path
 from typing import Union
 
 import httpx
@@ -8,8 +9,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+LOG_DIR = Path(__file__).parent / "logs"
+
 logging.basicConfig(
-    filename='src/rag/logs/embedder.log',
+    filename=LOG_DIR / "embedder.log",
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )

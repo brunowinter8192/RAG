@@ -4,8 +4,10 @@ import re
 from pathlib import Path
 from typing import Literal
 
+LOG_DIR = Path(__file__).parent / "logs"
+
 logging.basicConfig(
-    filename='src/rag/logs/chunker.log',
+    filename=LOG_DIR / "chunker.log",
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -54,22 +56,55 @@ def detect_file_type(file_path: str) -> Literal["code", "markdown", "text"]:
     return "text"
 
 
-# Chunk by semantic boundaries (paragraphs, headers)
+# Chunk by semantic boundaries with sentence-awareness
 def chunk_semantic(content: str, chunk_size: int, overlap: int) -> list[str]:
-    paragraphs = re.split(r'\n\n+', content)
-    chunks = []
-    current_chunk = ""
+    separators = ["\n\n", "\n", ". ", "! ", "? ", " "]
+    splits = recursive_split(content, separators, chunk_size)
+    return merge_with_overlap(splits, chunk_size, overlap)
 
-    for para in paragraphs:
-        if len(current_chunk) + len(para) > chunk_size and current_chunk:
-            chunks.append(current_chunk.strip())
-            overlap_text = current_chunk[-overlap:] if overlap > 0 else ""
-            current_chunk = overlap_text + para
+
+# Recursively split text using hierarchical separators
+def recursive_split(text: str, separators: list[str], chunk_size: int) -> list[str]:
+    if len(text) <= chunk_size or not separators:
+        return [text] if text.strip() else []
+
+    sep = separators[0]
+    remaining_seps = separators[1:]
+
+    parts = text.split(sep)
+    result = []
+
+    for i, part in enumerate(parts):
+        if i < len(parts) - 1:
+            part = part + sep
+
+        if len(part) <= chunk_size:
+            result.append(part)
         else:
-            current_chunk += "\n\n" + para if current_chunk else para
+            result.extend(recursive_split(part, remaining_seps, chunk_size))
 
-    if current_chunk.strip():
-        chunks.append(current_chunk.strip())
+    return result
+
+
+# Merge small splits into chunks with overlap
+def merge_with_overlap(splits: list[str], chunk_size: int, overlap: int) -> list[str]:
+    if not splits:
+        return []
+
+    chunks = []
+    current = ""
+
+    for split in splits:
+        if len(current) + len(split) <= chunk_size:
+            current += split
+        else:
+            if current.strip():
+                chunks.append(current.strip())
+            overlap_text = current[-overlap:] if overlap > 0 and current else ""
+            current = overlap_text + split
+
+    if current.strip():
+        chunks.append(current.strip())
 
     return chunks
 
