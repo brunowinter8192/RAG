@@ -119,6 +119,16 @@ Clean up the raw markdown file produced from a PDF conversion.
 INPUT: {input_filepath}
 OUTPUT: {output_filepath}
 
+**CRITICAL EXECUTION PROTOCOL:**
+1. **DIAGNOSE FIRST:** Use regex that tolerates spaces (fuzzy matching for OCR artifacts)
+2. **ONE SCRIPT PER ISSUE:** Separate scripts for each issue type (fix_latex.py, fix_images.py, etc.)
+3. **ITERATE:** Fix one category at a time, verify word count after EACH
+
+**Spaced Artifacts to detect (OCR splits characters):**
+- LaTeX: `\ f r a c`, `\ s u m`, `\ m a t h r m`
+- Images: `! [ ] ( ... )` with spaces between chars
+- Split words: "mod els", "alg orithm"
+
 **Task Requirements:**
 1. **Fix safe artifacts:** Remove broken image refs, encoding errors, HTML entities, LaTeX remnants
 2. **Conservative paragraph merge:** Only merge hyphenated line-end splits

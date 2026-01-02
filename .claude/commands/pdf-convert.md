@@ -32,6 +32,26 @@ indexed
 
 ---
 
+## Phase 0: Server Lifecycle (Start)
+
+### Step 1: Check Embedding Server
+
+```bash
+curl -s localhost:8081/health
+```
+
+If `{"status":"ok"}` → server running, proceed to Phase 1.
+
+### Step 2: Start Server (if not running)
+
+```bash
+./start.sh
+```
+
+Wait 5 seconds, verify with health check again.
+
+---
+
 ## Phase 1: PDF to Markdown
 
 ### Step 1: Validate Input
@@ -180,4 +200,22 @@ PHASE 4: Index
 ==============
 CHUNKS INDEXED: [N]
 VERIFIED: [Yes/No]
+```
+
+---
+
+## Phase 5: Server Lifecycle (Stop)
+
+### Step 1: Kill Embedding Server
+
+```bash
+pkill -f llama-server
+```
+
+### PHASE 5 REPORT
+
+```
+PHASE 5: Server Cleanup
+=======================
+llama-server: stopped
 ```

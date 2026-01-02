@@ -110,12 +110,26 @@ wc -l {input_file}  # Line count
 
 **Step 2: Issue Detection**
 
-| Type | Pattern | Command |
-|------|---------|---------|
-| broken_images | `![](images/.jpg)` | `grep -c '!\[\](images/\.jpg)'` |
-| encoding | `Ð`, `ˇ` | `grep -cE 'Ð\|ˇ'` |
-| html_entities | `&lt;`, `&gt;` | `grep -c '&lt;\|&gt;'` |
-| latex_remnants | `\mathrm`, `\frac` | `grep -cE '\\mathrm\|\\frac'` |
+**IMPORTANT: OCR creates "Spaced Artifacts".**
+When checking for patterns, assume characters might be separated by whitespace.
+
+| Type | Strict Pattern | Fuzzy Regex (USE THIS!) |
+|------|----------------|-------------------------|
+| broken_images | `![](images` | `!\s*\[\s*\]\s*\(` |
+| latex_frac | `\frac` | `\\\s*f\s*r\s*a\s*c` |
+| latex_sum | `\sum` | `\\\s*s\s*u\s*m` |
+| latex_mathrm | `\mathrm` | `\\\s*m\s*a\s*t\s*h\s*r\s*m` |
+| encoding | `Ð`, `ˇ` | `Ð\|ˇ` |
+| html_entities | `&lt;`, `&gt;` | `&lt;\|&gt;` |
+
+**Detection Commands (use fuzzy patterns):**
+```bash
+# Fuzzy LaTeX detection (handles "\ f r a c")
+grep -cE '\\\s*f\s*r\s*a\s*c|\\\s*s\s*u\s*m|\\\s*m\s*a\s*t\s*h' {file}
+
+# Broken images (handles "! [ ] ( images")
+grep -cE '!\s*\[\s*\]\s*\(' {file}
+```
 
 **Do NOT count split_words or broken_lines as "issues to zero out".**
 These require conservative handling, not aggressive regex.
@@ -150,9 +164,13 @@ echo "Word count: $OLD_WC → $NEW_WC"
 
 These are safe operations. Use simple regex/replace.
 
+**IMPORTANT: Use fuzzy patterns for spaced artifacts:**
+
 ```python
-# broken_images
-text = re.sub(r'!\[\]\(images/[^)]*\.jpg\)', '', text)
+import re
+
+# broken_images (handles "! [ ] ( images")
+text = re.sub(r'!\s*\[\s*\]\s*\([^)]*\)', '', text)
 
 # encoding
 text = text.replace('ˇ', '').replace('Ð', '-')
@@ -160,8 +178,15 @@ text = text.replace('ˇ', '').replace('Ð', '-')
 # html_entities
 text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
 
-# latex_remnants
-text = re.sub(r'\\(mathrm|frac|mathbf|prime)\b[^}]*}?', '', text)
+# latex_remnants - FUZZY (handles "\ f r a c", "\ s u m")
+text = re.sub(r'\\\s*f\s*r\s*a\s*c', '', text)
+text = re.sub(r'\\\s*s\s*u\s*m', '', text)
+text = re.sub(r'\\\s*m\s*a\s*t\s*h\s*r\s*m', '', text)
+text = re.sub(r'\\\s*m\s*a\s*t\s*h\s*b\s*f', '', text)
+text = re.sub(r'\\\s*p\s*r\s*i\s*m\s*e', '', text)
+
+# Clean up orphaned braces after LaTeX removal
+text = re.sub(r'\{\s*\}', '', text)
 ```
 
 ---
