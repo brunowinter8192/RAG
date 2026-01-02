@@ -279,3 +279,34 @@ from src.rag.retriever import list_documents_workflow
 results = list_documents_workflow("specification")
 # [{"document": "specification.md", "chunks": 402}]
 ```
+
+### read_document_workflow
+
+Read continuous text from a document starting at a specific chunk.
+
+```python
+from src.rag.retriever import read_document_workflow
+
+result = read_document_workflow("specification", "specification.md", start_chunk=50, num_chunks=10)
+# {
+#     "content": "...",
+#     "collection": "specification",
+#     "document": "specification.md",
+#     "start_chunk": 50,
+#     "num_chunks": 10
+# }
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| collection | str | required | Collection name |
+| document | str | required | Document name |
+| start_chunk | int | required | Chunk index to start reading from |
+| num_chunks | int | 5 | Number of chunks to read (max 20) |
+
+### Helper Functions
+
+**merge_chunks(chunks):** Merge chunks with overlap deduplication. Finds common suffix/prefix between adjacent chunks and removes duplicates.
+
+**find_overlap(text1, text2, max_overlap=300):** Find the longest suffix of text1 that matches prefix of text2. Returns overlap size in characters.

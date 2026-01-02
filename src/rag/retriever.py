@@ -60,6 +60,19 @@ def list_documents_workflow(collection: str) -> list[dict]:
     return results
 
 
+def read_document_workflow(collection: str, document: str, start_chunk: int, num_chunks: int = 5) -> dict:
+    conn = get_connection()
+    chunks = fetch_chunk_range(conn, collection, document, start_chunk, start_chunk + num_chunks - 1)
+    conn.close()
+    return {
+        'content': merge_chunks(chunks),
+        'collection': collection,
+        'document': document,
+        'start_chunk': start_chunk,
+        'num_chunks': len(chunks)
+    }
+
+
 # FUNCTIONS
 
 # Get PostgreSQL connection
@@ -138,7 +151,7 @@ def expand_results(conn, results: list[dict], neighbors: int) -> list[dict]:
         for start_idx, end_idx in ranges:
             chunks = fetch_chunk_range(conn, collection, document, start_idx, end_idx)
             expanded.append({
-                'content': "\n\n".join([c['content'] for c in chunks]),
+                'content': merge_chunks(chunks),
                 'collection': collection,
                 'document': document,
                 'chunk_index': start_idx,
@@ -147,6 +160,26 @@ def expand_results(conn, results: list[dict], neighbors: int) -> list[dict]:
 
     expanded.sort(key=lambda r: (r['collection'], r['document'], r['chunk_index']))
     return expanded
+
+
+# Merge chunks with overlap deduplication
+def merge_chunks(chunks: list[dict]) -> str:
+    if not chunks:
+        return ""
+
+    result = chunks[0]['content']
+    for i in range(1, len(chunks)):
+        overlap = find_overlap(result, chunks[i]['content'])
+        result += "\n\n" + chunks[i]['content'][overlap:]
+    return result
+
+
+# Find longest suffix of text1 that is prefix of text2
+def find_overlap(text1: str, text2: str, max_overlap: int = 300) -> int:
+    for size in range(min(len(text1), len(text2), max_overlap), 0, -1):
+        if text1[-size:] == text2[:size]:
+            return size
+    return 0
 
 
 # Group results by document and collect all needed indices

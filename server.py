@@ -7,7 +7,8 @@ from mcp.types import TextContent
 from src.rag.retriever import (
     search_workflow, format_results,
     list_collections_workflow, format_collections,
-    list_documents_workflow, format_documents
+    list_documents_workflow, format_documents,
+    read_document_workflow
 )
 
 mcp = FastMCP("RAG")
@@ -42,6 +43,19 @@ def list_documents(
     """List all documents in a collection with their chunk counts. Use to see what's inside a specific collection."""
     results = list_documents_workflow(collection)
     return [TextContent(type="text", text=format_documents(results))]
+
+
+@mcp.tool
+def read_document(
+    collection: Annotated[str, Field(description="Collection name")],
+    document: Annotated[str, Field(description="Document name (e.g. 'chunks.md')")],
+    start_chunk: Annotated[int, Field(description="Chunk index to start reading from")],
+    num_chunks: Annotated[int, Field(description="Number of chunks to read (1-20)")] = 5
+) -> list[TextContent]:
+    """Read continuous text from a document starting at a specific chunk. Use after search to read more context around a found chunk."""
+    result = read_document_workflow(collection, document, start_chunk, min(num_chunks, 20))
+    text = f"Document: {result['document']} | Chunks {result['start_chunk']}-{result['start_chunk'] + result['num_chunks'] - 1}\n\n{result['content']}"
+    return [TextContent(type="text", text=text)]
 
 
 if __name__ == "__main__":
