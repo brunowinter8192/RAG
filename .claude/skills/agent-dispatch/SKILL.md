@@ -110,7 +110,8 @@ After PDF-to-markdown conversion when postprocess.py has run but semantic issues
 
 ### How to Prompt
 
-**CRITICAL: Define cleanup scope explicitly**
+**Goal: Clean artifacts but PRESERVE content integrity.**
+It is better to leave a split word unfixed than to merge two separate words.
 
 ```
 Clean up the raw markdown file produced from a PDF conversion.
@@ -119,49 +120,46 @@ INPUT: {input_filepath}
 OUTPUT: {output_filepath}
 
 **Task Requirements:**
-1. **Merge broken paragraphs:** Identify sentences split across lines (hard wraps)
-   and merge them into single paragraphs. Line count MUST DROP significantly.
-2. **Fix OCR artifacts:** Correct split words ('mod els'), broken hyphens
-   ('learning- based'), encoding errors ('Ð', 'ˇ').
-3. **Remove broken elements:** Empty image refs `![](images/.jpg)`, LaTeX remnants.
+1. **Fix safe artifacts:** Remove broken image refs, encoding errors, HTML entities, LaTeX remnants
+2. **Conservative paragraph merge:** Only merge hyphenated line-end splits
+3. **Dictionary-based word healing:** Only merge split words if result is valid English
+
+**Validation Requirements (MANDATORY):**
+1. Capture word count BEFORE and AFTER
+2. Word count must be stable (+/- 1%)
+3. Check for run-on words (iscentral, tothe, ofthe)
+4. If word count drops >2% or run-on words found → ABORT
 
 **Success Metric:**
-- Paragraphs flow as continuous text (no newlines mid-sentence)
-- Pattern counts (broken words, encoding, broken lines) drop to near-zero
-- Report: "artifact_type: X -> Y" for each type found
-
-EXISTING SCRIPT: ./debug/clean_{name}.py
-(Check if exists, use and extend if so)
+- ZERO run-on words (no "iscentral", "toeffective")
+- Word count STABLE (+/- 1%) ← KEY METRIC
+- Report: "patterns found" vs "patterns fixed" (145 found, 2 fixed = SUCCESS)
+- Fixing few real artifacts while skipping valid grammar = CORRECT behavior
 ```
 
 **With known issues (faster):**
 ```
 Known issues:
-- OCR: [describe specific patterns found, e.g., "1/l confusion in identifiers"]
-- LaTeX: [describe remnants, e.g., "mathbf, prime symbols"]
-- Structure: [describe structural issues, e.g., "broken table aliases"]
+- OCR: [describe specific patterns found]
+- LaTeX: [describe remnants]
 ```
 
 ### What Agent Does
 
-1. Check if `debug/clean_{name}.py` exists
-2. Sample file with `head`/`sed -n` to understand structure
-3. If script exists → analyze remaining issues → extend script
-4. If not → create new cleanup script
-5. Run script → outputs `{file}_cleaned.md`
-6. Verify with `grep`/`diff`
-7. Report: issues found, fixes applied, output file path
+1. Diagnose: Scan for all issue types (broken_images, encoding, split_words, etc.)
+2. Fix Loop: For each issue type, create `debug/fix_{issue_type}.py`, run, verify → 0
+3. Report: Per-issue counts (before → after), scripts created, final status
 
 ### Iteration
 
 If remaining issues after first run:
 - Re-run agent with same prompt
-- Agent analyzes remaining issues
-- Agent extends its OWN script (never manual extension)
-- Repeat until clean
+- Agent analyzes remaining issues, extends relevant fix scripts
+- Repeat until all issue counts → 0
 
 ### After Agent Returns
 
-1. Spot check: `grep -c "{patterns_from_known_issues}" {cleaned_file}`
-2. If count > 0 → re-run agent (iteration)
-3. If count = 0 → done, move cleaned file to final location
+1. **Word count check:** Compare input vs output word count (must be stable +/- 1%)
+2. **Run-on word check:** `grep -oE '\b(isthe|tothe|ofthe|inthe|iscentral)\b' {cleaned_file}`
+3. If run-on words found → re-run agent (iteration) or manual fix
+4. If word count stable AND no run-on words → done
