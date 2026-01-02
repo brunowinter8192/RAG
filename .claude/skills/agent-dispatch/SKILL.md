@@ -130,9 +130,19 @@ OUTPUT: {output_filepath}
 - Split words: "mod els", "alg orithm"
 
 **Task Requirements:**
-1. **Fix safe artifacts:** Remove broken image refs, encoding errors, HTML entities, LaTeX remnants
+1. **Fix safe artifacts:**
+   - LaTeX: **UNWRAP** arguments, do not delete them
+     (e.g., `\textbf{foo}` -> `foo`, NOT empty string)
+     Only delete standalone command names without arguments.
+   - Images: Remove broken references.
+   - Encoding: Replace corrupted characters.
+   - HTML entities: Decode to plain text.
 2. **Conservative paragraph merge:** Only merge hyphenated line-end splits
-3. **Dictionary-based word healing:** Only merge split words if result is valid English
+3. **Dictionary-based word healing:**
+   - **MANDATORY:** Do NOT use a hardcoded list of ~50 words.
+   - Load `/usr/share/dict/words` OR build vocabulary from
+     the document itself (all words length > 3).
+   - Merge split words only if result is in comprehensive vocabulary.
 
 **Validation Requirements (MANDATORY):**
 1. Capture word count BEFORE and AFTER

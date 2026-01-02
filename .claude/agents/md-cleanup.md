@@ -178,14 +178,20 @@ text = text.replace('ˇ', '').replace('Ð', '-')
 # html_entities
 text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
 
-# latex_remnants - FUZZY (handles "\ f r a c", "\ s u m")
+# latex_remnants - UNWRAP arguments, keep content
+# Step 1: UNWRAP commands with arguments (keep content inside braces)
+text = re.sub(r'\\\w+\s*\{([^}]*)\}', r'\1', text)
+
+# Step 2: Remove standalone commands without arguments (fuzzy for OCR)
 text = re.sub(r'\\\s*f\s*r\s*a\s*c', '', text)
 text = re.sub(r'\\\s*s\s*u\s*m', '', text)
 text = re.sub(r'\\\s*m\s*a\s*t\s*h\s*r\s*m', '', text)
 text = re.sub(r'\\\s*m\s*a\s*t\s*h\s*b\s*f', '', text)
+text = re.sub(r'\\\s*t\s*e\s*x\s*t\s*b\s*f', '', text)
+text = re.sub(r'\\\s*t\s*e\s*x\s*t\s*i\s*t', '', text)
 text = re.sub(r'\\\s*p\s*r\s*i\s*m\s*e', '', text)
 
-# Clean up orphaned braces after LaTeX removal
+# Step 3: Clean up orphaned braces
 text = re.sub(r'\{\s*\}', '', text)
 ```
 
@@ -209,7 +215,9 @@ text = re.sub(r'([a-z,])\n([a-z])', r'\1 \2', text)
 
 ## Phase 5: DICTIONARY-BASED SPLIT WORD HEALING
 
-**MANDATORY: Use dictionary validation WITH stop-word check**
+**MANDATORY: Use dynamic vocabulary WITH stop-word check**
+
+Do NOT use a hardcoded list of ~50 words. Build vocabulary dynamically.
 
 ```python
 import re
@@ -224,28 +232,30 @@ STOP_WORDS = {
     'might', 'must', 'can', 'this', 'that', 'these', 'those', 'with'
 }
 
-# Valid words that can result from merging split fragments
-VALID_WORDS = {
-    # Technical/Academic (commonly split in PDFs)
-    'models', 'model', 'performance', 'database', 'databases', 'algorithm',
-    'algorithms', 'parameter', 'parameters', 'function', 'functions',
-    'prediction', 'predictions', 'evaluation', 'processing', 'learning',
-    'training', 'query', 'queries', 'feature', 'features', 'vector',
-    'vectors', 'matrix', 'network', 'networks', 'accuracy', 'threshold',
-    'system', 'systems', 'method', 'methods', 'result', 'results',
-    'analysis', 'approach', 'structure', 'structures', 'implementation',
-    'configuration', 'optimization', 'representation', 'classification',
-    'information', 'application', 'applications', 'workload', 'workloads',
-    'execution', 'resource', 'resources', 'baseline', 'benchmark',
-    # Add domain-specific words as encountered
-}
+def load_vocab(text):
+    """Build comprehensive vocabulary from system dict + document."""
+    vocab = set()
 
-def should_merge(w1, w2):
+    # 1. System dictionary (comprehensive English words)
+    try:
+        with open('/usr/share/dict/words') as f:
+            vocab = set(w.strip().lower() for w in f if len(w.strip()) > 3)
+    except FileNotFoundError:
+        pass
+
+    # 2. Document vocabulary (words appearing correctly in this document)
+    # Extract all words length > 3 that appear without spaces
+    doc_words = re.findall(r'\b[a-z]{4,}\b', text.lower())
+    vocab.update(doc_words)
+
+    return vocab
+
+def should_merge(w1, w2, vocab):
     """Decide whether to merge two word fragments."""
     combined = (w1 + w2).lower()
 
-    # Rule 1: Combined must be a valid English word
-    if combined not in VALID_WORDS:
+    # Rule 1: Combined must be in vocabulary
+    if combined not in vocab:
         return False
 
     # Rule 2: Skip if BOTH are stop-words (preserve "of the", "in the")
@@ -256,12 +266,13 @@ def should_merge(w1, w2):
 
 def heal_split_words(text):
     """Merge split words while preserving valid grammar."""
+    vocab = load_vocab(text)
     pattern = r'\b([a-z]+) ([a-z]+)\b'
     fixes = []
 
     def try_join(match):
         left, right = match.group(1), match.group(2)
-        if should_merge(left, right):
+        if should_merge(left, right, vocab):
             fixes.append(f"'{left} {right}' -> '{left}{right}'")
             return left + right
         return match.group(0)
@@ -278,9 +289,10 @@ def heal_split_words(text):
 ```
 
 **Key Logic:**
-- `mod els` → "models" in VALID_WORDS, "mod" NOT in STOP_WORDS → ✓ MERGE
+- `mod els` → "models" in vocab (system dict or doc), "mod" NOT in STOP_WORDS → ✓ MERGE
 - `of the` → both in STOP_WORDS → ✗ SKIP (preserve grammar)
-- `per formance` → "performance" in VALID_WORDS → ✓ MERGE
+- `per formance` → "performance" in vocab → ✓ MERGE
+- `data base` → "database" in vocab → ✓ MERGE (would have been missed with hardcoded list)
 
 **Reporting:**
 - Print "patterns found" vs "patterns fixed"
