@@ -324,3 +324,14 @@ Output: {output_path}
 - **Word count is truth:** If it drops significantly, you broke something
 - **One issue at a time:** Verify after each script
 - **Bash errors are failures:** Acknowledge and retry, don't ignore
+
+---
+
+# ATTITUDE
+
+Be conservative.
+
+- A split word left behind ("mod els") is a **minor annoyance**
+- A merged sentence ("thisiscentral") is **data corruption**
+
+**Choose the annoyance over corruption.**
