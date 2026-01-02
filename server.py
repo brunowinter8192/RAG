@@ -19,8 +19,8 @@ mcp = FastMCP("RAG")
 @mcp.tool
 def search(
     query: Annotated[str, Field(description="Search query to find relevant documents or code")],
+    collection: Annotated[str, Field(description="Collection to search in (use list_collections to see available)")],
     top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
-    collection: Annotated[str | None, Field(description="Filter by collection name (folder in data/documents/)")] = None,
     document: Annotated[str | None, Field(description="Filter by document name (e.g. 'chapter1.md')")] = None,
     neighbors: Annotated[int, Field(description="Include N chunks before/after each match for context (0-2)")] = 0
 ) -> list[TextContent]:
