@@ -148,14 +148,20 @@ def expand_results(conn, results: list[dict], neighbors: int) -> list[dict]:
 
     for (collection, document), group_data in groups.items():
         ranges = find_contiguous_ranges(group_data['indices'])
+        hit_scores = group_data['hit_scores']
+
         for start_idx, end_idx in ranges:
             chunks = fetch_chunk_range(conn, collection, document, start_idx, end_idx)
+            range_score = max(
+                (score for idx, score in hit_scores.items() if start_idx <= idx <= end_idx),
+                default=0
+            )
             expanded.append({
                 'content': merge_chunks(chunks),
                 'collection': collection,
                 'document': document,
                 'chunk_index': start_idx,
-                'score': group_data['max_score']
+                'score': range_score
             })
 
     expanded.sort(key=lambda r: (r['collection'], r['document'], r['chunk_index']))
@@ -182,18 +188,18 @@ def find_overlap(text1: str, text2: str, max_overlap: int = 300) -> int:
     return 0
 
 
-# Group results by document and collect all needed indices
+# Group results by document and collect all needed indices with hit scores
 def group_by_document(results: list[dict], neighbors: int) -> dict:
     groups = {}
     for r in results:
         key = (r['collection'], r['document'])
         if key not in groups:
-            groups[key] = {'indices': set(), 'max_score': 0}
+            groups[key] = {'indices': set(), 'hit_scores': {}}
 
         idx = r['chunk_index']
+        groups[key]['hit_scores'][idx] = r['score']
         for i in range(max(0, idx - neighbors), idx + neighbors + 1):
             groups[key]['indices'].add(i)
-        groups[key]['max_score'] = max(groups[key]['max_score'], r['score'])
 
     return groups
 
