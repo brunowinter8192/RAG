@@ -86,42 +86,23 @@ STATUS: [Success/Failed]
 
 Agent analyzes raw/{stem}.md, creates cleanup script, outputs {stem}.md in parent folder.
 
+### Step 0: Activate agent-dispatch Skill (if not active)
+
+**BEFORE running the subagent, you MUST activate the agent-dispatch skill:**
+```
+Skill('agent-dispatch')
+```
+Skip this step if agent-dispatch is already active in this session.
+
 ### Step 1: Run md-cleanup-master
 
-```
-Task(
-  subagent_type="md-cleanup-master",
-  prompt="Clean the PDF-converted markdown at ./data/documents/$STEM/raw/$STEM.md. Output to ./data/documents/$STEM/$STEM.md"
-)
-```
+Use the Task tool with subagent_type='md-cleanup-master'.
 
 Agent will:
 1. Sample file structure
 2. Create `debug/clean_$STEM.py`
 3. Run script → `$STEM.md` (in parent folder)
 4. Report issues fixed
-
-### Step 2: Verify
-
-```bash
-grep -c "0_\|1_\|\\\\mathbf" ./data/documents/$STEM/$STEM.md
-```
-
-If count > 0: Re-run agent (it will extend its script)
-If count = 0: Proceed
-
-### PHASE 2 REPORT
-
-```
-PHASE 2: LLM Cleanup
-====================
-SCRIPT: debug/clean_$STEM.py
-OUTPUT: data/documents/$STEM/$STEM.md
-REMAINING ISSUES: [N]
-STATUS: [Success/Failed]
-```
-
----
 
 **STOP** - Ask: "Proceed to Phase 3 (Chunk)?"
 
@@ -200,15 +181,3 @@ PHASE 4: Index
 CHUNKS INDEXED: [N]
 VERIFIED: [Yes/No]
 ```
-
----
-
-## Complete
-
-Document is now searchable via RAG MCP server.
-
-**Files created:**
-- `data/documents/$STEM/raw/$STEM.md` - After MinerU + generic postprocess
-- `data/documents/$STEM/$STEM.md` - After LLM cleanup
-- `data/documents/$STEM/chunks.json` - Chunked for indexing
-- `debug/clean_$STEM.py` - Reusable cleanup script

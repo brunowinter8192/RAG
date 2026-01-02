@@ -184,3 +184,23 @@ FILE: /path/to/mapping_config.py
 LINES: 14-16
 RELEVANT: threshold value
 ```
+
+---
+
+## Known Pitfalls
+
+**1. Path Hallucinations**
+- **Symptom:** `Tool_use_error: File does not exist`
+- **Fix:** Only read files explicitly listed in your previous `find` or `ls` output
+
+**2. Serial Reads (Latency)**
+- **Symptom:** Multiple sequential Read calls for related files
+- **Fix:** Read related config files in a single step when possible
+
+**3. Missing File Chase**
+- **Symptom:** 5+ attempts to find a file that doesn't exist
+- **Fix:** If a referenced file is missing after 2 search attempts, log as `MISSING: <file>` and continue
+
+**4. Redundant grep + read**
+- **Symptom:** grep output followed by full file read
+- **Fix:** Use `grep -C 5` for context. Only read full file if context is insufficient

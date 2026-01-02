@@ -42,22 +42,22 @@ Parallel agents are only efficient with **disjoint datasets**.
 
 ### When to Use
 
-**Einfache Regel:**
-- **File-Pfad vom User** → Direkt lesen (kein Agent)
-- **Directory-Pfad vom User** → Agent (Inhalt unbekannt)
+**Simple Rule:**
+- **User provides file path** → Read directly (no agent)
+- **User provides directory path** → Use agent (content unknown)
 
-**Besser einen Agent zu viel als einen zu wenig.**
+**Better one agent too many than one too few.**
 
 Use agent when:
-- User gibt Directory statt File
-- "Wo ist X?" / "Wie funktioniert Y?" Fragen
-- Vergleiche zwischen Directories
-- >3 unbekannte Files durchsuchen
+- User gives directory instead of file
+- "Where is X?" / "How does Y work?" questions
+- Comparing between directories
+- Searching >3 unknown files
 
 Do NOT use agent when:
-- User gibt exakten File-Pfad
-- Einzelne bekannte Files lesen
-- Gezielte Grep/Glob mit klarem Scope
+- User provides exact file path
+- Reading single known files
+- Targeted grep/glob with clear scope
 
 ### How to Prompt
 
@@ -77,11 +77,6 @@ Do NOT use agent when:
 3. Constraints: "Exclude *.csv, *.png" or "Limit depth to 2"
 4. Context if needed
 5. **Follow imports:** "If code imports from external modules, locate and READ those files"
-
-**Tool Recommendations:**
-- "Use `find` to locate files. Do NOT use `ls -R`"
-- For CSV value search: "Use awk for numeric comparison, not grep"
-- For large result sets: "Count matches first before printing"
 
 ### After Agent Returns
 
@@ -103,25 +98,7 @@ Agent may:
 **If you catch yourself about to respond without verification:**
 - STOP
 - Read at least 1 file first
-- OR state explicitly: "Agent-Output nicht verifiziert"
-
-### Known Pitfalls
-
-**1. Path Hallucinations**
-- **Symptom:** `Tool_use_error: File does not exist`
-- **Fix in prompt:** "Only read files explicitly listed in your previous `find` or `ls` output"
-
-**2. Serial Reads (Latency)**
-- **Symptom:** Multiple sequential Read calls for related files
-- **Fix in prompt:** "Read related config files in a single step when possible"
-
-**3. Missing File Chase**
-- **Symptom:** 5+ attempts to find a file that doesn't exist
-- **Fix in prompt:** "If a referenced file is missing after 2 search attempts, log as 'MISSING: <file>' and continue"
-
-**4. Redundant grep + read**
-- **Symptom:** grep output followed by full file read
-- **Fix in prompt:** "Use grep with `-C 5` context. Only read full file if context is insufficient"
+- OR state explicitly: "Agent output not verified"
 
 ---
 
@@ -133,22 +110,28 @@ After PDF-to-markdown conversion when postprocess.py has run but semantic issues
 
 ### How to Prompt
 
-**CRITICAL CONSTRAINTS (always include):**
+**CRITICAL: Define cleanup scope explicitly**
+
 ```
-Clean the PDF-converted markdown at {filepath}
+Clean up the raw markdown file produced from a PDF conversion.
 
-EXISTING SCRIPT: debug/clean_{name}.py exists from last session. Use and extend it if needed.
-(Or: No existing script. Create new one.)
-
-SAFETY CONSTRAINTS:
-1. Before ANY changes: verify line count (wc -l). After changes: check again.
-   If line count drops >1%, REVERT immediately (git checkout).
-2. Do NOT read full file (>250KB). Use grep -nC 3 to inspect patterns locally.
-3. Regex MUST be surgical: use word boundaries (\bpattern\b).
-   NEVER use greedy wildcards (.*) that span lines.
-4. After cleanup: verify structural syntax intact (operators, keywords preserved).
-
+INPUT: {input_filepath}
 OUTPUT: {output_filepath}
+
+**Task Requirements:**
+1. **Merge broken paragraphs:** Identify sentences split across lines (hard wraps)
+   and merge them into single paragraphs. Line count MUST DROP significantly.
+2. **Fix OCR artifacts:** Correct split words ('mod els'), broken hyphens
+   ('learning- based'), encoding errors ('Ð', 'ˇ').
+3. **Remove broken elements:** Empty image refs `![](images/.jpg)`, LaTeX remnants.
+
+**Success Metric:**
+- Paragraphs flow as continuous text (no newlines mid-sentence)
+- Pattern counts (broken words, encoding, broken lines) drop to near-zero
+- Report: "artifact_type: X -> Y" for each type found
+
+EXISTING SCRIPT: ./debug/clean_{name}.py
+(Check if exists, use and extend if so)
 ```
 
 **With known issues (faster):**
@@ -158,12 +141,6 @@ Known issues:
 - LaTeX: [describe remnants, e.g., "mathbf, prime symbols"]
 - Structure: [describe structural issues, e.g., "broken table aliases"]
 ```
-
-**Pattern for prompting:**
-1. Always include SAFETY CONSTRAINTS block
-2. Mention existing script if one exists (agent extends it)
-3. Add known issues if available (skips discovery phase)
-4. Specify output filename
 
 ### What Agent Does
 
