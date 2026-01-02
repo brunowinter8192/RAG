@@ -204,9 +204,11 @@ VERIFIED: [Yes/No]
 
 ---
 
-## Phase 5: Server Lifecycle (Stop)
+## Phase 5: Server Lifecycle (End)
 
-### Step 1: Kill Embedding Server
+**STOP** - Ask: "Stop llama-server or keep running for MCP?"
+
+### If Stop:
 
 ```bash
 pkill -f llama-server
@@ -215,7 +217,7 @@ pkill -f llama-server
 ### PHASE 5 REPORT
 
 ```
-PHASE 5: Server Cleanup
-=======================
-llama-server: stopped
+PHASE 5: Server Lifecycle
+=========================
+llama-server: [stopped / kept running for MCP]
 ```

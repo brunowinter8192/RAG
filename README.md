@@ -163,6 +163,8 @@ volumes:
 
 See: https://github.com/docker-library/postgres/pull/1259
 
+Host path: `/var/lib/docker/volumes/rag_rag_postgres_data/_data`
+
 ### Checking PostgreSQL: Docker vs CLI
 
 `psql --version` shows the **client** version (Homebrew), not the server.
