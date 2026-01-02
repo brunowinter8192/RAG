@@ -137,7 +137,7 @@ import sys
 sys.path.insert(0, '.')
 from src.rag.chunker import chunk_workflow
 
-chunks = chunk_workflow("data/documents/$STEM/$STEM.md", strategy="semantic")
+chunks = chunk_workflow("data/documents/$STEM/$STEM.md")
 print(f"Created {len(chunks)} chunks")
 ```
 

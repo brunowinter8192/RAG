@@ -11,13 +11,9 @@ Vector-based retrieval system exposing search via MCP for Claude Code agents.
 | Vector DB | PostgreSQL 18 + pgvector 0.8 | Production-ready, native SQL, HNSW index support |
 | MCP Framework | FastMCP | Consistent with other MCP servers |
 
-### Chunking Strategies
+### Chunking
 
-| Content Type | Strategy |
-|--------------|----------|
-| Docs/MD | Semantic chunking (paragraph-aware) |
-| Code | Function-level (AST-based where possible) |
-| Structured (JSON/YAML) | Keep intact or split by top-level keys |
+Semantic chunking: Splits at paragraph boundaries (`\n\n`), then sentences, with 200 char overlap.
 
 ## Quick Start
 
