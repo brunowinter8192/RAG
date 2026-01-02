@@ -56,6 +56,22 @@ Before ANY action, ask yourself:
 - **Plan-File** (`.claude/plans/`) - Within a session (hours)
 - **TodoWrite** - Within an iteration (minutes)
 
+### Beads CLI Gotchas
+
+**`bd edit --title`** opens vim (interactive) → **FAILS in Claude Code**
+
+**Workarounds:**
+- Rename scope? → `bd comment <id> "New scope: ..."`
+- Merge beads? → `bd close <id> --reason="Merged into <other-id>"`
+- Create with full info: `bd create --title "..." --type=... --description="..."`
+
+**Commands that WORK:**
+- `bd list` / `bd show <id>`
+- `bd create --title "..." --type=...`
+- `bd comment <id> "..."`
+- `bd close <id> --reason="..."`
+- `bd sync`
+
 ## Automation Stellschrauben (Hierarchy)
 
 Six layers for Claude Code automation, from project-wide to atomic:
