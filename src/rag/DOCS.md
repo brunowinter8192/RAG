@@ -37,11 +37,10 @@ embeddings = embed_workflow(["Text 1", "Text 2"])
 
 **Token Truncation:**
 
-Texts are automatically truncated to MAX_TOKENS (4000) before embedding using the llama.cpp `/tokenize` endpoint.
+Texts are automatically truncated to ~MAX_TOKENS (4000) before embedding using character-based estimation (no API calls).
 
 ```python
-count_tokens(text: str) -> int          # Count tokens via API
-truncate_to_tokens(text: str, max: int) # Truncate if needed
+truncate_to_max_tokens(text: str, max: int) -> str  # Truncate using char estimate
 ```
 
 **Environment Variables (.env):**
@@ -49,12 +48,12 @@ truncate_to_tokens(text: str, max: int) # Truncate if needed
 |----------|---------|-------------|
 | EMBEDDING_URL | http://localhost:8081/v1/embeddings | llama.cpp server endpoint |
 | EMBEDDING_MODEL | Qwen3-Embedding-8B | Model name for API |
-| TOKENIZE_URL | http://localhost:8081/tokenize | Tokenization endpoint |
 
 **Constants:**
 | Constant | Value | Description |
 |----------|-------|-------------|
 | MAX_TOKENS | 4000 | Max tokens per embedding request |
+| CHARS_PER_TOKEN | 3 | Conservative char/token ratio for truncation |
 
 ---
 
