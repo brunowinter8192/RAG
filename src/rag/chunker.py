@@ -105,7 +105,7 @@ def enrich_chunks(chunks: list[str], file_path: str) -> list[dict]:
         {
             "content": chunk,
             "source": file_path,
-            "chunk_index": i,
+            "index": i,
             "total_chunks": len(chunks)
         }
         for i, chunk in enumerate(chunks)
