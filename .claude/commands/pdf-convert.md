@@ -32,6 +32,17 @@ indexed
 
 ---
 
+## STOP Point Rule
+
+**CRITICAL:** After each phase report, there is a `**STOP**` marker.
+
+- **STOP = END OF RESPONSE.** Do not continue to next phase.
+- Wait for user to say "weiter", "proceed", "phase X", etc.
+- "weiter" = proceed to NEXT phase only, not "run all remaining phases"
+- NEVER batch multiple phases in one response
+
+---
+
 ## Phase 0: Server Lifecycle (Start)
 
 ### Step 1: Check Embedding Server

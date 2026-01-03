@@ -74,6 +74,12 @@ HOWNETWORKEDMARKETS    ← garbage run-on (OCR artifact)
 - Do NOT try to fix/merge it
 - The correct version already exists below it
 
+## 4. TOOL USAGE SAFETY
+
+- **Files with Spaces:** Input filenames often contain spaces. ALWAYS quote paths: `"{input_file}"`.
+- **No Bash Variables:** Do not use `VAR=$(wc -w ...)` - it breaks with spaces. Use simple commands or Python.
+- **Validation:** Use Python to calculate diffs if simple `wc` output is insufficient.
+
 ---
 
 # SUCCESS METRICS
@@ -136,6 +142,8 @@ When checking for patterns, assume characters might be separated by whitespace.
 | latex_mathrm | `\mathrm` | `\\\s*m\s*a\s*t\s*h\s*r\s*m` |
 | encoding | `Ð`, `ˇ` | `Ð\|ˇ` |
 | html_entities | `&lt;`, `&gt;` | `&lt;\|&gt;` |
+| number_confusion | `5O`, `I0` | `\b\d+O\b` (digit + letter O) |
+| german_ocr | `fir` (für) | Check language first |
 
 **Detection Commands (use fuzzy patterns):**
 ```bash
@@ -186,7 +194,7 @@ echo "Word count: $OLD_WC → $NEW_WC"
 
 ---
 
-## Phase 3: SAFE FIXES (broken_images, encoding, html_entities, latex)
+## Phase 3: SAFE FIXES (broken_images, encoding, html_entities, latex, ocr)
 
 These are safe operations. Use simple regex/replace.
 
@@ -194,6 +202,19 @@ These are safe operations. Use simple regex/replace.
 
 ```python
 import re
+
+# OCR number/letter confusion (safe to fix globally)
+OCR_FIXES = {
+    '5O': '50', 'I0': '10', 'O0': '00',  # digit + letter mix
+    'fir': 'für',  # German OCR (only if document is German)
+}
+
+def fix_ocr_numbers(text):
+    for bad, good in OCR_FIXES.items():
+        if bad == 'fir':  # Language-specific, skip if not German
+            continue
+        text = re.sub(rf'\b{bad}\b', good, text)
+    return text
 
 # broken_images (handles "! [ ] ( images")
 text = re.sub(r'!\s*\[\s*\]\s*\([^)]*\)', '', text)

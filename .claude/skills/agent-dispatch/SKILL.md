@@ -121,12 +121,14 @@ OUTPUT: {output_filepath}
 
 **CRITICAL EXECUTION PROTOCOL:**
 1. **FRESH SCRIPTS ONLY:** Do NOT reuse existing scripts in `debug/`. Always create NEW scripts named `debug/fix_{issue}_{stem}.py`. Old scripts may have different logic.
-2. **DUPLICATE DETECTION:** Check for OCR duplicate headers:
+2. **PYTHON FOR METRICS:** Do NOT use Bash variables for word counting (`VAR=$(wc -w...)` fails with spaces in filenames). Use simple `wc -w "file"` or a Python script.
+3. **LANGUAGE AWARENESS:** Check document language first (German/English). Apply language-specific OCR fixes (e.g., `fir`→`für` in German, `5O`→`50`).
+4. **DUPLICATE DETECTION:** Check for OCR duplicate headers:
    - Pattern: Line N is garbage run-on (`HOWNETWORKEDMARKETS`), Line N+1 is correct (`# HOW NETWORKED MARKETS...`)
    - Action: DELETE the garbage line completely (do not try to fix it)
-3. **DIAGNOSE FIRST:** Use regex that tolerates spaces (fuzzy matching for OCR artifacts)
-4. **ONE SCRIPT PER ISSUE:** Separate scripts for each issue type (fix_latex.py, fix_images.py, etc.)
-5. **ITERATE:** Fix one category at a time, verify word count after EACH
+5. **DIAGNOSE FIRST:** Use regex that tolerates spaces (fuzzy matching for OCR artifacts)
+6. **ONE SCRIPT PER ISSUE:** Separate scripts for each issue type (fix_latex.py, fix_images.py, etc.)
+7. **ITERATE:** Fix one category at a time, verify word count after EACH
 
 **Spaced Artifacts to detect (OCR splits characters):**
 - LaTeX: `\ f r a c`, `\ s u m`, `\ m a t h r m`
