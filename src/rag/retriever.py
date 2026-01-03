@@ -223,6 +223,7 @@ def expand_results(conn, results: list[dict], neighbors: int) -> list[dict]:
                 'collection': collection,
                 'document': document,
                 'chunk_index': start_idx,
+                'chunk_end': end_idx,
                 'score': range_score
             })
 
@@ -311,7 +312,11 @@ def format_results(results: list[dict]) -> str:
     lines = []
     for i, r in enumerate(results, 1):
         lines.append(f"--- Result {i} (score: {r['score']}) ---")
-        lines.append(f"Collection: {r['collection']} | Document: {r['document']} | Chunk: {r['chunk_index']}")
+        if 'chunk_end' in r and r['chunk_end'] != r['chunk_index']:
+            chunk_info = f"Chunks: {r['chunk_index']}-{r['chunk_end']}"
+        else:
+            chunk_info = f"Chunk: {r['chunk_index']}"
+        lines.append(f"Collection: {r['collection']} | Document: {r['document']} | {chunk_info}")
         lines.append(r['content'])
         lines.append("")
     return "\n".join(lines)
