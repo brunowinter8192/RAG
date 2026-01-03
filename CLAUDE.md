@@ -1,18 +1,5 @@
 # CLAUDE.MD - MCP Server Engineering Reference
 
-## HOOK COMPLIANCE
-
-When a hook (system-reminder from UserPromptSubmit) commands you to do something (e.g., "Activate Skill(...)"), you MUST follow it. No exceptions.
-
----
-
-## CODE PRINCIPLES
-
-**LEAN** | **SOLID** | **DRY** | **KISS** | **YAGNI**
-Long-term thinking. Brutal honesty. No overengineering.
-
----
-
 ## SYSTEM CONFIG REFERENCE
 
 For system configuration, hardware specs, and parameter details: **See README.md**

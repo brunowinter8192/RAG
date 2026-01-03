@@ -19,7 +19,7 @@ raw/{stem}.md
  ↓ md-cleanup-master (creates debug/clean_{stem}.py)
 {stem}.md
  ↓ chunker
-chunks.json
+{stem}.json
  ↓ embedder + postgres
 indexed
 ```
@@ -156,7 +156,7 @@ output = {
     ]
 }
 
-with open("data/documents/$STEM/chunks.json", "w") as f:
+with open("data/documents/$STEM/$STEM.json", "w") as f:
     json.dump(output, f, indent=2, ensure_ascii=False)
 ```
 
@@ -166,7 +166,7 @@ with open("data/documents/$STEM/chunks.json", "w") as f:
 PHASE 3: Chunk
 ==============
 CHUNKS: [N]
-OUTPUT: data/documents/$STEM/chunks.json
+OUTPUT: data/documents/$STEM/$STEM.json
 STATUS: [Success/Failed]
 ```
 
@@ -183,7 +183,7 @@ STATUS: [Success/Failed]
 ```bash
 cd . && \
 ./venv/bin/python workflow.py index-json \
-  --input data/documents/$STEM/chunks.json
+  --input data/documents/$STEM/$STEM.json
 ```
 
 ### Step 2: Verify
