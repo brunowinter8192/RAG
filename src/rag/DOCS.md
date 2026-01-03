@@ -317,3 +317,33 @@ result = read_document_workflow("specification", "specification.md", start_chunk
 **merge_chunks(chunks):** Merge chunks with overlap deduplication. Finds common suffix/prefix between adjacent chunks and removes duplicates.
 
 **find_overlap(text1, text2, max_overlap=300):** Find the longest suffix of text1 that matches prefix of text2. Returns overlap size in characters.
+
+### search_keyword_workflow
+
+BM25 keyword search using PostgreSQL full-text search (tsvector).
+
+```python
+from src.rag.retriever import search_keyword_workflow
+
+# Search for exact terms
+results = search_keyword_workflow("l_suppkey", collection="specification")
+
+# Multiple keywords (AND logic)
+results = search_keyword_workflow("TPC-H benchmark", top_k=10)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| query | str | required | Keywords to search for (space = AND) |
+| top_k | int | 5 | Number of results (max 20) |
+| collection | str | None | Filter by collection name |
+| document | str | None | Filter by document name |
+
+**When to use:**
+- Exact term matches ("l_suppkey", "TPC-H")
+- Finding definitions
+- Technical terms, column names
+- Specific phrases
+
+**Complements search_workflow:** Use `search()` for semantic/conceptual queries, `search_keyword()` for exact matches.

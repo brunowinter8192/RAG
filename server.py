@@ -6,6 +6,7 @@ from mcp.types import TextContent
 
 from src.rag.retriever import (
     search_workflow, format_results,
+    search_keyword_workflow,
     list_collections_workflow, format_collections,
     list_documents_workflow, format_documents,
     read_document_workflow
@@ -26,6 +27,18 @@ def search(
 ) -> list[TextContent]:
     """Use when user needs to find relevant documents, code snippets, or information from the indexed knowledge base. Good for answering questions, finding examples, or locating specific content."""
     results = search_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2))
+    return [TextContent(type="text", text=format_results(results))]
+
+
+@mcp.tool
+def search_keyword(
+    query: Annotated[str, Field(description="Exact keywords to search for (e.g. 'l_suppkey', 'TPC-H')")],
+    collection: Annotated[str, Field(description="Collection to search in")],
+    top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
+    document: Annotated[str | None, Field(description="Filter by document name")] = None
+) -> list[TextContent]:
+    """BM25 keyword search for exact term matches. Use for finding specific definitions, technical terms, column names, or exact phrases. Complements semantic search()."""
+    results = search_keyword_workflow(query, min(top_k, 20), collection, document)
     return [TextContent(type="text", text=format_results(results))]
 
 

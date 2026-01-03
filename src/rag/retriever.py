@@ -73,6 +73,19 @@ def read_document_workflow(collection: str, document: str, start_chunk: int, num
     }
 
 
+def search_keyword_workflow(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    collection: str | None = None,
+    document: str | None = None
+) -> list[dict]:
+    conn = get_connection()
+    results = bm25_search(conn, query, top_k, collection, document)
+    conn.close()
+    logging.info(f"BM25 search '{query[:50]}...' returned {len(results)} results")
+    return results
+
+
 # FUNCTIONS
 
 # Get PostgreSQL connection
@@ -123,6 +136,55 @@ def search_vectors(
             FROM documents
             {where_sql}
             ORDER BY embedding <=> %s::vector
+            LIMIT %s
+            """,
+            params
+        )
+        rows = cur.fetchall()
+
+    return [
+        {
+            "content": row[0],
+            "collection": row[1],
+            "document": row[2],
+            "chunk_index": row[3],
+            "score": round(float(row[4]), 4)
+        }
+        for row in rows
+    ]
+
+
+# BM25 keyword search using PostgreSQL full-text search
+def bm25_search(
+    conn,
+    query: str,
+    top_k: int,
+    collection: str | None = None,
+    document: str | None = None
+) -> list[dict]:
+    tsquery = " & ".join(word for word in query.split() if word)
+
+    where_clauses = ["tsv @@ to_tsquery('english', %s)"]
+    where_params = [tsquery]
+
+    if collection:
+        where_clauses.append("collection = %s")
+        where_params.append(collection)
+    if document:
+        where_clauses.append("document = %s")
+        where_params.append(document)
+
+    where_sql = " AND ".join(where_clauses)
+    params = [tsquery] + where_params + [top_k]
+
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT content, collection, document, chunk_index,
+                   ts_rank(tsv, to_tsquery('english', %s)) as score
+            FROM documents
+            WHERE {where_sql}
+            ORDER BY score DESC
             LIMIT %s
             """,
             params
