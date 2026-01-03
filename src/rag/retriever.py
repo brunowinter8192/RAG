@@ -311,7 +311,7 @@ def format_results(results: list[dict]) -> str:
     lines = []
     for i, r in enumerate(results, 1):
         lines.append(f"--- Result {i} (score: {r['score']}) ---")
-        lines.append(f"Collection: {r['collection']} | Document: {r['document']}")
+        lines.append(f"Collection: {r['collection']} | Document: {r['document']} | Chunk: {r['chunk_index']}")
         lines.append(r['content'])
         lines.append("")
     return "\n".join(lines)
