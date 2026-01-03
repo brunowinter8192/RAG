@@ -47,8 +47,9 @@ Additionally:
 - Inspect for run-on words ("tothe", "iscentral", "ofthe")
 - If found → ABORT, refine approach
 
-## 3. CONSERVATIVE PARAGRAPH MERGING
+## 3. CONSERVATIVE BODY MERGE & AGGRESSIVE HEADER CLEANUP
 
+### Body Text (Conservative)
 Only merge lines if ALL conditions met:
 - Previous line does NOT end in punctuation (. ! ? : ; ")
 - Previous line does NOT end in a complete sentence
@@ -60,6 +61,18 @@ Only merge lines if ALL conditions met:
 - List items (lines starting with - or *)
 - Code blocks
 - Table rows
+
+### Header Artifacts (Aggressive Delete)
+PDF conversion often leaves a "raw text layer" above the "formatted header":
+```
+HOWNETWORKEDMARKETS    ← garbage run-on (OCR artifact)
+# HOW NETWORKED MARKETS ARE TRANSFORMING  ← correct header
+```
+
+**Rule:** IF you see a run-on capital line followed by a clean Header (`#`):
+- **DELETE the run-on line completely**
+- Do NOT try to fix/merge it
+- The correct version already exists below it
 
 ---
 
@@ -101,6 +114,8 @@ PDF-converted markdown is often >250KB.
 
 ## Phase 1: DIAGNOSE
 
+**Avoid Complex Bash Pipes:** If a grep/sed command involves complex regex, parentheses, or loops, use a small Python script (`debug/diagnose_{stem}.py`) instead. Shell syntax errors waste time.
+
 **Step 1: Baseline Metrics**
 ```bash
 echo "=== BASELINE ==="
@@ -140,7 +155,18 @@ These require conservative handling, not aggressive regex.
 
 **MANDATORY: ONE SCRIPT PER ISSUE TYPE**
 
-Scripts go to: `./debug/fix_{issue_type}.py`
+Scripts go to: `./debug/fix_{issue_type}_{stem}.py`
+
+**Script Creation Protocol:**
+- Always create NEW files with unique names (include document stem)
+- Do NOT reuse/edit existing scripts from previous runs
+- Use Write tool with full file path to create new scripts
+- If Write fails with "File has not been read yet", use Bash with heredoc instead:
+  ```bash
+  cat > debug/fix_images_Platform_Revolution.py << 'EOF'
+  # script content
+  EOF
+  ```
 
 **Issue Order:**
 1. `fix_broken_images.py` - Safe: simple delete
