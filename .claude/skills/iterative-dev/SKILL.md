@@ -72,6 +72,29 @@ Before ANY action, ask yourself:
 - `bd close <id> --reason="..."`
 - `bd sync`
 
+### Bead Content Requirements
+
+**CRITICAL:** Beads are cross-session. A new session has NO context.
+
+**Rule:** Every bead MUST contain enough information to understand it WITHOUT the original session context.
+
+**On Create:**
+- `--description` is MANDATORY for non-trivial beads
+- Description answers: What? Why? Where? (files/modules affected)
+- Bad: `--title "Fix bug"` (useless in new session)
+- Good: `--title "Fix NaN in search scores" --description="search_workflow returns NaN when query has no matches. Affects src/rag/retriever.py"`
+
+**On Update:**
+- `bd comment` for progress, blockers, decisions
+- Each comment should be self-contained (not "fixed it" but "fixed by adding null check in line 42")
+
+**On Close:**
+- `--reason` must explain WHAT was done, not just "done"
+- Bad: `--reason="Fixed"`
+- Good: `--reason="Added null check in retriever.py:42, now returns empty list instead of NaN"`
+
+**Test:** Can someone in a new session understand this bead without asking?
+
 ## Automation Stellschrauben (Hierarchy)
 
 Six layers for Claude Code automation, from project-wide to atomic:
