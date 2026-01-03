@@ -89,11 +89,18 @@ Uses hierarchical separators to split at natural boundaries:
 
 Chunks never break mid-sentence. If a paragraph exceeds chunk_size, it splits at sentence boundaries first.
 
+**Overlap Handling:**
+
+Overlap text is aligned to word boundaries to prevent mid-word cuts:
+```python
+get_word_aligned_overlap(text, overlap) -> str  # Returns overlap starting at word boundary
+```
+
 **Variables:**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | DEFAULT_CHUNK_SIZE | 1000 | Max characters per chunk |
-| DEFAULT_OVERLAP | 200 | Overlap between chunks |
+| DEFAULT_OVERLAP | 200 | Overlap between chunks (word-aligned)
 
 ---
 

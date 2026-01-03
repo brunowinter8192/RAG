@@ -65,6 +65,17 @@ def recursive_split(text: str, separators: list[str], chunk_size: int) -> list[s
     return result
 
 
+# Get overlap text aligned to word boundary
+def get_word_aligned_overlap(text: str, overlap: int) -> str:
+    if not text or overlap <= 0:
+        return ""
+    raw = text[-overlap:]
+    space_idx = raw.find(" ")
+    if space_idx != -1 and space_idx < len(raw) - 1:
+        return raw[space_idx + 1:]
+    return raw
+
+
 # Merge small splits into chunks with overlap
 def merge_with_overlap(splits: list[str], chunk_size: int, overlap: int) -> list[str]:
     if not splits:
@@ -79,7 +90,7 @@ def merge_with_overlap(splits: list[str], chunk_size: int, overlap: int) -> list
         else:
             if current.strip():
                 chunks.append(current.strip())
-            overlap_text = current[-overlap:] if overlap > 0 and current else ""
+            overlap_text = get_word_aligned_overlap(current, overlap)
             current = overlap_text + split
 
     if current.strip():
