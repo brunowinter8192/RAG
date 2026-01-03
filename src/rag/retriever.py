@@ -162,8 +162,28 @@ def bm25_search(
     collection: str | None = None,
     document: str | None = None
 ) -> list[dict]:
-    tsquery = " & ".join(word for word in query.split() if word)
+    words = [w for w in query.split() if w]
+    if not words:
+        return []
 
+    tsquery_and = " & ".join(words)
+    results = _bm25_query(conn, tsquery_and, top_k, collection, document)
+
+    if not results and len(words) > 1:
+        tsquery_or = " | ".join(words)
+        results = _bm25_query(conn, tsquery_or, top_k, collection, document)
+
+    return results
+
+
+# Execute BM25 query with given tsquery string
+def _bm25_query(
+    conn,
+    tsquery: str,
+    top_k: int,
+    collection: str | None = None,
+    document: str | None = None
+) -> list[dict]:
     where_clauses = ["tsv @@ to_tsquery('english', %s)"]
     where_params = [tsquery]
 
