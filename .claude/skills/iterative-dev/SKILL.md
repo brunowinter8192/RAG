@@ -5,51 +5,6 @@ description: (project)
 
 # Iterative Development Skill
 
-## Overview
-
-This skill extends native Claude Code Plan Mode with:
-- Phase indicators
-- Iterative cycle structure
-- Explicit file vs chat separation
-
-Follow all native Plan Mode rules.
-
-## Facts Over Assumptions (CORE PRINCIPLE)
-
-**ALWAYS verify first. NEVER assume.**
-
-Before ANY action, ask yourself:
-- Can I verify this? → VERIFY IT
-- Is this 100% self-evident logic? → Only then proceed
-- Am I guessing? → STOP. Read. Ask.
-
-**The Name Test:**
-> Imagine your name is printed under every statement you make.
-> Would you want your name under "ASSUMPTION" or "FACT"?
-
-**Verification Hierarchy:**
-1. READ the file/code/docs
-2. ASK the user
-3. RUN a command to check
-4. ONLY THEN: proceed
-
-**Assumptions are ONLY acceptable when:**
-- The matter is purely logical (2+2=4)
-- There is literally no way to verify
-- AND you explicitly document it as "ASSUMPTION: ..."
-
-**Red Flags (you're assuming):**
-- "I think..." → STOP, verify
-- "It should be..." → STOP, read
-- "Probably..." → STOP, ask
-- Using tool without checking valid params/types first
-
-**This applies to EVERYTHING:**
-- Tool parameters (check --help first)
-- File paths (ls before using)
-- API responses (read schema/docs)
-- User intent (ask before implementing)
-
 ## Task Management Hierarchy
 
 - **Beads** (`.beads/`) - Cross-session (weeks/months)
@@ -95,64 +50,6 @@ Before ANY action, ask yourself:
 
 **Test:** Can someone in a new session understand this bead without asking?
 
-## Automation Stellschrauben (Hierarchy)
-
-Six layers for Claude Code automation, from project-wide to atomic:
-
-| Layer | Scope | Location | When to Modify |
-|-------|-------|----------|----------------|
-| **CLAUDE.md** | Project-wide | `/project/CLAUDE.md` | Universal rules, philosophy, communication protocols |
-| **Skills** | Session | `.claude/skills/*/SKILL.md` | Workflow patterns, phases, evaluation criteria |
-| **Commands** | Workflow | `.claude/commands/*.md` | Repeatable procedures with steps/stops |
-| **Agents** | Task | `.claude/agents/*.md` | Subagent behavior, output format, task scope |
-| **Hooks** | Atomic | `~/.claude/scripts/` | Event interception, blocking, output silencing |
-| **Scripts** | Pipeline | Project-specific (e.g., `postprocess.py`) | Automation logic, data transformations |
-
-### Relationships
-
-```
-CLAUDE.md ──── influences ────> Everything
-
-Skills ──┬── provide context for ──> Commands (optional)
-         └── spawn ────────────────> Agents
-
-Commands ──── spawn ───> Agents
-
-Hooks ──── fire on ───> User Prompts + Tool Calls (all layers)
-
-Scripts ──── called by ───> Commands, Agents, direct execution
-```
-
-### Skill + Command Interaction
-
-When a **slash command** is called within a skill phase:
-
-1. Skill phase is **FROZEN**
-2. User exits Plan Mode
-3. Claude executes command until its stoppers
-4. After command completes → skill phase resumes
-
-Commands are self-contained workflows. Skills provide context but don't interfere with command execution.
-
-### Improvement Flow
-
-For EVERY improvement in RECAP:
-
-1. Ask: **"Is this a one-time fix or a pattern?"**
-2. If PATTERN → Identify the correct Stellschraube:
-   - Applies everywhere? → CLAUDE.md
-   - Applies to this skill/workflow? → SKILL.md
-   - Is a repeatable workflow? → Command
-   - Affects subagent behavior? → Agent
-   - Should intercept events? → Hook
-   - Is automation logic? → Script
-
-3. **NEVER** let recurring issues stay as "process improvements" without Stellschraube integration
-
-### When Creating Commands
-
-Ask user for reference command. Don't invent patterns.
-
 ## CRITICAL CYCLE
 
 ```
@@ -189,6 +86,10 @@ BEFORE you explore, clarify with the user:
 **1. SCOPE - What is the end goal?**
 → "What should the output be?"
 → File? Script? Documentation? Analysis?
+→ **If Documentation:** "Who is the target reader?"
+  - **Default assumption:** AI (you) is the primary reader
+  - Docs should be perfect for AI consumption, but human-readable when needed
+  - Optimize for: clarity, structure, completeness (AI needs full context)
 
 **2. SOURCES - Which files/folders are relevant?**
 → "Which folders should I look at?"
@@ -212,18 +113,15 @@ BEFORE any action in a directory (running scripts, editing files, exploring code
 
 This is NON-NEGOTIABLE. Skipping DOCS.md leads to: wrong paths, wrong arguments, wrong understanding.
 
-**Path Verification (MANDATORY):**
-
-BEFORE executing scripts with relative paths:
-1. Verify paths with `ls` command
-2. NEVER assume paths are correct just because script exists
-3. One wrong path = entire workflow fails silently
-
 **ASK THE FUCKING USER**
-- the user knows best, ask him for reference scripts, 
+- the user knows best, ask him for reference scripts,
 	- REFERENCE SCRIPTS OR SOURCE CODE IS A GAME CHANGER, MAKES LIFE MUCH EASIER
 - ask him for things which are critical to understand in order to be able to make a Plan file
 	- USER HAS A BROAD KNOWLEDGE, TAKE ADVANTAGE OF IT
+- **External Dependencies/Versions:** ASK USER, don't self-verify
+	- Docker images, tool versions, library versions
+	- User knows what was ACTUALLY USED vs what's CURRENTLY AVAILABLE
+	- Reproducibility > Recency (especially for research/thesis)
 
 ### Communication
 
@@ -267,6 +165,9 @@ If the planning session requires module execution to refine the plan:
 
 - Plan file MUST reflect current implementation approach
 - NEVER call ExitPlanMode with stale plan
+- **ALWAYS ask "Any remarks?" and wait for user signal** ("done", "continue", "implement")
+  - Saves tokens (no rejected ExitPlanMode calls)
+  - User controls transition timing
 
 ---
 
@@ -465,33 +366,35 @@ Example: `Thesis_Final-e0m: Fixed MIN_ERROR_THRESHOLD by adjusting selection log
 
 #### 6. Improvements
 
-Improvements are based on the execution and process reflection.
+**CRITICAL:** Every improvement MUST reference a Stellschraube from project CLAUDE.md.
+Improvements without concrete target path are not actionable → reject.
+
+→ **See project CLAUDE.md for available Stellschrauben and paths.**
 
 ##### 6.1 Content Improvements (Code/Docs)
 
+Prioritization:
 - **Critical:** Must fix (breaks functionality, wrong behavior)
 - **Important:** Should fix (code quality, maintainability)
 - **Optional:** Nice to have (style, minor optimizations)
 
+**Handling in IMPROVE Phase:**
+- Code (*.py, *.yml, etc.) → **Bead** (needs own PLAN→IMPLEMENT→RECAP cycle)
+- Docs/README/Stellschrauben → **Direct Edit** in IMPROVE
+
 ##### 6.2 Process Improvements
 
-Same 3 categories, but graded by OUTCOME:
-
-- **Critical:** Process issues that WOULD HAVE caused critical code issues
-  - Example: Skipping path verification → wrong file edited
-  - Example: Not reading DOCS.md → wrong arguments used
-
-- **Important:** Process issues that caused detours but correct outcome
-  - Context pollution (too much irrelevant output)
-  - Off-the-rails analysis (wrong hypothesis, user had to correct)
-  - Circles (repeated attempts at same thing)
-  - Example: Wrong assumption about avg_mre → user corrected → correct result with delay
-
+Prioritization (by OUTCOME):
+- **Critical:** Process errors that WOULD HAVE caused critical code issues
+- **Important:** Process errors that caused detours but correct outcome
 - **Optional:** Minor process inefficiencies
-  - Could have asked better questions
-  - Could have parallelized better
 
-**Key insight:** The OUTCOME determines severity. Wrong process + correct result = Important (not Critical).
+**Handling in IMPROVE Phase:**
+- Stellschrauben (Skills, Commands, Agents, Hooks) → **Direct Edit** in IMPROVE
+- Docs/README → **Direct Edit** in IMPROVE
+- Code → **Bead**
+
+**Key insight:** OUTCOME determines severity. Wrong process + correct result = Important (not Critical).
 
 ##### 6.3 DOCS.md Check (MANDATORY)
 
@@ -501,28 +404,7 @@ Same 3 categories, but graded by OUTCOME:
 
 Clean docs are CRITICAL. Every new script, changed behavior, or new parameter MUST be reflected.
 
-#### 7. Stellschrauben Assessment
-
-For EVERY improvement from Section 6, explicitly map to a Stellschraube:
-
-| Improvement | Stellschraube | Action |
-|-------------|---------------|--------|
-| [description] | CLAUDE.md / SKILL.md / Command / Agent / Hook / Script | [specific change] |
-
-**Rules:**
-- One-time fix? → Just implement, no Stellschraube
-- Pattern/recurring? → MUST go into appropriate Stellschraube
-- Unsure which? → Ask user
-
-**Categories:**
-- **CLAUDE.md**: Universal rules, philosophy, communication protocols
-- **SKILL.md**: Workflow patterns, phase behaviors, evaluation criteria
-- **Command**: Repeatable procedures with defined steps/stops
-- **Agent**: Subagent behavior, output format, task scope
-- **Hook**: Event interception, blocking, output silencing
-- **Script**: Automation logic, data transformations
-
-#### 8. Open Items
+#### 7. Open Items
 
 List any tasks from the original plan that were NOT executed.
 - These will be handled in CLOSING phase (create Bead or discard)
@@ -531,9 +413,26 @@ List any tasks from the original plan that were NOT executed.
 
 After report:
 1. Ask: "Any remarks?"
-2. User gives remark → Add to Improvements section
+2. User gives remark → **Analyze for system improvement**
 3. Ask: "More remarks?"
 4. Repeat until user says "done" or "improve"
+
+**CRITICAL: Remarks → Analyze → Propose Improvement + Location**
+
+When user gives ANY remark:
+1. **Analyze:** What went wrong? What could be better?
+2. **Propose:** Concrete improvement
+3. **Locate:** WHERE the improvement would happen (Stellschraube from CLAUDE.md)
+
+**Output Format:**
+```
+Remark: [User's remark]
+Analysis: [What went wrong]
+Improvement: [Concrete change]
+Location: [Stellschraube + file path from CLAUDE.md]
+```
+
+**The Goal:** Every remark → concrete improvement proposal with exact location.
 
 ### Phase Exit
 
@@ -545,35 +444,23 @@ After report:
 
 ## Improve Phase (IMPROVE)
 
-**Purpose:** Execute improvements from plan file (like IMPLEMENT, but for improvements).
+**Purpose:** Execute improvements from plan file.
 
-### Content Improvements: Beads vs Direct Edit
-
-**CRITICAL:** IMPROVE has no validation/test phase after it.
-
-| Improvement Type | Action |
-|------------------|--------|
-| Code changes (*.py, *.yml, etc.) | **ALWAYS** → Create Bead (next cycle validates) |
-| DOCS.md updates | **ALWAYS** → Direct edit NOW in IMPROVE (not CLOSING) |
-| Other docs (README, CLAUDE.md) | → Direct edit in IMPROVE |
-| SKILL.md updates | → Direct edit in IMPROVE |
-
-**Rationale:**
-- Code changes need testing. IMPROVE → CLOSING has no test step. So code changes become Beads and get their own PLAN → IMPLEMENT → RECAP cycle with proper validation.
-- DOCS.md must stay in sync. Never delay documentation updates to CLOSING.
+**CRITICAL:** IMPROVE has no validation after it. Therefore:
+- Code → Bead (own cycle with validation)
+- Everything else → Direct Edit
 
 ### Workflow
 
 1. Read plan file "## Improvements" section
-2. **MANDATORY first:** If DOCS.md needs update → Edit NOW
-3. For each Content Improvement:
-   - **Code change?** → `bd create --title "..." --type=...` (ALWAYS)
-   - **Docs change?** → Execute directly (Edit, Write)
-4. Handle other Beads (from RECAP evaluation):
-   - Create new beads: `bd create --title "..." --type=...`
-   - Update beads: `bd comment <id> "..."`
-   - Close beads: `bd close <id> --reason="..."`
-5. Ask: "Proceed to CLOSING?"
+2. For each improvement (see 6.1/6.2 Handling):
+   - **Code?** → `bd create --title "..." --type=...`
+   - **Docs/README/Stellschrauben?** → Direct Edit (Edit, Write)
+3. Handle Beads (from RECAP Section 5):
+   - Create: `bd create --title "..." --type=...`
+   - Update: `bd comment <id> "..."`
+   - Close: `bd close <id> --reason="..."`
+4. Ask: "Proceed to CLOSING?"
 
 User confirms → next response starts with ✅ CLOSING
 
@@ -583,14 +470,7 @@ User confirms → next response starts with ✅ CLOSING
 
 Only enter when user confirms (e.g., "proceed", "close", "done").
 
-1. Update DOCS.md (if needed)
-2. Handle open items (non-beads):
-   - For each open item, ASK: "Should [Item X] go to Beads? (cross-session)"
-   - User confirms → handled in next cycle's IMPROVE
-   - User declines → Keep in plan file for next iteration
-   - If no open items remain: clear plan file (overwrite with single space)
-3. Finalize:
-   - `bd sync`
-   - `git add . && git commit`
-   - `git push`
+1. `bd sync`
+2. `git add . && git commit`
+3. `git push`
 4. Ask: "New cycle or done for now?"
