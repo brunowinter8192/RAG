@@ -141,6 +141,18 @@ Agent will:
 
 ## Phase 3: Chunk
 
+### Data Model
+
+```
+collection = Ordnername (z.B. "Thesis")
+document   = Dateiname (z.B. "1.Einleitung.md", "2.Grundlagen.md")
+```
+
+**Multiple MD files in one folder:**
+- 1 Collection mit N Documents
+- Alle files werden in ein JSON kombiniert
+- Bei Suche filterbar: `search(collection="Thesis", document="A_Setup.md")`
+
 ### Step 1: Chunk the Document
 
 ```python

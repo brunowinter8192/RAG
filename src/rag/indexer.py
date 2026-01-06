@@ -91,7 +91,7 @@ def load_chunks_json(json_path: str) -> list[dict]:
         {
             "content": c["content"],
             "collection": collection,
-            "document": document,
+            "document": c.get("document", document),
             "chunk_index": c["index"],
             "total_chunks": total
         }

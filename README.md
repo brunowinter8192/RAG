@@ -86,10 +86,12 @@ data/documents/
   "created": "2025-12-28T...",
   "chunks": [
     {"index": 0, "content": "..."},
-    {"index": 1, "content": "..."}
+    {"index": 1, "content": "...", "document": "chapter2.md"}
   ]
 }
 ```
+
+**Per-Chunk Document Field:** Optional `document` per chunk. Falls vorhanden, wird es statt top-level verwendet. Ermöglicht Multi-File-Collections (mehrere MD-Files → 1 Collection mit N Documents).
 
 ## Entry Points
 
