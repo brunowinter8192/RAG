@@ -44,8 +44,12 @@ def chunk_semantic(content: str, chunk_size: int, overlap: int) -> list[str]:
 
 # Recursively split text using hierarchical separators
 def recursive_split(text: str, separators: list[str], chunk_size: int) -> list[str]:
-    if len(text) <= chunk_size or not separators:
+    if len(text) <= chunk_size:
         return [text] if text.strip() else []
+
+    if not separators:
+        # Hard-split at chunk_size boundaries when no separators left
+        return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size) if text[i:i+chunk_size].strip()]
 
     sep = separators[0]
     remaining_seps = separators[1:]
