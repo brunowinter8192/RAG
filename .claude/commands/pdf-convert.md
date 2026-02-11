@@ -51,7 +51,7 @@ indexed
 curl -s localhost:8081/health
 ```
 
-If `{"status":"ok"}` → server running, proceed to Phase 1.
+If `{"status":"ok"}` → server running, proceed to Step 2.
 
 ### Step 2: Start Server (if not running)
 
@@ -60,6 +60,20 @@ If `{"status":"ok"}` → server running, proceed to Phase 1.
 ```
 
 Wait 5 seconds, verify with health check again.
+
+### Step 3: Check for Existing Collection (Optional)
+
+If re-indexing a document, check and delete existing collection:
+
+```bash
+# List collections via MCP tool
+mcp__rag__list_collections
+
+# Delete existing collection (if needed)
+docker exec rag-postgres psql -U rag -d rag -c "DELETE FROM documents WHERE collection = '$STEM';"
+```
+
+**Note:** Always use `docker exec` for database operations. Direct psycopg2 connections from host may fail.
 
 ---
 
@@ -135,6 +149,26 @@ Agent will:
 3. Run script → `$STEM.md` (in parent folder)
 4. Report issues fixed
 
+### Step 2: Verify Cleanup (you, not the agent)
+
+**CRITICAL:** Never trust subagent output. Verify independently.
+
+1. **Grep for claimed fixes** - For each pattern the agent claims to have fixed, grep BOTH raw and clean file:
+   - Raw file must show matches (confirms pattern existed)
+   - Clean file must show 0 matches (confirms fix applied)
+2. **Stichprobe Content** - Read 10-15 lines from the middle of both files side-by-side, confirm no content loss beyond the fixes
+3. **Line count** - Compare `wc -l` of raw vs clean. Should be stable (equal or very close)
+
+Report verification result in table format:
+
+```
+| Pattern | Raw | Clean | Status |
+|---------|-----|-------|--------|
+| [pattern] | N matches | 0 matches | OK/FAIL |
+```
+
+If any FAIL → STOP and inform user.
+
 **STOP** - Ask: "Proceed to Phase 3 (Chunk)?"
 
 ---
@@ -200,6 +234,8 @@ STATUS: [Success/Failed]
 ---
 
 ## Phase 4: Index
+
+**Note:** `index-json` deletes only chunks for documents contained in the JSON file, not the entire collection. Safe for adding new documents to existing collections.
 
 ### Step 1: Index from JSON
 

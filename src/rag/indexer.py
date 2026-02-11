@@ -44,9 +44,11 @@ def index_json_workflow(json_path: str) -> int:
         return 0
 
     collection = chunks[0]["collection"]
-    deleted = delete_collection(conn, collection)
-    if deleted > 0:
-        print(f"Deleted {deleted} existing chunks for {collection}")
+    documents = {c["document"] for c in chunks}
+    for doc in sorted(documents):
+        deleted = delete_chunks(conn, collection, doc)
+        if deleted > 0:
+            print(f"Deleted {deleted} existing chunks for {collection}/{doc}")
 
     total = len(chunks)
     for i in range(0, total, BATCH_SIZE):
