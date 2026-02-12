@@ -17,22 +17,87 @@ Semantic chunking: Splits at paragraph boundaries (`\n\n`), then sentences, with
 
 ## Quick Start
 
+### 1. Clone + Python Setup
+
+Requires Python >= 3.10, Docker, and [llama.cpp](https://github.com/ggml-org/llama.cpp).
+
+```bash
+git clone https://github.com/brunowinter8192/RAG-MCP.git
+cd RAG-MCP
+python -m venv venv
+./venv/bin/pip install -r requirements.txt
+cp .env.example .env
+```
+
+### 2. Vector Database
+
+Start PostgreSQL with pgvector (see [PostgreSQL Configuration](#postgresql-18-volume-path) for version details):
+
+```bash
+docker compose up -d postgres
+```
+
+### 3. Embedding Model
+
+Download a GGUF embedding model and build llama.cpp (see [Embedding Server](#embedding-server-llamacpp) for model choices and build instructions):
+
+```bash
+# Build llama.cpp (macOS Metal example)
+cd llama.cpp
+cmake -B build -DGGML_METAL=ON
+cmake --build build --config Release -j --target llama-server
+cd ..
+
+# Download model
+huggingface-cli download Qwen/Qwen3-Embedding-8B-GGUF \
+  Qwen3-Embedding-8B-Q8_0.gguf --local-dir ./models/
+```
+
+### 4. Start Services
+
 ```bash
 ./start.sh
 ```
 
 Starts: PostgreSQL (Docker, port 5433) + llama.cpp embedding server (native, port 8081)
 
-## Prerequisites Check
-
-Before indexing/searching, verify services are running:
+### 5. Index Documents
 
 ```bash
-# PostgreSQL (should show rag-postgres as healthy)
+./venv/bin/python workflow.py index-json --input ./data/documents/myproject/chunks.json
+```
+
+### 6. Search
+
+```bash
+./venv/bin/python workflow.py search --query "your query" --top-k 5
+```
+
+### 7. Claude Code Integration
+
+Add to your project's `.mcp.json` (all paths must be absolute):
+
+```json
+{
+  "mcpServers": {
+    "rag": {
+      "command": "/absolute/path/to/RAG/venv/bin/fastmcp",
+      "args": ["run", "/absolute/path/to/RAG/server.py"]
+    }
+  }
+}
+```
+
+## Prerequisites Check
+
+Verify services are running:
+
+```bash
+# PostgreSQL
 docker ps --filter name=rag-postgres --format "{{.Names}}: {{.Status}}"
 
-# llama.cpp embedding server (should show llama-ser on port 8081)
-lsof -i :8081 | head -2
+# llama.cpp embedding server
+curl -s localhost:8081/health
 ```
 
 | Service | Port | Required For |
@@ -40,21 +105,16 @@ lsof -i :8081 | head -2
 | PostgreSQL | 5433 | Index + Search |
 | llama.cpp | 8081 | Index + Search |
 
-```bash
-# Check indexed documents
-docker exec rag-postgres psql -U rag -d rag -c "SELECT source, COUNT(*) as chunks FROM documents GROUP BY source;"
-```
-
 ## Pipeline
 
 ### Full Flow (PDF to RAG)
 
 ```
 PDF
- ↓ MinerU (../Mineru/workflow.py)
+ ↓ MinerU (optional, for PDF extraction)
  ↓ postprocess.py (generic regex cleanup)
 raw.md
- ↓ md-cleanup-master (creates debug/clean_<name>.py)
+ ↓ LLM cleanup (optional)
 cleaned.md
  ↓ chunker.py
 chunks.json
@@ -62,7 +122,7 @@ chunks.json
 pgvector
 ```
 
-**Use:** `/pdf-convert /path/to/file.pdf`
+**Note:** MinerU is only required for the PDF-to-Markdown step. You can start at any point in the pipeline -- feed Markdown files directly to the chunker, or pre-chunked JSON directly to the indexer.
 
 **Module details:** [src/rag/DOCS.md](src/rag/DOCS.md)
 
@@ -117,27 +177,9 @@ RAG/
 
 **Details:** [src/rag/DOCS.md](src/rag/DOCS.md)
 
-## Usage
+## Build llama.cpp
 
-### Index from JSON (Recommended)
-
-```bash
-./venv/bin/python workflow.py index-json --input ./data/documents/paper1/chunks.json
-```
-
-### Search
-
-```bash
-./venv/bin/python workflow.py search --query "your query" --top-k 5
-```
-
-## Build llama.cpp (if needed)
-
-```bash
-cd llama.cpp
-cmake -B build -DGGML_METAL=ON
-cmake --build build --config Release -j --target llama-server
-```
+See [Quick Start Step 3](#3-embedding-model) for download + build commands.
 
 ## System Configuration
 
@@ -162,6 +204,20 @@ volumes:
 See: https://github.com/docker-library/postgres/pull/1259
 
 Host path: `/var/lib/docker/volumes/rag_rag_postgres_data/_data`
+
+### PostgreSQL Connection: Docker Exec Required
+
+Direct psycopg2 connections from host to container may fail with authentication errors, even with correct credentials. Use `docker exec` for database operations:
+
+```bash
+# WORKS - via docker exec
+docker exec rag-postgres psql -U rag -d rag -c "SELECT COUNT(*) FROM documents;"
+
+# MAY FAIL - direct connection from host
+psycopg2.connect(host='localhost', port=5433, user='rag', password='rag', dbname='rag')
+```
+
+The workflow.py and server.py handle this internally. For manual operations, always use docker exec.
 
 ### Checking PostgreSQL: Docker vs CLI
 
