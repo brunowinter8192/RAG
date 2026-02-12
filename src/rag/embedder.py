@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LOG_DIR = Path(__file__).parent / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 RAG_ROOT = Path(__file__).parent.parent.parent
 
 logging.basicConfig(
