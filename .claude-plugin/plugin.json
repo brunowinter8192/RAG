@@ -1,0 +1,12 @@
+{
+  "name": "rag-mcp",
+  "version": "1.0.0",
+  "description": "RAG system - semantic search over indexed documents via MCP",
+  "author": {
+    "name": "Bruno Winter"
+  },
+  "repository": "https://github.com/brunowinter8192/RAG-MCP",
+  "keywords": ["rag", "search", "mcp", "embeddings", "pgvector"],
+  "skills": "./skills/RAG_MCP/",
+  "commands": ["./commands/pdf-convert.md"]
+}
