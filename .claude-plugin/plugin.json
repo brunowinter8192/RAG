@@ -7,6 +7,12 @@
   },
   "repository": "https://github.com/brunowinter8192/RAG",
   "keywords": ["rag", "search", "mcp", "embeddings", "pgvector"],
-  "skills": "./.claude-plugin/skills/RAG_MCP/",
-  "commands": ["./.claude-plugin/commands/pdf-convert.md"]
+  "skills": "./skills/RAG_MCP/",
+  "commands": ["./commands/pdf-convert.md"],
+  "mcpServers": {
+    "rag": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/venv/bin/fastmcp",
+      "args": ["run", "${CLAUDE_PLUGIN_ROOT}/server.py"]
+    }
+  }
 }
