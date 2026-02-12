@@ -1,5 +1,5 @@
 {
-  "name": "rag-mcp",
+  "name": "rag",
   "version": "1.0.0",
   "description": "RAG system - semantic search over indexed documents via MCP",
   "author": {
@@ -7,7 +7,7 @@
   },
   "repository": "https://github.com/brunowinter8192/RAG",
   "keywords": ["rag", "search", "mcp", "embeddings", "pgvector"],
-  "skills": "./skills/RAG_MCP/",
+  "skills": "./skills/mcp_usage/",
   "commands": ["./commands/pdf-convert.md"],
   "mcpServers": {
     "rag": {

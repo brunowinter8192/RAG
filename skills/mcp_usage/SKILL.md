@@ -1,5 +1,5 @@
 ---
-name: RAG_MCP
+name: mcp_usage
 description: Vector search over indexed documents
 ---
 
