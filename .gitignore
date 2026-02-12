@@ -30,6 +30,12 @@ debug/
 .DS_Store
 Thumbs.db
 
+# Personal Claude Code config
+.claude/
+.beads/
+.mcp.json
+CLAUDE.md
+
 # Qdrant local storage (legacy)
 qdrant_storage/
 
