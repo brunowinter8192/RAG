@@ -11,8 +11,8 @@
   "commands": ["./commands/pdf-convert.md"],
   "mcpServers": {
     "rag": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/venv/bin/fastmcp",
-      "args": ["run", "${CLAUDE_PLUGIN_ROOT}/server.py"]
+      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-start.sh",
+      "args": []
     }
   }
 }
