@@ -8,7 +8,7 @@
       "name": "rag-mcp",
       "source": {
         "source": "github",
-        "repo": "brunowinter8192/RAG-MCP"
+        "repo": "brunowinter8192/RAG"
       },
       "description": "RAG system - semantic search over indexed documents via MCP",
       "version": "1.0.0"
