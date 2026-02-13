@@ -14,9 +14,8 @@ Editable files for Process Improvements in RECAP/IMPROVE phase:
 | Config | Path | Purpose |
 |--------|------|---------|
 | Project Standards | `CLAUDE.md` | Code conventions, MCP patterns, naming |
-| Iterative Dev | `.claude/skills/iterative-dev/SKILL.md` | PLAN-IMPLEMENT-RECAP-IMPROVE-CLOSING cycle |
+| Iterative Dev | `.claude/skills/iterative-dev/SKILL.md` | PLAN-IMPLEMENT-RECAP-IMPROVE-CLOSING cycle + Explore Agent dispatch |
 | MCP Usage | `.claude/skills/mcp_usage/SKILL.md` | MCP tool docs, parameters, usage strategy |
-| Explore Agent | `.claude/skills/agent-explore/SKILL.md` | Explore agent dispatch rules |
 | Explore Instructions | `.claude/agents/explore-specialist.md` | Codebase search subagent instructions |
 | MD Cleanup Instructions | `.claude/agents/md-cleanup.md` | Markdown cleanup subagent instructions |
 | PDF Convert Command | `.claude/commands/pdf-convert.md` | PDF-to-RAG pipeline command |
