@@ -32,4 +32,5 @@ if ! curl -s http://localhost:8081/health >/dev/null 2>&1; then
     done
 fi
 
+export POSTGRES_PORT="${POSTGRES_PORT:-5433}"
 exec "$VENV_DIR/bin/fastmcp" run "$SCRIPT_DIR/server.py"
