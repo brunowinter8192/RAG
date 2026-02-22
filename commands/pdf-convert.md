@@ -178,14 +178,14 @@ If any FAIL → STOP and inform user.
 ### Data Model
 
 ```
-collection = Ordnername (z.B. "Thesis")
-document   = Dateiname (z.B. "1.Einleitung.md", "2.Grundlagen.md")
+collection = folder name (e.g. "Thesis")
+document   = file name (e.g. "1.Einleitung.md", "2.Grundlagen.md")
 ```
 
 **Multiple MD files in one folder:**
-- 1 Collection mit N Documents
-- Alle files werden in ein JSON kombiniert
-- Bei Suche filterbar: `search(collection="Thesis", document="A_Setup.md")`
+- 1 collection with N documents
+- All files are combined into one JSON
+- Filterable in search: `search(collection="Thesis", document="A_Setup.md")`
 
 ### Step 1: Chunk the Document
 
@@ -236,6 +236,8 @@ STATUS: [Success/Failed]
 ## Phase 4: Index
 
 **Note:** `index-json` deletes only chunks for documents contained in the JSON file, not the entire collection. Safe for adding new documents to existing collections.
+
+**Incremental Indexing:** When adding a new document to an existing collection, chunk and index it as a **separate JSON** file. Do NOT re-chunk all existing documents into one combined JSON. Each document gets its own `chunk_workflow` + `index-json` call. The collection is determined by the folder name, not by bundling files together.
 
 ### Step 1: Index from JSON
 

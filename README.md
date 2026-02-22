@@ -133,6 +133,8 @@ huggingface-cli download Qwen/Qwen3-Embedding-8B-GGUF \
 
 Starts: PostgreSQL (Docker, port 5433) + llama.cpp embedding server (native, port 8081)
 
+**Note:** `mcp-start.sh` (used by the plugin) also auto-starts PostgreSQL and llama.cpp if not already running. Manual `start.sh` is only needed for standalone use without the plugin.
+
 ### 5. Index Documents
 
 ```bash
