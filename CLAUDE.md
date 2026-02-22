@@ -15,7 +15,7 @@ Editable files for Process Improvements in RECAP/IMPROVE phase:
 |--------|------|---------|
 | Project Standards | `CLAUDE.md` | Code conventions, MCP patterns, naming |
 | Iterative Dev | `.claude/skills/iterative-dev/SKILL.md` | PLAN-IMPLEMENT-RECAP-IMPROVE-CLOSING cycle + Explore Agent dispatch |
-| MCP Usage | `.claude/skills/mcp_usage/SKILL.md` | MCP tool docs, parameters, usage strategy |
+| RAG Skill | `.claude/skills/RAG/SKILL.md` | MCP tool docs, parameters, usage strategy |
 | Explore Instructions | `.claude/agents/explore-specialist.md` | Codebase search subagent instructions |
 | MD Cleanup Instructions | `.claude/agents/md-cleanup.md` | Markdown cleanup subagent instructions |
 | PDF Convert Command | `.claude/commands/pdf-convert.md` | PDF-to-RAG pipeline command |
@@ -49,7 +49,7 @@ Plugin (`/plugin install rag@brunowinter-plugins`) ships only 3 components:
 
 | Component | Source (edit here) | Plugin target (auto-generated) |
 |-----------|--------------------|-------------------------------|
-| Skill | `.claude/skills/mcp_usage/*` | `skills/mcp_usage/*` |
+| Skill | `.claude/skills/RAG/*` | `skills/RAG/*` |
 | MCP Config | inline in `.claude-plugin/plugin.json` | `mcpServers` field |
 | Command | `.claude/commands/pdf-convert.md` | `commands/pdf-convert.md` |
 

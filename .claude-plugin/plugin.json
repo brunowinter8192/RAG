@@ -7,7 +7,7 @@
   },
   "repository": "https://github.com/brunowinter8192/RAG",
   "keywords": ["rag", "search", "mcp", "embeddings", "pgvector"],
-  "skills": "./skills/mcp_usage/",
+  "skills": "./skills/RAG/",
   "commands": ["./commands/pdf-convert.md"],
   "mcpServers": {
     "rag": {
