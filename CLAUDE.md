@@ -45,13 +45,14 @@ For system configuration, hardware specs, and parameter details: **See README.md
 
 ### Plugin Distribution
 
-Plugin (`/plugin install rag@brunowinter-plugins`) ships only 3 components:
+Plugin (`/plugin install rag@brunowinter-plugins`) ships these components:
 
 | Component | Source (edit here) | Plugin target (auto-generated) |
 |-----------|--------------------|-------------------------------|
 | Skill | `.claude/skills/RAG/*` | `skills/RAG/*` |
 | MCP Config | inline in `.claude-plugin/plugin.json` | `mcpServers` field |
 | Command | `.claude/commands/pdf-convert.md` | `commands/pdf-convert.md` |
+| Command | `.claude/commands/eval-agent.md` | `commands/eval-agent.md` |
 
 **NOT in plugin:** debug, index-subagent, explore-agent, md-cleanup -- these are local dev tools only.
 
@@ -368,6 +369,46 @@ claude mcp list
 **Package markers:** src/__init__.py and src/rag/__init__.py (required for imports)
 **Orchestrator function:** tool_name_workflow()
 **MCP tool function:** @mcp.tool def tool_name()
+
+---
+
+## EVAL PIPELINE
+
+**Command:** `/eval-agent <project-path>`
+
+Evaluates subagent sessions by indexing into RAG, analyzing against KPIs, and proposing automation file improvements.
+
+### KPI Framework
+
+| KPI | Weight | Description |
+|-----|--------|-------------|
+| Task Fulfillment | 35% | All requirements met |
+| Tool Efficiency | 25% | Minimal tool calls to reach result |
+| Format Compliance | 20% | Requested output format followed |
+| Scope Control | 15% | Delivers what was asked, nothing more |
+| Path Hygiene | 5% | No local paths in output |
+
+**Target:** >85% overall score
+
+### Evaluation Principles
+
+**Focus on Root Cause:** Don't list symptoms. Identify which automation file caused the problem.
+- Symptom: "Agent reads too many files"
+- Root Cause: "Agent prompt has no stop criteria after N relevant findings"
+
+**Concrete Fixes:** Vague recommendations are useless. Be specific.
+- Vague: "Improve the prompt"
+- Concrete: "Add 'Stop after 3 relevant FILE blocks' rule in CRITICAL section"
+
+**Automation File Discovery:** Uses Global Plugins table in `~/.claude/CLAUDE.md` to find agent definitions, skills, and commands. No manual path specification needed.
+
+### Subagent Model Context
+
+**Haiku:** Shorter context window, tends toward format drift, needs explicit constraints, doesn't always follow all instructions.
+
+**Sonnet/Opus:** Tends toward over-engineering and unnecessary verbosity.
+
+Formulate all recommendations with the agent's model limitations in mind.
 
 ---
 
