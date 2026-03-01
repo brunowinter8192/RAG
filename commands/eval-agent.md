@@ -67,7 +67,7 @@ from pathlib import Path
 sys.path.insert(0, '${CLAUDE_PLUGIN_ROOT}')
 from src.rag.chunker import chunk_workflow
 
-chunks = chunk_workflow("$OUTPUT_MD", strategy="fixed", chunk_size=1500, overlap=200)
+chunks = chunk_workflow("$OUTPUT_MD", chunk_size=1500, overlap=200)
 
 output = {
     "document": "$AGENT_ID.md",
