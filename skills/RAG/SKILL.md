@@ -346,6 +346,8 @@ Read continuous text from a document starting at a specific chunk index.
 
 **Use Case:** After `search` finds a relevant chunk, use `read_document` to read more context forward.
 
+**Eval Use Case:** For sequential data (agent sessions), use `read_document` to read task prompt, tool sequence, and response. Use `search` only for content-based deep-dives into specific tool calls. Sequential workflow analysis requires reading in order, not searching fragments.
+
 ### Parameters
 
 | Parameter | Type | Required | Description |

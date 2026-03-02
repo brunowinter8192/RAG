@@ -20,6 +20,7 @@ Editable files for Process Improvements in RECAP/IMPROVE phase:
 | MD Cleanup Instructions | `.claude/agents/md-cleanup.md` | Markdown cleanup subagent instructions |
 | PDF Convert Command | `.claude/commands/pdf-convert.md` | PDF-to-RAG pipeline command |
 | Debug Command | `.claude/commands/debug.md` | Debug RAG system issues |
+| Eval Agent Command | `.claude/commands/eval-agent.md` | Subagent evaluation pipeline |
 
 
 ---

@@ -16,7 +16,7 @@ Project Path: $ARGUMENTS
 ### Step 1: Encode Project Path
 
 ```bash
-ENCODED=$(echo "$ARGUMENTS" | sed 's|^/||' | sed 's|/|-|g' | sed 's|_|-|g')
+ENCODED=$(echo "$ARGUMENTS" | sed 's|/|-|g')
 echo "Encoded project: $ENCODED"
 ```
 
@@ -103,9 +103,9 @@ From the indexed session, identify:
 - **Agent name** (e.g., "github-search", "reddit-search", "code-investigate-specialist")
 - **Model** (e.g., Haiku, Sonnet)
 
-Use RAG search to find the agent's task prompt and identity:
+Read the task prompt directly (always Chunk 0):
 ```
-mcp__rag__search(query="agent name model task prompt", collection="Subagents")
+mcp__rag__read_document(collection="Subagents", document="${AGENT_ID}.md", start_chunk=0, num_chunks=1)
 ```
 
 ### Step 2: Discover Plugin
@@ -140,22 +140,22 @@ These are the files that control the agent's behavior — the targets for improv
 
 ## Phase 4: Evaluate via RAG
 
-Use RAG tools to analyze the indexed session.
+### 4.1 Read Session Overview
 
-### 4.1 Extract Session Data
+Read task prompt, tool call summary, and final response in one call:
 
 ```
-mcp__rag__search(query="task prompt instructions requirements", collection="Subagents")
-mcp__rag__search(query="tool calls function results output", collection="Subagents")
-mcp__rag__search(query="final response deliverable answer", collection="Subagents")
+mcp__rag__read_document(collection="Subagents", document="${AGENT_ID}.md", start_chunk=0, num_chunks=4)
 ```
 
-Extract:
-- **Task prompt:** What was the agent supposed to do?
-- **Tool calls + outputs:** Which tools were used and how?
-- **Final response:** What did the agent deliver?
+This returns:
+- **Task prompt** (Chunk 0): What was the agent supposed to do?
+- **Tool Call Summary** (Chunk 1-2): All tool calls in sequence with output sizes
+- **Final response** (Chunk ~3): What did the agent deliver?
 
 ### 4.2 Task Fulfillment (35%)
+
+Extract requirements from task prompt. For each requirement:
 
 | Requirement | Fulfilled? | Comment |
 |-------------|-----------|---------|
@@ -163,11 +163,15 @@ Extract:
 
 ### 4.3 Tool Efficiency (25%)
 
-Analyze ALL tool calls from the session:
+Analyze the **Tool Call Summary table** from 4.1. Look for:
+- **Redundant calls:** Same path accessed via `find` then `ls` — one would suffice
+- **Large outputs:** >2000 chars suggests agent read too much (missing `--exclude` or `limit`)
+- **Wasted calls:** Tools called on out-of-scope files
 
-| # | Tool | Input Summary | Useful? | Comment |
-|---|------|--------------|---------|---------|
-| 1 | [tool name] | [brief input] | Yes/No | [why] |
+For suspicious calls, deep-dive via RAG:
+```
+mcp__rag__search(query="Tool Call N: [tool name]", collection="Subagents")
+```
 
 - **Total calls:** X
 - **Useful calls:** Y

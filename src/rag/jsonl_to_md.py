@@ -8,8 +8,9 @@ from pathlib import Path
 # ORCHESTRATOR
 def convert_workflow(jsonl_path: str, output_path: str) -> int:
     messages = load_jsonl(jsonl_path)
+    task_prompt, final_response = extract_session_context(messages)
     tool_calls = extract_tool_calls(messages)
-    md_content = format_as_markdown(tool_calls)
+    md_content = format_as_markdown(tool_calls, task_prompt, final_response)
     write_output(output_path, md_content)
     return len(tool_calls)
 
@@ -33,6 +34,46 @@ def load_jsonl(jsonl_path: str) -> list[dict]:
             except json.JSONDecodeError:
                 continue
     return messages
+
+
+# Extract task prompt (first user message) and final response (last assistant text)
+def extract_session_context(messages: list[dict]) -> tuple[str, str]:
+    task_prompt = ''
+    final_response = ''
+
+    for message in messages:
+        msg = message.get('message', message)
+        role = msg.get('role', '')
+        if role == 'user' and not task_prompt:
+            task_prompt = extract_text_content(msg)
+            break
+
+    for message in reversed(messages):
+        msg = message.get('message', message)
+        role = msg.get('role', '')
+        if role == 'assistant':
+            text = extract_text_content(msg)
+            if text:
+                final_response = text
+                break
+
+    return strip_system_reminders(task_prompt), strip_system_reminders(final_response)
+
+
+# Extract text blocks from a message (ignoring tool_use/tool_result blocks)
+def extract_text_content(msg: dict) -> str:
+    content = msg.get('content', '')
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        texts = []
+        for block in content:
+            if isinstance(block, dict) and block.get('type') == 'text':
+                texts.append(block.get('text', ''))
+            elif isinstance(block, str):
+                texts.append(block)
+        return '\n'.join(texts)
+    return ''
 
 
 # Extract tool_use and tool_result pairs from messages
@@ -99,26 +140,68 @@ def strip_system_reminders(content: str) -> str:
     return re.sub(pattern, '', content, flags=re.DOTALL).strip()
 
 
-# Format tool calls as Markdown (--- separator for chunking)
-def format_as_markdown(tool_calls: list[dict]) -> str:
+# Format structured session MD (summary up top, details below)
+def format_as_markdown(tool_calls: list[dict], task_prompt: str, final_response: str) -> str:
     sections = []
 
-    for call in tool_calls:
-        section = format_tool_call(call)
-        sections.append(section)
+    if task_prompt:
+        sections.append(f"# Task Prompt\n\n{task_prompt}")
+
+    sections.append(format_summary_table(tool_calls))
+
+    if final_response:
+        sections.append(f"# Final Response\n\n{final_response}")
+
+    for i, call in enumerate(tool_calls, 1):
+        sections.append(format_tool_call(call, i))
 
     return '\n\n---\n\n'.join(sections)
 
 
-# Format single tool call as Markdown section
-def format_tool_call(call: dict) -> str:
+# Format compact summary table of all tool calls
+def format_summary_table(tool_calls: list[dict]) -> str:
+    rows = ["# Tool Call Summary", "",
+            "| # | Tool | Input | Output Size |",
+            "|---|------|-------|-------------|"]
+
+    for i, call in enumerate(tool_calls, 1):
+        tool = call['tool_name']
+        brief = format_input_brief(call['input'])
+        output = call.get('output') or ''
+        size = len(output)
+        rows.append(f"| {i} | {tool} | {brief} | {size} chars |")
+
+    return '\n'.join(rows)
+
+
+# Format input as brief one-liner for summary table
+def format_input_brief(input_data: dict, max_len: int = 80) -> str:
+    if not input_data or not isinstance(input_data, dict):
+        return '(no input)'
+
+    if 'command' in input_data:
+        val = str(input_data['command'])
+    elif 'file_path' in input_data:
+        val = str(input_data['file_path'])
+    elif 'pattern' in input_data:
+        val = str(input_data['pattern'])
+    elif 'query' in input_data:
+        val = str(input_data['query'])
+    else:
+        val = str(list(input_data.values())[0])
+
+    if len(val) > max_len:
+        val = val[:max_len - 3] + '...'
+    return val
+
+
+# Format single tool call detail section
+def format_tool_call(call: dict, index: int) -> str:
     tool_name = call['tool_name']
-    input_data = call['input']
+    input_str = format_input(call['input'])
     output = call['output'] or '(no output)'
 
-    input_str = format_input(input_data)
-
-    return f"""# Tool: {tool_name}
+    return f"""# Tool Call {index}: {tool_name}
 
 **Input:**
 {input_str}
