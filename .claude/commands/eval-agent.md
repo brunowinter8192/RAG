@@ -50,7 +50,8 @@ OUTPUT_MD="${CLAUDE_PLUGIN_ROOT}/data/documents/Subagents/${AGENT_ID}.md"
 cd ${CLAUDE_PLUGIN_ROOT} && \
 ./venv/bin/python src/rag/jsonl_to_md.py \
     --input "$JSONL_PATH" \
-    --output "$OUTPUT_MD"
+    --output "$OUTPUT_MD" \
+    --dispatch
 ```
 
 ### Step 3: Verify Conversion
@@ -142,16 +143,17 @@ These are the files that control the agent's behavior — the targets for improv
 
 ### 4.1 Read Session Overview
 
-Read task prompt, tool call summary, and final response in one call:
+Read dispatch context, task prompt, tool call summary, and final response:
 
 ```
-mcp__rag__read_document(collection="Subagents", document="${AGENT_ID}.md", start_chunk=0, num_chunks=4)
+mcp__rag__read_document(collection="Subagents", document="${AGENT_ID}.md", start_chunk=0, num_chunks=5)
 ```
 
 This returns:
-- **Task prompt** (Chunk 0): What was the agent supposed to do?
-- **Tool Call Summary** (Chunk 1-2): All tool calls in sequence with output sizes
-- **Final response** (Chunk ~3): What did the agent deliver?
+- **Dispatch Context** (Chunk 0-1): Main agent's reasoning before dispatch + how it processed the result
+- **Task prompt** (Chunk ~2): What was the agent supposed to do?
+- **Tool Call Summary** (Chunk ~3): All tool calls in sequence with output sizes
+- **Final response** (Chunk ~4): What did the agent deliver?
 
 ### 4.2 Task Fulfillment (35%)
 
@@ -208,7 +210,32 @@ Based on the model used (from Phase 3):
 - [ ] Over-engineering
 - [ ] Unnecessary verbosity
 
-### 4.8 Overall Score
+### 4.8 Dispatch Quality
+
+Evaluate the **Dispatch Context** section from the MD file (NOT indexed — read directly from MD).
+
+Read the dispatch context from the MD file:
+```bash
+head -300 "$OUTPUT_MD" | grep -A 1000 "# Dispatch Context" | grep -B 1000 "# Task Prompt" | head -200
+```
+
+Evaluate three aspects:
+
+| Aspect | Rating | Comment |
+|--------|--------|---------|
+| Task Clarity | OK/Weak/Poor | Was the task prompt precise enough for the sub to succeed? |
+| Context Sufficiency | OK/Weak/Poor | Did the sub receive all necessary context (file paths, constraints, scope)? |
+| Response Processing | OK/Weak/Poor | Did the main agent meaningfully use the sub's response? |
+
+**Guiding questions:**
+- Could the task prompt have been worded more precisely?
+- Did the main provide relevant file paths, constraints, or scope limits?
+- Did the main blindly copy the sub's response or critically evaluate it?
+- Were there obvious context gaps that caused the sub to underperform?
+
+**Root cause link:** If the sub scored low on Task Fulfillment (4.2), check whether the dispatch quality was the actual root cause (bad task = bad result).
+
+### 4.9 Overall Score
 
 | KPI | Weight | Score | Weighted |
 |-----|--------|-------|----------|
