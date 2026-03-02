@@ -175,26 +175,20 @@ def extract_dispatch_context(main_messages: list[dict], agent_id: str) -> dict:
     }
 
 
-# Find metadata line index with matching task_id (queue-operation enqueue)
+# Find first progress line with matching data.agentId
 def find_task_anchor(messages: list[dict], agent_id: str) -> int | None:
     for i, message in enumerate(messages):
-        if message.get('type') != 'queue-operation' or message.get('operation') != 'enqueue':
+        if message.get('type') != 'progress':
             continue
-        content = message.get('content', '')
-        if not isinstance(content, str):
-            continue
-        try:
-            parsed = json.loads(content)
-            if parsed.get('task_id') == agent_id:
-                return i
-        except (json.JSONDecodeError, AttributeError):
-            continue
+        data = message.get('data', {})
+        if isinstance(data, dict) and data.get('agentId') == agent_id:
+            return i
     return None
 
 
-# Find Task tool_use block near anchor, return (tool_use_id, prompt)
+# Find Agent tool_use block before anchor (closest one, searching backwards)
 def find_task_tool_use(messages: list[dict], anchor_idx: int) -> tuple[str, str]:
-    for i in range(anchor_idx, min(len(messages), anchor_idx + 4)):
+    for i in range(anchor_idx, max(-1, anchor_idx - 6), -1):
         msg_wrapper = messages[i]
         if 'message' not in msg_wrapper or not isinstance(msg_wrapper.get('message'), dict):
             continue
@@ -202,7 +196,7 @@ def find_task_tool_use(messages: list[dict], anchor_idx: int) -> tuple[str, str]
         if not isinstance(content, list):
             continue
         for block in content:
-            if isinstance(block, dict) and block.get('type') == 'tool_use' and block.get('name') == 'Task':
+            if isinstance(block, dict) and block.get('type') == 'tool_use' and block.get('name') == 'Agent':
                 tool_use_id = block.get('id', '')
                 prompt = str(block.get('input', {}).get('prompt', ''))
                 return tool_use_id, prompt

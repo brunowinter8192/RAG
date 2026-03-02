@@ -377,19 +377,24 @@ claude mcp list
 
 **Command:** `/eval-agent <project-path>`
 
-Evaluates subagent sessions by indexing into RAG, analyzing against KPIs, and proposing automation file improvements.
+Evaluates subagent sessions by indexing into RAG, analyzing issues, and proposing automation file improvements.
 
-### KPI Framework
+### Evaluation Dimensions (checklist, not scoring)
 
-| KPI | Weight | Description |
-|-----|--------|-------------|
-| Task Fulfillment | 35% | All requirements met |
-| Tool Efficiency | 25% | Minimal tool calls to reach result |
-| Format Compliance | 20% | Requested output format followed |
-| Scope Control | 15% | Delivers what was asked, nothing more |
-| Path Hygiene | 5% | No local paths in output |
+- Task fulfillment, tool efficiency, format compliance, scope control, path hygiene, dispatch quality
 
-**Target:** >85% overall score
+### Proposal Format
+
+Each issue → one proposal with 3 parts: **Observation** (what happened), **Proposal** (file + exact change), **Reasoning** (why this fix addresses it).
+
+### Dispatch Context (`--dispatch` flag)
+
+`jsonl_to_md.py --dispatch` extracts main agent context around the subagent call. Only supports the **current CC JSONL format:**
+- Anchor: `progress` line with `data.agentId`
+- Tool: `Agent` (not `Task`)
+- Older formats (`queue-operation` + `Task`) are NOT supported.
+
+**When exploring JSONL session formats:** ALWAYS check sessions from the CURRENT project first (most recent). Sessions from other projects may use outdated CC versions with different JSONL structures.
 
 ### Evaluation Principles
 
