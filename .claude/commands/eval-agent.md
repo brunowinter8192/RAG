@@ -62,27 +62,12 @@ head -50 "$OUTPUT_MD"
 
 ### Step 4: Chunk and Save as JSON
 
-```python
-import sys, json
-from pathlib import Path
-sys.path.insert(0, '${CLAUDE_PLUGIN_ROOT}')
-from src.rag.chunker import chunk_workflow
-
-chunks = chunk_workflow("$OUTPUT_MD", chunk_size=1500, overlap=200)
-
-output = {
-    "document": "$AGENT_ID.md",
-    "chunks": [
-        {"index": i, "content": c['content']}
-        for i, c in enumerate(chunks)
-    ]
-}
-
-json_path = Path("$OUTPUT_MD").with_suffix('.json')
-with open(json_path, "w") as f:
-    json.dump(output, f, indent=2, ensure_ascii=False)
-
-print(f"Created {len(chunks)} chunks -> {json_path}")
+```bash
+cd ${CLAUDE_PLUGIN_ROOT} && \
+./venv/bin/python workflow.py chunk \
+    --input "$OUTPUT_MD" \
+    --chunk-size 1500 \
+    --overlap 200
 ```
 
 ### Step 5: Index

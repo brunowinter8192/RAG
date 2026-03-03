@@ -102,6 +102,23 @@ get_word_aligned_overlap(text, overlap) -> str  # Returns overlap starting at wo
 | DEFAULT_CHUNK_SIZE | 1000 | Max characters per chunk |
 | DEFAULT_OVERLAP | 200 | Overlap between chunks (word-aligned)
 
+**CLI Usage (via workflow.py):**
+```bash
+./venv/bin/python workflow.py chunk --input docs/readme.md --chunk-size 1500 --overlap 200
+```
+
+Produces a JSON file at the same path with `.json` extension, compatible with `index-json`:
+```json
+{"document": "readme.md", "chunks": [{"index": 0, "content": "..."}]}
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| --input | required | Path to markdown file |
+| --chunk-size | 1000 | Target chunk size in chars |
+| --overlap | 200 | Overlap between chunks |
+| --document | input filename | Document name in JSON output |
+
 ---
 
 ## indexer.py

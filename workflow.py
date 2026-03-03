@@ -1,6 +1,9 @@
 # INFRASTRUCTURE
 import argparse
+import json
+from pathlib import Path
 
+from src.rag.chunker import chunk_workflow
 from src.rag.indexer import index_json_workflow, delete_workflow
 from src.rag.retriever import search_workflow
 
@@ -23,6 +26,17 @@ def main(command: str, **kwargs) -> None:
             print(f"Collection: {r['collection']} | Document: {r['document']}")
             print(r['content'][:500])
 
+    elif command == "chunk":
+        chunks = chunk_workflow(kwargs["input"], kwargs.get("chunk_size", 1000), kwargs.get("overlap", 200))
+        output = {
+            "document": kwargs.get("document") or Path(kwargs["input"]).name,
+            "chunks": [{"index": i, "content": c["content"]} for i, c in enumerate(chunks)]
+        }
+        json_path = Path(kwargs["input"]).with_suffix(".json")
+        with open(json_path, "w") as f:
+            json.dump(output, f, indent=2, ensure_ascii=False)
+        print(f"Chunked {len(chunks)} chunks -> {json_path}")
+
     elif command == "delete":
         deleted = delete_workflow(
             collection=kwargs.get("collection"),
@@ -43,6 +57,12 @@ if __name__ == "__main__":
     search_parser.add_argument("--top-k", type=int, default=5, help="Number of results")
     search_parser.add_argument("--collection", help="Filter by collection name")
     search_parser.add_argument("--document", help="Filter by document name")
+
+    chunk_parser = subparsers.add_parser("chunk", help="Chunk markdown into JSON")
+    chunk_parser.add_argument("--input", required=True, help="Path to markdown file")
+    chunk_parser.add_argument("--chunk-size", type=int, default=1000, help="Target chunk size in chars")
+    chunk_parser.add_argument("--overlap", type=int, default=200, help="Overlap between chunks in chars")
+    chunk_parser.add_argument("--document", help="Document name (default: input filename)")
 
     delete_parser = subparsers.add_parser("delete", help="Delete indexed documents")
     delete_parser.add_argument("--collection", help="Delete by collection name")

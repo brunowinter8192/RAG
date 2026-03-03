@@ -62,27 +62,12 @@ head -50 "$OUTPUT_MD"
 
 ### Step 4: Chunk and Save as JSON
 
-```python
-import sys, json
-from pathlib import Path
-sys.path.insert(0, '${CLAUDE_PLUGIN_ROOT}')
-from src.rag.chunker import chunk_workflow
-
-chunks = chunk_workflow("$OUTPUT_MD", chunk_size=1500, overlap=200)
-
-output = {
-    "document": "$AGENT_ID.md",
-    "chunks": [
-        {"index": i, "content": c['content']}
-        for i, c in enumerate(chunks)
-    ]
-}
-
-json_path = Path("$OUTPUT_MD").with_suffix('.json')
-with open(json_path, "w") as f:
-    json.dump(output, f, indent=2, ensure_ascii=False)
-
-print(f"Created {len(chunks)} chunks -> {json_path}")
+```bash
+cd ${CLAUDE_PLUGIN_ROOT} && \
+./venv/bin/python workflow.py chunk \
+    --input "$OUTPUT_MD" \
+    --chunk-size 1500 \
+    --overlap 200
 ```
 
 ### Step 5: Index
@@ -139,9 +124,9 @@ These are the files that control the agent's behavior — the targets for improv
 
 ---
 
-## Phase 4: Evaluate & Propose
+## Phase 4: Evaluate via RAG
 
-### Step 1: Read Session
+### 4.1 Read Session Overview
 
 Read dispatch context, task prompt, tool call summary, and final response:
 
@@ -155,48 +140,137 @@ This returns:
 - **Tool Call Summary** (Chunk ~3): All tool calls in sequence with output sizes
 - **Final response** (Chunk ~4): What did the agent deliver?
 
-Also read dispatch context from MD file directly:
-```bash
-head -300 "$OUTPUT_MD" | grep -A 1000 "# Dispatch Context" | grep -B 1000 "# Task Prompt" | head -200
-```
+### 4.2 Task Fulfillment (35%)
 
-For suspicious tool calls, deep-dive via RAG:
+Extract requirements from task prompt. For each requirement:
+
+| Requirement | Fulfilled? | Comment |
+|-------------|-----------|---------|
+| [Extract from task] | Yes/No/Partial | [What's missing/correct] |
+
+### 4.3 Tool Efficiency (25%)
+
+Analyze the **Tool Call Summary table** from 4.1. Look for:
+- **Redundant calls:** Same path accessed via `find` then `ls` — one would suffice
+- **Large outputs:** >2000 chars suggests agent read too much (missing `--exclude` or `limit`)
+- **Wasted calls:** Tools called on out-of-scope files
+
+For suspicious calls, deep-dive via RAG:
 ```
 mcp__rag__search(query="Tool Call N: [tool name]", collection="Subagents")
 ```
 
-### Step 2: Analyze
+- **Total calls:** X
+- **Useful calls:** Y
+- **Efficiency:** Y/X
 
-Look for issues across these dimensions (checklist, not scoring):
-- **Task fulfillment:** Requirements met? Gaps?
-- **Tool efficiency:** Redundant calls? Wasted reads? Oversized outputs?
-- **Format compliance:** Requested output format followed?
-- **Scope control:** Delivered what was asked, nothing more?
-- **Path hygiene:** Local paths in output?
-- **Dispatch quality:** Was the task prompt precise enough? Did the main process the response well?
+### 4.4 Format Compliance (20%)
 
-### Step 3: Write Proposals
+- Did agent follow requested output format?
+- Missing sections?
+- Extra unrequested sections?
 
-For EACH issue found, write one proposal:
+### 4.5 Scope Control (15%)
+
+- Did agent deliver what was asked, nothing more?
+- Scope creep present?
+- Stop criteria respected?
+
+### 4.6 Path Hygiene (5%)
+
+- Local paths in output? (`/Users/...`)
+- Relative paths used correctly?
+
+### 4.7 Model-Specific Issues
+
+Based on the model used (from Phase 3):
+
+**Haiku:**
+- [ ] Format drift (own format instead of requested)
+- [ ] Scope creep (delivered more than asked)
+- [ ] Path hallucinations
+- [ ] Stop criteria ignored
+
+**Sonnet/Opus:**
+- [ ] Over-engineering
+- [ ] Unnecessary verbosity
+
+### 4.8 Dispatch Quality
+
+Evaluate the **Dispatch Context** section from the MD file (NOT indexed — read directly from MD).
+
+Read the dispatch context from the MD file:
+```bash
+head -300 "$OUTPUT_MD" | grep -A 1000 "# Dispatch Context" | grep -B 1000 "# Task Prompt" | head -200
+```
+
+Evaluate three aspects:
+
+| Aspect | Rating | Comment |
+|--------|--------|---------|
+| Task Clarity | OK/Weak/Poor | Was the task prompt precise enough for the sub to succeed? |
+| Context Sufficiency | OK/Weak/Poor | Did the sub receive all necessary context (file paths, constraints, scope)? |
+| Response Processing | OK/Weak/Poor | Did the main agent meaningfully use the sub's response? |
+
+**Guiding questions:**
+- Could the task prompt have been worded more precisely?
+- Did the main provide relevant file paths, constraints, or scope limits?
+- Did the main blindly copy the sub's response or critically evaluate it?
+- Were there obvious context gaps that caused the sub to underperform?
+
+**Root cause link:** If the sub scored low on Task Fulfillment (4.2), check whether the dispatch quality was the actual root cause (bad task = bad result).
+
+### 4.9 Overall Score
+
+| KPI | Weight | Score | Weighted |
+|-----|--------|-------|----------|
+| Task Fulfillment | 35% | X% | |
+| Tool Efficiency | 25% | X% | |
+| Format Compliance | 20% | X% | |
+| Scope Control | 15% | X% | |
+| Path Hygiene | 5% | X% | |
+| **Total** | | | **X%** |
+
+**Target:** >85%
+
+---
+
+## Phase 5: Automation File Proposal
+
+### Root Cause Analysis
+
+| Problem | Symptom | Root Cause | Automation File |
+|---------|---------|------------|-----------------|
+| [Name] | [What happens] | [Why] | [Which file] |
+
+### Concrete Proposals
+
+For EACH identified problem, provide a concrete proposal:
+
+**Format:**
 
 ```
 ### Proposal N: [Title]
 
-**Observation:** [What happened — concrete, factual]
+**File:** [Full path to automation file]
+**Location:** [Line range or section name]
+**KPI Impact:** [Which KPI this addresses, current score → expected score]
 
-**Proposal:**
-- **File:** [Full path to automation file]
-- **Location:** [Section name or line range]
-- **Current:** [Exact current text]
-- **Proposed:** [Exact replacement text]
+**WHY:** [Root cause explanation — what went wrong and why this file is responsible]
 
-**Reasoning:** [Why this file caused the issue, why this fix addresses it]
+**Current:**
+[Exact current text at that location]
+
+**Proposed:**
+[Exact replacement text]
+
+**Expected Impact:** [Concrete improvement description]
 ```
 
 **CRITICAL:**
+- Every proposal MUST have a WHY — no changes without root cause justification
 - Proposals are SUGGESTIONS — do NOT edit any files
 - Be specific: exact file, exact location, exact text
-- Every proposal needs all 3 parts (Observation, Proposal, Reasoning)
 
 **STOP** - Present all proposals to user. Ask: "Which proposals should be implemented?"
 
