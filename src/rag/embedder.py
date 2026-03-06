@@ -81,9 +81,6 @@ def start_embedding_server():
         "--host", "0.0.0.0",
         "--port", "8081",
         "-ngl", "99",
-        "-ub", "512",
-        "-b", "512",
-        "-np", "1"
     ]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -99,9 +96,10 @@ def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
 
 # Generate embeddings via llama-server API
 def generate_embeddings(texts: list[str]) -> list[list[float]]:
+    prefixed = [f"search_document: {t}" for t in texts]
     response = httpx.post(
         EMBEDDING_URL,
-        json={"input": texts, "model": EMBEDDING_MODEL},
+        json={"input": prefixed, "model": EMBEDDING_MODEL},
         timeout=300.0
     )
     response.raise_for_status()

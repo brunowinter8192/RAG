@@ -30,7 +30,7 @@ VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
 
 # ORCHESTRATORS
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 
 
 # Index from chunks.json (pre-chunked, LLM-cleaned)
@@ -166,8 +166,13 @@ def delete_chunks(conn, collection: str | None, document: str | None) -> int:
 
 # Store chunks with embeddings in PostgreSQL
 def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]]) -> None:
+    skipped = 0
     with conn.cursor() as cur:
         for chunk, embedding in zip(chunks, embeddings):
+            if embedding is None or all(v is None for v in embedding):
+                logging.warning(f"NULL embedding skipped: collection={chunk['collection']} chunk_index={chunk['chunk_index']}")
+                skipped += 1
+                continue
             cur.execute(
                 """
                 INSERT INTO documents (content, collection, document, chunk_index, total_chunks, embedding)
@@ -183,3 +188,5 @@ def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]]) -> Non
                 )
             )
     conn.commit()
+    if skipped:
+        logging.warning(f"Skipped {skipped} chunks with NULL embeddings")
