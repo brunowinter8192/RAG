@@ -45,7 +45,10 @@ Add to your project's `.mcp.json` (all paths must be absolute):
 |-----------|------|-------------|
 | **Skill** | `/rag:mcp_usage` | Tool usage strategy, parameters, examples, score interpretation |
 | **Command** | `/rag:pdf-convert` | Full PDF-to-RAG pipeline (extract, chunk, index) |
+| **Command** | `/rag:web-md-index` | Website MD-to-RAG pipeline (cleanup, chunk, index) |
 | **MCP Server** | `rag` | 3 search tools over indexed documents |
+| **Agent** | `md-cleanup-master` | Clean PDF-converted markdown (OCR artifacts, split words) |
+| **Agent** | `web-md-cleanup` | Clean website-crawled markdown (navigation, footers, UI chrome) |
 
 ## MCP Tools
 
@@ -166,6 +169,20 @@ pgvector
 
 MinerU is only required for the PDF-to-Markdown step. You can start at any point in the pipeline -- feed Markdown files directly to the chunker, or pre-chunked JSON directly to the indexer.
 
+### Web Flow (Crawled MD to RAG)
+
+```
+directory/*.md (raw crawl4ai output)
+ | web-md-cleanup agent (remove nav, footer, UI chrome)
+directory/*.md (cleaned)
+ | chunker.py (per file)
+directory/*.json
+ | indexer.py (per file)
+pgvector
+```
+
+Use `/rag:web-md-index` for the full pipeline. Works with output from SearXNG plugin's `/crawl-site` command.
+
 Semantic chunking: Splits at paragraph boundaries (`\n\n`), then sentences, with 200 char overlap.
 
 **Module details:** [src/rag/DOCS.md](src/rag/DOCS.md)
@@ -209,8 +226,9 @@ Optional `document` field per chunk overrides the top-level source. Enables mult
 ```
 RAG/
   .claude-plugin/          # Plugin manifest (plugin.json only)
-  commands/                # Plugin commands (pdf-convert)
-  skills/                  # Plugin skills (mcp_usage)
+  agents/                  # Agent definitions (md-cleanup-master, web-md-cleanup)
+  commands/                # Plugin commands (pdf-convert, web-md-index)
+  skills/                  # Plugin skills (mcp_usage, agent dispatchers)
   server.py                # MCP Entry Point (Claude Code)
   workflow.py              # Pipeline Entry Point (CLI)
   start.sh                 # Start all services

@@ -7,8 +7,9 @@
   },
   "repository": "https://github.com/brunowinter8192/RAG",
   "keywords": ["rag", "search", "mcp", "embeddings", "pgvector"],
-  "skills": "./skills/RAG/",
-  "commands": ["./commands/pdf-convert.md", "./commands/eval-agent.md"],
+  "skills": ["./skills/RAG/", "./skills/agent-md-cleanup/", "./skills/agent-web-md-cleanup/"],
+  "agents": ["./agents/md-cleanup-master.md", "./agents/web-md-cleanup.md"],
+  "commands": ["./commands/pdf-convert.md", "./commands/web-md-index.md"],
   "mcpServers": {
     "rag": {
       "command": "${CLAUDE_PLUGIN_ROOT}/mcp-start.sh",
