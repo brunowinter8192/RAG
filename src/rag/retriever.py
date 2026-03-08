@@ -25,6 +25,8 @@ POSTGRES_USER = os.getenv("POSTGRES_USER", "rag")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rag")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 DEFAULT_TOP_K = 5
+HYBRID_CANDIDATES = 50
+RRF_K = 60
 
 
 # ORCHESTRATORS
@@ -71,6 +73,25 @@ def read_document_workflow(collection: str, document: str, start_chunk: int, num
         'start_chunk': start_chunk,
         'num_chunks': len(chunks)
     }
+
+
+def search_hybrid_workflow(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    collection: str | None = None,
+    document: str | None = None,
+    neighbors: int = 0
+) -> list[dict]:
+    conn = get_connection()
+    query_vector = embed_query(query)
+    vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
+    keyword_results = bm25_search(conn, query, HYBRID_CANDIDATES, collection, document)
+    results = rrf_fusion(vector_results, keyword_results, top_k)
+    if neighbors > 0:
+        results = expand_results(conn, results, neighbors)
+    conn.close()
+    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, bm25={len(keyword_results)})")
+    return results
 
 
 def search_keyword_workflow(
@@ -221,6 +242,26 @@ def _bm25_query(
         }
         for row in rows
     ]
+
+
+# Fuse two ranked result lists using Reciprocal Rank Fusion
+def rrf_fusion(vector_results: list[dict], keyword_results: list[dict], top_k: int) -> list[dict]:
+    scores = {}
+    chunks = {}
+
+    for rank, r in enumerate(vector_results, start=1):
+        key = (r['collection'], r['document'], r['chunk_index'])
+        scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
+        chunks[key] = r
+
+    for rank, r in enumerate(keyword_results, start=1):
+        key = (r['collection'], r['document'], r['chunk_index'])
+        scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
+        if key not in chunks:
+            chunks[key] = r
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    return [{**chunks[key], 'score': round(score, 6)} for key, score in ranked]
 
 
 # Expand results with neighboring chunks, deduplicated and merged

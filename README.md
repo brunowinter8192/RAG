@@ -46,11 +46,29 @@ Add to your project's `.mcp.json` (all paths must be absolute):
 | **Skill** | `/rag:mcp_usage` | Tool usage strategy, parameters, examples, score interpretation |
 | **Command** | `/rag:pdf-convert` | Full PDF-to-RAG pipeline (extract, chunk, index) |
 | **Command** | `/rag:web-md-index` | Website MD-to-RAG pipeline (cleanup, chunk, index) |
-| **MCP Server** | `rag` | 3 search tools over indexed documents |
+| **MCP Server** | `rag` | 4 search tools over indexed documents (hybrid, semantic, keyword, read) |
 | **Agent** | `md-cleanup-master` | Clean PDF-converted markdown (OCR artifacts, split words) |
 | **Agent** | `web-md-cleanup` | Clean website-crawled markdown (navigation, footers, UI chrome) |
 
 ## MCP Tools
+
+### search_hybrid
+
+Hybrid search combining semantic similarity AND keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `query` | string | Yes | - | Search query (natural language, keywords, or both) |
+| `top_k` | int | No | 5 | Number of results (1-20) |
+| `collection` | string | Yes | - | Collection to search in |
+| `document` | string | No | all | Filter by document name |
+| `neighbors` | int | No | 0 | Include N chunks before/after each match (0-2) |
+
+```
+mcp__rag__search_hybrid(query="TPC-H benchmark performance", collection="specification", top_k=3)
+```
+
+Runs both vector and BM25 search (50 candidates each), then fuses rankings with RRF so results scoring well in both methods are boosted.
 
 ### search
 

@@ -7,6 +7,7 @@ from mcp.types import TextContent
 from src.rag.retriever import (
     search_workflow, format_results,
     search_keyword_workflow,
+    search_hybrid_workflow,
     list_collections_workflow, format_collections,
     list_documents_workflow, format_documents,
     read_document_workflow
@@ -27,6 +28,19 @@ def search(
 ) -> list[TextContent]:
     """Use when user needs to find relevant documents, code snippets, or information from the indexed knowledge base. Good for answering questions, finding examples, or locating specific content."""
     results = search_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2))
+    return [TextContent(type="text", text=format_results(results))]
+
+
+@mcp.tool
+def search_hybrid(
+    query: Annotated[str, Field(description="Search query (natural language, keywords, or both)")],
+    collection: Annotated[str, Field(description="Collection to search in (use list_collections to see available)")],
+    top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
+    document: Annotated[str | None, Field(description="Filter by document name (e.g. 'chapter1.md')")] = None,
+    neighbors: Annotated[int, Field(description="Include N chunks before/after each match for context (0-2)")] = 0
+) -> list[TextContent]:
+    """Hybrid search combining semantic similarity AND keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections. Automatically runs both vector and BM25 search, then fuses rankings so results that score well in both methods are boosted."""
+    results = search_hybrid_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2))
     return [TextContent(type="text", text=format_results(results))]
 
 

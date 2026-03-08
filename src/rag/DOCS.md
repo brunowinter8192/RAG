@@ -335,6 +335,37 @@ result = read_document_workflow("specification", "specification.md", start_chunk
 
 **find_overlap(text1, text2, max_overlap=300):** Find the longest suffix of text1 that matches prefix of text2. Returns overlap size in characters.
 
+### search_hybrid_workflow
+
+Hybrid search combining vector similarity and BM25 keyword search with Reciprocal Rank Fusion (RRF).
+
+```python
+from src.rag.retriever import search_hybrid_workflow
+
+# Best default for large collections
+results = search_hybrid_workflow("authentication patterns", collection="docs")
+
+# With context expansion
+results = search_hybrid_workflow("TPC-H benchmark", top_k=10, collection="specification", neighbors=1)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| query | str | required | Search query (natural language or keywords) |
+| top_k | int | 5 | Number of results (max 20) |
+| collection | str | None | Filter by collection name |
+| document | str | None | Filter by document name |
+| neighbors | int | 0 | Include N chunks before/after each match (0-2) |
+
+**How it works:**
+1. Runs vector search (top 50 candidates) and BM25 search (top 50 candidates) in parallel
+2. Applies RRF fusion: `score = Σ 1/(k + rank)` across both result lists (k=60)
+3. Chunks appearing in both lists get boosted scores
+4. Returns top_k results sorted by fused score
+
+**When to use:** Default choice for large collections (100+ documents). Use `search_workflow` for pure semantic queries, `search_keyword_workflow` for exact term matching.
+
 ### search_keyword_workflow
 
 BM25 keyword search using PostgreSQL full-text search (tsvector).

@@ -15,7 +15,7 @@ PLUGIN_DIR: the RAG plugin root (resolve from this command's path: go up one lev
 ```bash
 source $PLUGIN_DIR/src/spawn/tmux_spawn.sh
 
-TASK="Read $PLUGIN_DIR/Prompts/eval.md and execute it for project <project_path>. Use session mode if 'session' was given. Non-interactive: write reports to <project_path>/Evaluation_Proposals/ instead of presenting to user."
+TASK="Activate Skill('rag:eval') with arguments: <project_path> [session]. Non-interactive: write reports to <project_path>/Evaluation_Proposals/ instead of presenting to user. Schreibe auf Deutsch."
 
 spawn_claude_worker "workers" "eval" "<project_path>" "sonnet" "$TASK"
 ```
