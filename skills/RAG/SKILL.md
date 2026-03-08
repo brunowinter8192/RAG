@@ -387,6 +387,30 @@ data/documents/
     chunks.json           <- Chunked for indexing
 ```
 
+## Collection Management
+
+The MCP server intentionally has NO delete tool -- deletion is a CLI operation.
+
+**Delete a collection (DB + Filesystem):**
+
+```bash
+cd <RAG-project-root>
+
+# 1. Delete from PostgreSQL
+./venv/bin/python workflow.py delete --collection "<name>"
+
+# 2. Delete filesystem data
+rm -rf data/documents/<name>
+```
+
+**Delete a single document within a collection:**
+
+```bash
+./venv/bin/python workflow.py delete --collection "<name>" --document "<doc.md>"
+```
+
+**Verify:** `mcp__rag__list_collections()` after deletion (MCP server restart not needed -- reads live from DB).
+
 ---
 
 # Project Specifics
