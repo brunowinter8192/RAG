@@ -70,7 +70,7 @@ EVERY RESPONSE STARTS WITH A PHASE INDICATOR:
 
 **Goal:** Find initial hits and present them to the user.
 
-1. Run BOTH `search` AND `search_keyword` in parallel. Always both -- they find different things.
+1. For large collections (100+ chunks): prefer `search_hybrid` — it runs both vector and BM25 internally with RRF fusion. For small collections or when you need separate control: run `search` AND `search_keyword` in parallel.
 2. Present results to user as short quotes
 3. Own assessment: Which hits are relevant? Which sections could be interesting?
 4. "Any remarks?" → wait
@@ -147,6 +147,7 @@ RIGHT:
 
 | Tool | Purpose |
 |------|---------|
+| `mcp__rag__search_hybrid` | Hybrid search (vector + BM25 + RRF fusion) — best default for large collections |
 | `mcp__rag__search` | Semantic search over documents |
 | `mcp__rag__search_keyword` | BM25 keyword search for exact terms |
 | `mcp__rag__read_document` | Read continuous text from a position |
@@ -158,13 +159,14 @@ RIGHT:
 ## Cross Tool Usage Example
 
 1. `list_collections()` → see available collections
-2. `search(collection="...", query="...")` → semantic search (concepts)
-3. `search_keyword(collection="...", query="...")` → keyword search (exact terms)
-4. `read_document(collection, document, start_chunk, num_chunks=5)` → read more context
+2. `search_hybrid(collection="...", query="...")` → hybrid search (best default for large collections)
+3. `search(collection="...", query="...")` → pure semantic search (when you need only conceptual matches)
+4. `search_keyword(collection="...", query="...")` → pure keyword search (exact terms only)
+5. `read_document(collection, document, start_chunk, num_chunks=5)` → read more context
 
 **Drill-Down Pattern:**
 ```
-1. search("target concept description", collection="docs")  → finds Chunk: 42
+1. search_hybrid("target concept description", collection="docs")  → finds Chunk: 42
 2. read_document(start_chunk=40, num_chunks=10) → read full section
 3. search_keyword("exact_term", collection="docs", document="chapter.md") → find exact definition
 ```
@@ -174,7 +176,7 @@ RIGHT:
 `read_document` belongs in the READ phase. In SEARCH, present hits and wait for user.
 
 ```
-search / search_keyword  (SEARCH phase)
+search_hybrid / search / search_keyword  (SEARCH phase)
          ↓
     Present hits, ask "Any remarks?"
          ↓ user says next
@@ -191,9 +193,21 @@ search / search_keyword  (SEARCH phase)
 
 **Problem:** Single search with top_k=5, picking the first decent hit = incomplete answers. Large documents contain relevant information at MULTIPLE locations.
 
-**Strategy: 3 parallel searches, then rank transparently.**
+**Strategy A (preferred): Hybrid search handles fusion automatically.**
 
-### Step 1: Three Parallel Searches
+```
+# Single hybrid search covers both semantic + keyword
+mcp__rag__search_hybrid(query="original question", collection="...", top_k=10)
+
+# Optional: rephrased hybrid search for broader coverage
+mcp__rag__search_hybrid(query="rephrased question with synonyms", collection="...", top_k=10)
+```
+
+Hybrid search internally runs 50 vector + 50 BM25 candidates and fuses with RRF. This replaces the manual 3-search pattern for most cases.
+
+**Strategy B (when hybrid isn't enough): 3 parallel searches, then rank transparently.**
+
+Use when: hybrid search misses exact terms (rare edge cases), or you need maximum coverage.
 
 ```
 # 1. Semantic search (natural language)
@@ -208,7 +222,7 @@ mcp__rag__search(query="rephrased question with synonyms", collection="...", top
 
 ### Step 2: Deduplicate + Rank
 
-From ~30 results, extract unique relevant hits. Rank by content fit, not just score.
+From results, extract unique relevant hits. Rank by content fit, not just score.
 
 ### Step 3: Present with Citations
 
@@ -232,6 +246,60 @@ User sees ALL relevant locations and decides which to explore further (via `read
 ---
 
 # Tool Reference
+
+## mcp__rag__search_hybrid
+
+Hybrid search combining vector similarity AND BM25 keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Search query (natural language, keywords, or both) |
+| `collection` | string | Yes | Collection to search in |
+| `top_k` | int | No | Number of results (1-20, default: 5) |
+| `document` | string | No | Filter by document |
+| `neighbors` | int | No | Include N chunks before/after each match (0-2, default: 0) |
+
+### How it works
+
+1. Runs vector search (50 candidates) and BM25 search (50 candidates) internally
+2. Applies RRF fusion: `score = Σ 1/(60 + rank)` across both result lists
+3. Chunks appearing in both lists get boosted scores
+4. Returns top_k results sorted by fused score
+
+### When to use
+
+- **Default choice** for any collection with 100+ chunks
+- When the query mixes concepts and specific terms (e.g., "rate limiting API requests")
+- When you're unsure whether semantic or keyword search is better
+
+### When NOT to use
+
+- Pure exact-term lookup (column names, identifiers) → use `search_keyword`
+- When you need separate control over semantic vs keyword results
+- Very small collections (<50 chunks) where either method alone suffices
+
+### Score Interpretation (RRF)
+
+RRF scores are fundamentally different from cosine similarity scores:
+
+| RRF Score | Meaning |
+|-----------|---------|
+| > 0.03 | Strong match (appears high in BOTH vector and BM25 lists) |
+| 0.015 - 0.03 | Good match (appears in both lists, or very high in one) |
+| < 0.015 | Weak match (appears in only one list, low rank) |
+
+**Do NOT compare** RRF scores with `search` scores (cosine similarity 0-1). They use completely different scales.
+
+### Examples
+
+```
+mcp__rag__search_hybrid(query="rate limiting API requests", collection="Binance", top_k=5)
+mcp__rag__search_hybrid(query="authentication patterns", collection="docs", neighbors=1)
+```
+
+---
 
 ## mcp__rag__search
 
@@ -370,11 +438,23 @@ mcp__rag__read_document(collection="docs", document="architecture.md", start_chu
 
 ## Score Interpretation
 
+**Semantic search (`search`) — cosine similarity (0-1):**
+
 | Score | Meaning |
 |-------|---------|
 | > 0.7 | High relevance |
 | 0.5 - 0.7 | Moderate relevance |
 | < 0.5 | Low relevance |
+
+**Hybrid search (`search_hybrid`) — RRF fusion scores:**
+
+| Score | Meaning |
+|-------|---------|
+| > 0.03 | Strong match (both methods agree) |
+| 0.015 - 0.03 | Good match |
+| < 0.015 | Weak match |
+
+RRF and cosine scores are NOT comparable — different scales.
 
 ## Data Structure
 
