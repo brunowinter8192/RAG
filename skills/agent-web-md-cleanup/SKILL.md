@@ -9,7 +9,7 @@ description: Dispatch rules for web-md-cleanup agent
 
 | Agent | subagent_type | Model | Output |
 |-------|---------------|-------|--------|
-| web-md-cleanup | `web-md-cleanup` | Haiku | Patterns detected, files processed, char reduction |
+| web-md-cleanup | `web-md-cleanup` | Sonnet | Patterns detected, files processed, char reduction |
 
 ## When to Use
 
@@ -17,7 +17,7 @@ After website crawling (crawl_site.py or similar) produces raw markdown files wi
 
 ## Script Location
 
-Agents create scripts in `{project_root}/cleanup/`. This folder is gitignored and exempt from code standards.
+Agents create scripts in `{project_root}/dev/cleanup/`. This folder is gitignored and exempt from code standards.
 
 ## How to Prompt
 
