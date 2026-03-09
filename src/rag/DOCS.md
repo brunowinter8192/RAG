@@ -11,11 +11,13 @@ cd /path/to/MCP/RAG
 ```
 src/rag/
 ├── __init__.py
-├── embedder.py
 ├── chunker.py
+├── embedder.py
 ├── indexer.py
 ├── reranker.py
 ├── retriever.py
+├── sparse_embedder.py
+├── splade_server.py
 └── logs/
 ```
 
@@ -122,6 +124,70 @@ Produces a JSON file at the same path with `.json` extension, compatible with `i
 
 ---
 
+## splade_server.py
+
+**Purpose:** Standalone FastAPI server generating SPLADE sparse embeddings.
+
+**Model:** `naver/splade-cocondenser-ensembledistil` (110M params, CC BY-NC-SA)
+**Port:** 8083 (configurable via env `SPLADE_PORT`)
+
+**Endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Returns `{"status": "ok"}` |
+| `/v1/sparse-embeddings` | POST | Generate sparse embeddings |
+
+**Request:**
+```json
+{"input": ["text1", "text2"], "model": "splade"}
+```
+
+**Response:**
+```json
+{"data": [{"index": 0, "sparse_vector": {"indices": [1, 42, 7891], "values": [0.82, 0.31, 0.15]}}]}
+```
+
+**Startup:**
+```bash
+bash scripts/start_splade_server.sh
+# or
+./venv/bin/python -m uvicorn src.rag.splade_server:app --host 0.0.0.0 --port 8083
+```
+
+Model loaded once at module level (not per request). First start downloads model from HuggingFace (~440MB).
+
+---
+
+## sparse_embedder.py
+
+**Purpose:** HTTP client for SPLADE server (port 8083). Mirrors `embedder.py` pattern.
+
+**Input:** Text or list of texts
+**Output:** List of sparse vector dicts `[{"indices": [...], "values": [...]}]`
+
+**Usage:**
+```python
+from src.rag.sparse_embedder import sparse_embed_workflow
+
+sparse_vecs = sparse_embed_workflow("Your text here")
+sparse_vecs = sparse_embed_workflow(["Text 1", "Text 2"])
+```
+
+**Auto-start:** If SPLADE server not running, starts it automatically via uvicorn subprocess (same pattern as embedder.py).
+
+**Environment Variables (.env):**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| SPLADE_URL | http://localhost:8083/v1/sparse-embeddings | SPLADE server endpoint |
+
+**Constants:**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| SPLADE_HEALTH_URL | http://localhost:8083/health | Health check endpoint |
+
+---
+
 ## indexer.py
 
 **Purpose:** Index documents into PostgreSQL with pgvector.
@@ -217,7 +283,8 @@ CREATE TABLE documents (
     document TEXT NOT NULL,
     chunk_index INTEGER NOT NULL,
     total_chunks INTEGER NOT NULL,
-    embedding vector(4096)
+    embedding vector(4096),
+    sparse_embedding sparsevec(30522)
 )
 ```
 
@@ -376,7 +443,7 @@ result = read_document_workflow("specification", "specification.md", start_chunk
 
 ### search_hybrid_workflow
 
-Hybrid search combining vector similarity and BM25 keyword search with Reciprocal Rank Fusion (RRF). Optional cross-encoder reranking for higher precision.
+Hybrid search combining vector similarity and SPLADE sparse search with Reciprocal Rank Fusion (RRF). Optional cross-encoder reranking for higher precision.
 
 ```python
 from src.rag.retriever import search_hybrid_workflow
@@ -402,13 +469,31 @@ results = search_hybrid_workflow("complex query", top_k=5, collection="docs", re
 | rerank | bool | False | Re-score with cross-encoder (Qwen3-Reranker-0.6B) |
 
 **How it works:**
-1. Runs vector search (top 50 candidates) and BM25 search (top 50 candidates) in parallel
+1. Runs vector search (top 50 candidates) and SPLADE sparse search (top 50 candidates)
 2. Applies RRF fusion: `score = Σ 1/(k + rank)` across both result lists (k=60)
 3. Chunks appearing in both lists get boosted scores
 4. If `rerank=False`: Returns top_k results sorted by fused score
 5. If `rerank=True`: All 50 RRF candidates sent to cross-encoder, returns top_k by relevance score
 
+**SPLADE vs BM25:** SPLADE (used in hybrid) learns term importance and expands synonyms automatically (e.g., "revenue" matches "profit", "earnings"). BM25 (used in `search_keyword_workflow`) matches exact terms only. Hybrid combines dense semantic + SPLADE sparse for best coverage.
+
 **When to use:** Default choice for large collections (100+ documents). Use `search_workflow` for pure semantic queries, `search_keyword_workflow` for exact term matching. Add `rerank=True` when precision matters more than speed.
+
+### splade_search
+
+SPLADE sparse vector search using `sparse_embedding <=> query::sparsevec` cosine distance.
+
+```python
+# Called internally by search_hybrid_workflow — not typically used directly
+from src.rag.retriever import splade_search
+results = splade_search(conn, "revenue growth", top_k=50, collection="docs")
+```
+
+**How it works:**
+1. Generates sparse query vector via `sparse_embed_workflow(query)`
+2. Formats as pgvector sparsevec string: `{idx1:val1,idx2:val2}/30522`
+3. Queries `sparse_embedding <=> query::sparsevec` for cosine distance
+4. Returns same dict structure as `search_vectors()` and `bm25_search()`
 
 ### search_keyword_workflow
 
