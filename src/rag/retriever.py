@@ -8,6 +8,7 @@ from pgvector.psycopg2 import register_vector
 from dotenv import load_dotenv
 
 from .embedder import embed_workflow
+from .reranker import rerank_workflow
 
 load_dotenv()
 
@@ -80,17 +81,21 @@ def search_hybrid_workflow(
     top_k: int = DEFAULT_TOP_K,
     collection: str | None = None,
     document: str | None = None,
-    neighbors: int = 0
+    neighbors: int = 0,
+    rerank: bool = False
 ) -> list[dict]:
     conn = get_connection()
     query_vector = embed_query(query)
     vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
     keyword_results = bm25_search(conn, query, HYBRID_CANDIDATES, collection, document)
-    results = rrf_fusion(vector_results, keyword_results, top_k)
+    rrf_top = HYBRID_CANDIDATES if rerank else top_k
+    results = rrf_fusion(vector_results, keyword_results, rrf_top)
+    if rerank:
+        results = rerank_workflow(query, results, top_k)
     if neighbors > 0:
         results = expand_results(conn, results, neighbors)
     conn.close()
-    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, bm25={len(keyword_results)})")
+    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, bm25={len(keyword_results)}, rerank={rerank})")
     return results
 
 

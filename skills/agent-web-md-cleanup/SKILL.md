@@ -17,7 +17,7 @@ After website crawling (crawl_site.py or similar) produces raw markdown files wi
 
 ## Script Location
 
-Agents create scripts in `{project_root}/debug/`. This folder is gitignored and exempt from code standards.
+Agents create scripts in `{project_root}/cleanup/`. This folder is gitignored and exempt from code standards.
 
 ## How to Prompt
 

@@ -48,10 +48,29 @@ Website markdown has BLOCK-level noise (navigation at top, footer at bottom, rep
 - Statistics, cookie statements
 - Trailing duplicated title + metadata
 
+### Sphinx Documentation Sites (e.g. SearXNG, ReadTheDocs)
+
+Sphinx-generated docs have a distinctive pattern. Content is sandwiched between header navigation and a massive footer block.
+
+**Header (top of file, before first `#` heading):**
+- `### Navigation` block with index/modules/next/previous links
+- Breadcrumb trail with `»` separators (e.g. `[SearXNG Documentation] » [Admin] » [Page]`)
+
+**Footer (after last content line):**
+- Logo image line: `[ ![Logo of ...](...) ](...)`
+- `### [Table of Contents]` — **BIGGEST noise source**, 50-70 lines of nested site-wide navigation links
+- `### Project Links` — 3-5 external links (Source, Wiki, Issues)
+- Second `### Navigation` block with Overview/Previous/Next chapter links
+- `### Quick search` — empty section
+- `### This Page` — "Show Source" link
+- `© Copyright ...` line
+
+**Detection strategy:** Logo image line is the reliable content-end marker. Everything from `[ ![Logo` to EOF is footer noise.
+
 ## CRITICAL EXECUTION PROTOCOL
 
 1. **SAMPLE FIRST:** Read 3-5 files to identify common patterns across the crawled site
-2. **ONE SCRIPT FOR ALL:** Create a single `debug/clean_web_{dirname}.py` that processes ALL files in the directory
+2. **ONE SCRIPT FOR ALL:** Create a single `cleanup/clean_web_{dirname}.py` that processes ALL files in the directory
 3. **PRESERVE `<!-- source: URL -->` COMMENTS:** These are metadata from the crawler, keep them
 4. **FIND THE CONTENT START:** Look for the first real heading (`# Title`) that is NOT navigation
 5. **FIND THE CONTENT END:** Look for patterns like "Normdaten", "Kategorie:", license text, or repeated footer links
@@ -61,7 +80,7 @@ Website markdown has BLOCK-level noise (navigation at top, footer at bottom, rep
 
 1. **Sample:** Read 3-5 files, identify header/footer boundaries
 2. **Pattern catalog:** List all detected noise patterns with example lines
-3. **Build script:** Create `debug/clean_web_{dirname}.py` that strips detected patterns from all files
+3. **Build script:** Create `cleanup/clean_web_{dirname}.py` that strips detected patterns from all files
 4. **Run:** Process all files, output cleaned versions to same directory (overwrite originals)
 5. **Verify:** Compare file sizes before/after, spot-check 2-3 files
 
@@ -78,6 +97,6 @@ CLEANUP RESULTS:
 - Total chars after: [N]
 - Reduction: [X%]
 
-SCRIPT: debug/clean_web_{dirname}.py
+SCRIPT: cleanup/clean_web_{dirname}.py
 STATUS: [CLEAN / ISSUES_REMAINING]
 ```

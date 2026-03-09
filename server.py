@@ -37,10 +37,11 @@ def search_hybrid(
     collection: Annotated[str, Field(description="Collection to search in (use list_collections to see available)")],
     top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
     document: Annotated[str | None, Field(description="Filter by document name (e.g. 'chapter1.md')")] = None,
-    neighbors: Annotated[int, Field(description="Include N chunks before/after each match for context (0-2)")] = 0
+    neighbors: Annotated[int, Field(description="Include N chunks before/after each match for context (0-2)")] = 0,
+    rerank: Annotated[bool, Field(description="Re-score results with cross-encoder for higher precision (slower, starts reranker model on first use)")] = False
 ) -> list[TextContent]:
-    """Hybrid search combining semantic similarity AND keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections. Automatically runs both vector and BM25 search, then fuses rankings so results that score well in both methods are boosted."""
-    results = search_hybrid_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2))
+    """Hybrid search combining semantic similarity AND keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections. Automatically runs both vector and BM25 search, then fuses rankings so results that score well in both methods are boosted. Set rerank=True to apply cross-encoder reranking for maximum precision."""
+    results = search_hybrid_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2), rerank)
     return [TextContent(type="text", text=format_results(results))]
 
 

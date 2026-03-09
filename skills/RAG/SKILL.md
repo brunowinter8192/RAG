@@ -260,6 +260,7 @@ Hybrid search combining vector similarity AND BM25 keyword matching with Recipro
 | `top_k` | int | No | Number of results (1-20, default: 5) |
 | `document` | string | No | Filter by document |
 | `neighbors` | int | No | Include N chunks before/after each match (0-2, default: 0) |
+| `rerank` | bool | No | Re-score with cross-encoder for higher precision (default: false) |
 
 ### How it works
 
@@ -267,18 +268,21 @@ Hybrid search combining vector similarity AND BM25 keyword matching with Recipro
 2. Applies RRF fusion: `score = Σ 1/(60 + rank)` across both result lists
 3. Chunks appearing in both lists get boosted scores
 4. Returns top_k results sorted by fused score
+5. **If `rerank=True`:** All 50 RRF candidates are re-scored by a cross-encoder model (Qwen3-Reranker-0.6B), then top_k returned. Scores become cross-encoder relevance scores (0-1).
 
 ### When to use
 
 - **Default choice** for any collection with 100+ chunks
 - When the query mixes concepts and specific terms (e.g., "rate limiting API requests")
 - When you're unsure whether semantic or keyword search is better
+- **With `rerank=True`:** When precision matters more than speed — complex queries, ambiguous topics, or when initial results seem noisy
 
 ### When NOT to use
 
 - Pure exact-term lookup (column names, identifiers) → use `search_keyword`
 - When you need separate control over semantic vs keyword results
 - Very small collections (<50 chunks) where either method alone suffices
+- **`rerank=True` NOT recommended for:** Simple lookups, time-sensitive queries (reranking adds latency), first search in a session (cold start: reranker model loads ~10s)
 
 ### Score Interpretation (RRF)
 
@@ -297,6 +301,7 @@ RRF scores are fundamentally different from cosine similarity scores:
 ```
 mcp__rag__search_hybrid(query="rate limiting API requests", collection="Binance", top_k=5)
 mcp__rag__search_hybrid(query="authentication patterns", collection="docs", neighbors=1)
+mcp__rag__search_hybrid(query="complex multi-concept query", collection="docs", top_k=5, rerank=True)
 ```
 
 ---
@@ -455,6 +460,16 @@ mcp__rag__read_document(collection="docs", document="architecture.md", start_chu
 | < 0.015 | Weak match |
 
 RRF and cosine scores are NOT comparable — different scales.
+
+**Hybrid search with `rerank=True` — cross-encoder relevance scores:**
+
+| Score | Meaning |
+|-------|---------|
+| > 0.9 | Highly relevant |
+| 0.5 - 0.9 | Moderately relevant |
+| < 0.5 | Low relevance |
+
+Reranker scores replace RRF scores. They are on a 0-1 scale but NOT cosine similarity — they represent cross-encoder relevance judgments.
 
 ## Data Structure
 

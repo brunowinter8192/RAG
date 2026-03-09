@@ -14,6 +14,7 @@ src/rag/
 ├── embedder.py
 ├── chunker.py
 ├── indexer.py
+├── reranker.py
 ├── retriever.py
 └── logs/
 ```
@@ -222,6 +223,44 @@ CREATE TABLE documents (
 
 ---
 
+## reranker.py
+
+**Purpose:** Re-score search results using a cross-encoder model via llama.cpp server (HTTP API).
+
+**Input:** Query string, list of document dicts, top_k
+**Output:** Top-k documents re-scored by cross-encoder relevance
+
+**Usage:**
+```python
+from src.rag.reranker import rerank_workflow
+
+# Rerank search results for higher precision
+reranked = rerank_workflow("authentication patterns", search_results, top_k=5)
+```
+
+**How it works:**
+1. Extracts `content` from each document dict
+2. Sends query + documents to `/v1/rerank` endpoint
+3. Maps relevance scores back to original document dicts
+4. Returns top_k sorted by relevance score (descending)
+
+**Model:** Qwen3-Reranker-0.6B (GGUF Q8_0, ~610MB). Official ggml-org conversion.
+
+**Server:** Second llama-server instance on port 8082 with `--rerank` flag. Auto-started on first use (same pattern as embedder.py).
+
+**Environment Variables (.env):**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| RERANKER_URL | http://localhost:8082/v1/rerank | llama.cpp reranker endpoint |
+
+**Constants:**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| RERANKER_HEALTH_URL | http://localhost:8082/health | Health check endpoint |
+| RERANKER_MODEL_PATH | models/qwen3-reranker-0.6b-q8_0.gguf | Model file path |
+
+---
+
 ## retriever.py
 
 **Purpose:** Search indexed documents via vector cosine similarity.
@@ -337,7 +376,7 @@ result = read_document_workflow("specification", "specification.md", start_chunk
 
 ### search_hybrid_workflow
 
-Hybrid search combining vector similarity and BM25 keyword search with Reciprocal Rank Fusion (RRF).
+Hybrid search combining vector similarity and BM25 keyword search with Reciprocal Rank Fusion (RRF). Optional cross-encoder reranking for higher precision.
 
 ```python
 from src.rag.retriever import search_hybrid_workflow
@@ -347,6 +386,9 @@ results = search_hybrid_workflow("authentication patterns", collection="docs")
 
 # With context expansion
 results = search_hybrid_workflow("TPC-H benchmark", top_k=10, collection="specification", neighbors=1)
+
+# With cross-encoder reranking for maximum precision
+results = search_hybrid_workflow("complex query", top_k=5, collection="docs", rerank=True)
 ```
 
 **Parameters:**
@@ -357,14 +399,16 @@ results = search_hybrid_workflow("TPC-H benchmark", top_k=10, collection="specif
 | collection | str | None | Filter by collection name |
 | document | str | None | Filter by document name |
 | neighbors | int | 0 | Include N chunks before/after each match (0-2) |
+| rerank | bool | False | Re-score with cross-encoder (Qwen3-Reranker-0.6B) |
 
 **How it works:**
 1. Runs vector search (top 50 candidates) and BM25 search (top 50 candidates) in parallel
 2. Applies RRF fusion: `score = Σ 1/(k + rank)` across both result lists (k=60)
 3. Chunks appearing in both lists get boosted scores
-4. Returns top_k results sorted by fused score
+4. If `rerank=False`: Returns top_k results sorted by fused score
+5. If `rerank=True`: All 50 RRF candidates sent to cross-encoder, returns top_k by relevance score
 
-**When to use:** Default choice for large collections (100+ documents). Use `search_workflow` for pure semantic queries, `search_keyword_workflow` for exact term matching.
+**When to use:** Default choice for large collections (100+ documents). Use `search_workflow` for pure semantic queries, `search_keyword_workflow` for exact term matching. Add `rerank=True` when precision matters more than speed.
 
 ### search_keyword_workflow
 
