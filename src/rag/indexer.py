@@ -9,6 +9,7 @@ from pgvector.psycopg2 import register_vector
 from dotenv import load_dotenv
 
 from .embedder import embed_workflow
+from .sparse_embedder import sparse_embed_workflow
 
 load_dotenv()
 
@@ -55,7 +56,8 @@ def index_json_workflow(json_path: str) -> int:
         batch = chunks[i:i + BATCH_SIZE]
         texts = [c["content"] for c in batch]
         embeddings = embed_workflow(texts)
-        store_chunks(conn, batch, embeddings)
+        sparse_embeddings = sparse_embed_workflow(texts)
+        store_chunks(conn, batch, embeddings, sparse_embeddings)
         print(f"Indexed {min(i + BATCH_SIZE, total)}/{total} chunks")
 
     conn.close()
@@ -132,6 +134,7 @@ def ensure_schema(conn) -> None:
         # Note: pgvector limits index to 2000 dims, Qwen3 has 4096
         # For small collections (<10k), sequential scan is fast enough
         # For larger collections, consider dimensionality reduction
+        cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS sparse_embedding sparsevec(30522)")
     conn.commit()
     logging.info("Schema ensured")
 
@@ -164,19 +167,25 @@ def delete_chunks(conn, collection: str | None, document: str | None) -> int:
     return deleted
 
 
-# Store chunks with embeddings in PostgreSQL
-def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]]) -> None:
+# Format sparse vector for pgvector sparsevec type: '{idx1:val1,idx2:val2}/dimensions'
+def format_sparsevec(sparse: dict, dimensions: int = 30522) -> str:
+    pairs = ",".join(f"{idx}:{val}" for idx, val in zip(sparse["indices"], sparse["values"]))
+    return f"{{{pairs}}}/{dimensions}"
+
+
+# Store chunks with dense and sparse embeddings in PostgreSQL
+def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]], sparse_embeddings: list[dict]) -> None:
     skipped = 0
     with conn.cursor() as cur:
-        for chunk, embedding in zip(chunks, embeddings):
+        for chunk, embedding, sparse in zip(chunks, embeddings, sparse_embeddings):
             if embedding is None or all(v is None for v in embedding):
                 logging.warning(f"NULL embedding skipped: collection={chunk['collection']} chunk_index={chunk['chunk_index']}")
                 skipped += 1
                 continue
             cur.execute(
                 """
-                INSERT INTO documents (content, collection, document, chunk_index, total_chunks, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO documents (content, collection, document, chunk_index, total_chunks, embedding, sparse_embedding)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     chunk["content"],
@@ -184,7 +193,8 @@ def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]]) -> Non
                     chunk["document"],
                     chunk["chunk_index"],
                     chunk["total_chunks"],
-                    embedding
+                    embedding,
+                    format_sparsevec(sparse)
                 )
             )
     conn.commit()
