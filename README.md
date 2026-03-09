@@ -7,7 +7,8 @@ Vector-based retrieval system exposing search via MCP for Claude Code agents.
 | Component | Choice | Reason |
 |-----------|--------|--------|
 | PDF Extraction | MinerU | Best open-source PDF extraction |
-| Embedding Model | Qwen3-Embedding-8B | #1 MTEB, Programming Languages support, 32K context |
+| Embedding Model | Qwen3-Embedding-8B | #1 MTEB Multilingual, Programming Languages support, 32K context |
+| Reranker Model | Qwen3-Reranker-0.6B | Cross-encoder reranking, official ggml-org GGUF, ~610MB |
 | Vector DB | PostgreSQL 18 + pgvector 0.8 | Production-ready, native SQL, HNSW index support |
 | MCP Framework | FastMCP | Consistent with other MCP servers |
 
@@ -49,6 +50,26 @@ Add to your project's `.mcp.json` (all paths must be absolute):
 | **MCP Server** | `rag` | 4 search tools over indexed documents (hybrid, semantic, keyword, read) |
 | **Agent** | `md-cleanup-master` | Clean PDF-converted markdown (OCR artifacts, split words) |
 | **Agent** | `web-md-cleanup` | Clean website-crawled markdown (navigation, footers, UI chrome) |
+| **Skill** | `eval-agent` | Subagent evaluation pipeline — index sessions into RAG, analyze tool usage, propose automation file improvements |
+| **Command** | `/rag:eval-spawn` | Spawn async Sonnet worker for non-interactive subagent evaluation |
+
+## Subagent Evaluation
+
+The eval workflow indexes Claude Code subagent session logs into RAG for structured analysis. It converts JSONL session files to Markdown, chunks and indexes them, then uses RAG search to systematically read tool calls and evaluate agent behavior.
+
+**Cross-plugin dependency:** Uses `iterative-dev` plugin's `src/pipeline/` for JSONL→MD conversion (`jsonl_to_md.py`, `list_agents.py`).
+
+**Modes:**
+- **Interactive** (`/eval-agent`) — Step through evaluation with user feedback at each phase
+- **Async** (`/eval-spawn`) — Spawn a Sonnet worker that writes reports to `Evaluation_Proposals/`
+
+**Evaluation phases:**
+1. **Find** — List subagent sessions, select which to evaluate
+2. **Index** — Convert JSONL→MD, chunk, index into RAG `Subagents` collection
+3. **Read & Evaluate** — Read summary + tool call details via RAG, assess what went well/wrong
+4. **Read Automation Files** — Read the agent's skill/definition files (proposal targets)
+5. **Proposals** — Root cause analysis, concrete automation file change proposals
+6. **Cleanup** — Remove indexed session data from RAG
 
 ## MCP Tools
 
@@ -63,12 +84,14 @@ Hybrid search combining semantic similarity AND keyword matching with Reciprocal
 | `collection` | string | Yes | - | Collection to search in |
 | `document` | string | No | all | Filter by document name |
 | `neighbors` | int | No | 0 | Include N chunks before/after each match (0-2) |
+| `rerank` | bool | No | false | Re-score with cross-encoder for higher precision (slower) |
 
 ```
 mcp__rag__search_hybrid(query="TPC-H benchmark performance", collection="specification", top_k=3)
+mcp__rag__search_hybrid(query="complex query", collection="docs", top_k=5, rerank=True)
 ```
 
-Runs both vector and BM25 search (50 candidates each), then fuses rankings with RRF so results scoring well in both methods are boosted.
+Runs both vector and BM25 search (50 candidates each), then fuses rankings with RRF so results scoring well in both methods are boosted. With `rerank=True`, all RRF candidates are re-scored by a cross-encoder (Qwen3-Reranker-0.6B) for maximum precision.
 
 ### search
 
@@ -104,6 +127,7 @@ List documents in a collection with chunk counts.
 |---------|------|--------------|
 | PostgreSQL 18 + pgvector | 5433 | Index + Search |
 | llama.cpp embedding server | 8081 | Index + Search |
+| llama.cpp reranker server | 8082 | Reranking (optional, auto-started on first use) |
 
 Verify services are running:
 
@@ -309,4 +333,19 @@ The workflow.py and server.py handle connections internally.
   -ngl 99 \
   -ub 4096 \
   -b 4096
+```
+
+### Reranker Server (llama.cpp)
+
+**Model:** [Qwen3-Reranker-0.6B](https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF) - Official ggml-org GGUF, cross-encoder reranking
+
+**Auto-started** on first `rerank=True` query by `reranker.py`. Manual pre-start for faster first query:
+
+```bash
+./llama.cpp/build/bin/llama-server \
+  -m ./models/qwen3-reranker-0.6b-q8_0.gguf \
+  --rerank \
+  --host 0.0.0.0 \
+  --port 8082 \
+  -ngl 99
 ```
