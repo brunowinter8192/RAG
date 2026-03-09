@@ -138,6 +138,12 @@ For each problem:
 - **Why:** Root cause — trace to the automation file rule that was violated or missing
 - **Evidence:** Exact quote from agent output or tool call
 
+**Inconsistency check (MANDATORY):**
+When an agent uses a parameter correctly in SOME calls but not others (e.g., `limit=300` on one file but reads 44KB without limit on another):
+- Flag this as STRONGER evidence than complete absence — it proves the agent KNOWS the parameter but applies it inconsistently
+- Include both the correct and incorrect usage as evidence in the proposal
+- This pattern suggests the agent definition needs a RULE, not just a hint
+
 **Dispatch errors ARE automation file problems (MANDATORY):**
 Every dispatch problem traces to a Skill section that controls prompt construction. NEVER dismiss dispatch errors as "one-off" or "not fixable via automation files."
 
@@ -146,6 +152,13 @@ Every dispatch problem traces to a Skill section that controls prompt constructi
 - Did the sub receive all necessary context?
 - Did the main agent meaningfully use the sub's response?
 - Did dispatch quality cause any of the sub's failures?
+
+**Dispatch problems MUST produce proposals (NON-NEGOTIABLE):**
+When you identify a dispatch problem (contradictory instructions, missing context, wrong format request):
+- Do NOT just say "this is a dispatch problem, not an agent problem"
+- ALWAYS propose a concrete fix for the dispatcher's Skill (e.g., iterative-dev SKILL.md dispatch section)
+- The proposal targets the SKILL that controls how the main agent constructs dispatch prompts
+- Example: "Don't mix content-understanding questions with locate-only output format in the same dispatch"
 
 #### Model-Specific Patterns
 Based on the model used:
@@ -160,12 +173,13 @@ Based on the model used:
 
 Match agent name to plugin:
 
-| Agent | Plugin |
-|-------|--------|
-| github-search | github-research |
-| reddit-search | reddit |
-| code-investigate-specialist | iterative-dev |
-| web-research | searxng |
+| Agent | Plugin | Model |
+|-------|--------|-------|
+| github-search | github-research | Haiku |
+| reddit-search | reddit | Haiku |
+| code-investigate-specialist | iterative-dev | Haiku |
+| web-research | searxng | Haiku |
+| git-committer | iterative-dev | Haiku |
 
 ### 4.2 Locate Plugin Source
 
@@ -228,6 +242,7 @@ CRITICAL:
 - Proposals target automation files (Skills, Agent definitions, Commands), NOT application code
 - **No contradictions:** Verify the proposal does not conflict with existing rules in the same file or in `~/.claude/CLAUDE.md`
 - **Cost awareness:** Dispatcher = Opus, Sub = Haiku. An Opus verification call may cost MORE than the sub's error recovery. Prefer giving the sub better self-recovery instructions over adding Opus pre-checks.
+- **Simplicity rule for sub-agent formats:** When your proposal introduces a new block format that a sub-agent must produce, check the agent's model in the Phase 4.1 table. For Haiku agents: maximum 2-3 fields per block (Haiku drifts with 4+ fields). Prefer extending existing formats over creating new ones. Wrong: `STRUCTURE: / COUNT: / METHOD: / RESULT:` (4 fields). Right: `TREE: / COUNT:` (2 fields). Test: Could the agent's model produce this format consistently after seeing ONE example?
 
 ### 5.3 Apply Proposals
 
