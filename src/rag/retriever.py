@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from .embedder import embed_workflow
 from .reranker import rerank_workflow
+from .sparse_embedder import sparse_embed_workflow
 
 load_dotenv()
 
@@ -87,7 +88,7 @@ def search_hybrid_workflow(
     conn = get_connection()
     query_vector = embed_query(query)
     vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
-    keyword_results = bm25_search(conn, query, HYBRID_CANDIDATES, collection, document)
+    keyword_results = splade_search(conn, query, HYBRID_CANDIDATES, collection, document)
     rrf_top = HYBRID_CANDIDATES if rerank else top_k
     results = rrf_fusion(vector_results, keyword_results, rrf_top)
     if rerank:
@@ -95,7 +96,7 @@ def search_hybrid_workflow(
     if neighbors > 0:
         results = expand_results(conn, results, neighbors)
     conn.close()
-    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, bm25={len(keyword_results)}, rerank={rerank})")
+    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, splade={len(keyword_results)}, rerank={rerank})")
     return results
 
 
@@ -231,6 +232,51 @@ def _bm25_query(
             FROM documents
             WHERE {where_sql}
             ORDER BY score DESC
+            LIMIT %s
+            """,
+            params
+        )
+        rows = cur.fetchall()
+
+    return [
+        {
+            "content": row[0],
+            "collection": row[1],
+            "document": row[2],
+            "chunk_index": row[3],
+            "score": round(float(row[4]), 4)
+        }
+        for row in rows
+    ]
+
+
+# Search using SPLADE sparse embeddings
+def splade_search(conn, query: str, top_k: int, collection: str | None = None, document: str | None = None) -> list[dict]:
+    sparse = sparse_embed_workflow(query)[0]
+    pairs = ",".join(f"{idx}:{val}" for idx, val in zip(sparse["indices"], sparse["values"]))
+    sparsevec = f"{{{pairs}}}/30522"
+
+    where_clauses = []
+    where_params = []
+
+    if collection:
+        where_clauses.append("collection = %s")
+        where_params.append(collection)
+    if document:
+        where_clauses.append("document = %s")
+        where_params.append(document)
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    params = [sparsevec] + where_params + [sparsevec, top_k]
+
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT content, collection, document, chunk_index,
+                   1 - (sparse_embedding <=> %s::sparsevec) as score
+            FROM documents
+            {where_sql}
+            ORDER BY sparse_embedding <=> %s::sparsevec
             LIMIT %s
             """,
             params
