@@ -42,6 +42,27 @@ When the prompt contains "Non-interactive" or "write reports to":
 
 ## Phase 1: Find Subagent
 
+### 1.1 Session JSONL Location
+
+Session JSONLs are written **dynamically** during the session (not only at session end). The active session's JSONL is always available.
+
+CC projects directory: `~/.claude/projects/<escaped-project-path>/`
+- `<escaped-project-path>` = absolute project path with `/` replaced by `-` (leading `/` becomes `-`)
+- Example: `/Users/foo/MyProject` → `-Users-foo-MyProject`
+
+**Find the newest session (= the active one):**
+```bash
+ls -t ~/.claude/projects/<escaped-project-path>/*.jsonl | head -1
+```
+
+**Find subagents of that session:**
+```bash
+SESSION_DIR=$(ls -td ~/.claude/projects/<escaped-project-path>/*/ | head -1)
+ls $SESSION_DIR/subagents/
+```
+
+### 1.2 List Agents
+
 1. Run list_agents.py to get all subagents with their types:
    ```bash
    # All agents:
@@ -50,6 +71,8 @@ When the prompt contains "Non-interactive" or "write reports to":
    cd $ITERDEV_DIR && python3 -m src.pipeline.list_agents --project <project_path> --session latest
    ```
    This outputs: agent_id, agent_type, timestamp, size (sorted newest first).
+
+   **If list_agents.py fails** (e.g., "Main session not found"): The script derives the main session JSONL from the subagent path. If the JSONL doesn't exist yet or the session directory is stale, use the manual approach from 1.1 to identify the correct session, then pass specific subagent paths directly to Phase 2.
 
 2. Present the table to user (or select automatically in non-interactive mode)
 3. If `session` was given: use `--session latest` flag, take all agents from most recent session

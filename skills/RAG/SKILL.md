@@ -70,7 +70,7 @@ EVERY RESPONSE STARTS WITH A PHASE INDICATOR:
 
 **Goal:** Find initial hits and present them to the user.
 
-1. For large collections (100+ chunks): prefer `search_hybrid` — it runs both vector and BM25 internally with RRF fusion. For small collections or when you need separate control: run `search` AND `search_keyword` in parallel.
+1. For large collections (100+ chunks): prefer `search_hybrid` — it runs both vector and SPLADE sparse search internally with RRF fusion. For small collections or when you need separate control: run `search` AND `search_keyword` in parallel.
 2. Present results to user as short quotes
 3. Own assessment: Which hits are relevant? Which sections could be interesting?
 4. "Any remarks?" → wait
@@ -147,7 +147,7 @@ RIGHT:
 
 | Tool | Purpose |
 |------|---------|
-| `mcp__rag__search_hybrid` | Hybrid search (vector + BM25 + RRF fusion) — best default for large collections |
+| `mcp__rag__search_hybrid` | Hybrid search (vector + SPLADE + RRF fusion) — best default for large collections |
 | `mcp__rag__search` | Semantic search over documents |
 | `mcp__rag__search_keyword` | BM25 keyword search for exact terms |
 | `mcp__rag__read_document` | Read continuous text from a position |
@@ -249,7 +249,7 @@ User sees ALL relevant locations and decides which to explore further (via `read
 
 ## mcp__rag__search_hybrid
 
-Hybrid search combining vector similarity AND BM25 keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections.
+Hybrid search combining vector similarity AND SPLADE sparse matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections.
 
 ### Parameters
 
@@ -264,9 +264,9 @@ Hybrid search combining vector similarity AND BM25 keyword matching with Recipro
 
 ### How it works
 
-1. Runs vector search (50 candidates) and BM25 search (50 candidates) internally
+1. Runs vector search (50 candidates) and SPLADE sparse search (50 candidates) internally
 2. Applies RRF fusion: `score = Σ 1/(60 + rank)` across both result lists
-3. Chunks appearing in both lists get boosted scores
+3. Chunks appearing in both lists get boosted scores (SPLADE expands synonyms, so "revenue" also matches "profit", "earnings")
 4. Returns top_k results sorted by fused score
 5. **If `rerank=True`:** All 50 RRF candidates are re-scored by a cross-encoder model (Qwen3-Reranker-0.6B), then top_k returned. Scores become cross-encoder relevance scores (0-1).
 
