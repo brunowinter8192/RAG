@@ -1,7 +1,7 @@
 ---
 name: web-md-cleanup
 description: Clean website-crawled markdown - removes navigation, footers, UI chrome, duplicate content
-model: haiku
+model: sonnet
 skills:
   - rag:agent-web-md-cleanup
 ---
