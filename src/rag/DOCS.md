@@ -330,7 +330,7 @@ reranked = rerank_workflow("authentication patterns", search_results, top_k=5)
 
 **Model:** Qwen3-Reranker-0.6B (GGUF Q8_0, ~610MB). Official ggml-org conversion.
 
-**Server:** Second llama-server instance on port 8082 with `--rerank` flag. Auto-started on first use (same pattern as embedder.py).
+**Server:** Second llama-server instance on port 8082 with `--rerank -c 32768` flags. Auto-started on first use (same pattern as embedder.py). Context size 32768 required to handle reranking payloads.
 
 **Environment Variables (.env):**
 | Variable | Default | Description |
@@ -403,7 +403,18 @@ When `neighbors > 0`, each result's content is expanded to include adjacent chun
 ]
 ```
 
+**Score Filtering:** Results below 0.5 cosine similarity are automatically removed.
+
+**Collection Validation:** Raises `ValueError` if collection doesn't exist (lists available collections in error message).
+
 **Environment Variables:** Same as indexer.py (PostgreSQL connection)
+
+**Constants:**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| HYBRID_CANDIDATES | 50 | Number of candidates per search method for RRF fusion |
+| RERANK_CANDIDATES | 10 | Number of RRF candidates sent to cross-encoder (limited by llama-server context) |
+| RRF_K | 60 | RRF smoothing constant |
 
 ### list_collections_workflow
 
@@ -483,18 +494,18 @@ results = search_hybrid_workflow("complex query", top_k=5, collection="docs", re
 | collection | str | None | Filter by collection name |
 | document | str | None | Filter by document name |
 | neighbors | int | 0 | Include N chunks before/after each match (0-2) |
-| rerank | bool | False | Re-score with cross-encoder (Qwen3-Reranker-0.6B) |
+| rerank | bool | True | Re-score with cross-encoder (Qwen3-Reranker-0.6B) |
 
 **How it works:**
 1. Runs vector search (top 50 candidates) and SPLADE sparse search (top 50 candidates)
 2. Applies RRF fusion: `score = Σ 1/(k + rank)` across both result lists (k=60)
 3. Chunks appearing in both lists get boosted scores
 4. If `rerank=False`: Returns top_k results sorted by fused score
-5. If `rerank=True`: All 50 RRF candidates sent to cross-encoder, returns top_k by relevance score
+5. If `rerank=True` (default): Top 10 RRF candidates (RERANK_CANDIDATES) sent to cross-encoder, returns top_k by relevance score. Results below 0.3 cross-encoder score are filtered out.
 
 **SPLADE vs BM25:** SPLADE (used in hybrid) learns term importance and expands synonyms automatically (e.g., "revenue" matches "profit", "earnings"). BM25 (used in `search_keyword_workflow`) matches exact terms only. Hybrid combines dense semantic + SPLADE sparse for best coverage.
 
-**When to use:** Default choice for large collections (100+ documents). Use `search_workflow` for pure semantic queries, `search_keyword_workflow` for exact term matching. Add `rerank=True` when precision matters more than speed.
+**When to use:** Default choice for large collections (100+ documents). Use `search_workflow` for pure semantic queries, `search_keyword_workflow` for exact term matching. Reranking is ON by default; use `rerank=False` for faster but less precise results.
 
 ### splade_search
 

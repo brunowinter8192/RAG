@@ -28,6 +28,7 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rag")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 DEFAULT_TOP_K = 5
 HYBRID_CANDIDATES = 50
+RERANK_CANDIDATES = 10
 RRF_K = 60
 
 
@@ -41,10 +42,13 @@ def search_workflow(
     neighbors: int = 0
 ) -> list[dict]:
     conn = get_connection()
+    if collection:
+        validate_collection(conn, collection)
     query_vector = embed_query(query)
     results = search_vectors(conn, query_vector, top_k, collection, document)
     if neighbors > 0:
         results = expand_results(conn, results, neighbors)
+    results = filter_by_score(results, 0.5)
     conn.close()
     logging.info(f"Search '{query[:50]}...' returned {len(results)} results (neighbors={neighbors})")
     return results
@@ -59,6 +63,7 @@ def list_collections_workflow() -> list[dict]:
 
 def list_documents_workflow(collection: str) -> list[dict]:
     conn = get_connection()
+    validate_collection(conn, collection)
     results = query_documents(conn, collection)
     conn.close()
     return results
@@ -66,6 +71,7 @@ def list_documents_workflow(collection: str) -> list[dict]:
 
 def read_document_workflow(collection: str, document: str, start_chunk: int, num_chunks: int = 5) -> dict:
     conn = get_connection()
+    validate_collection(conn, collection)
     chunks = fetch_chunk_range(conn, collection, document, start_chunk, start_chunk + num_chunks - 1)
     conn.close()
     return {
@@ -86,13 +92,16 @@ def search_hybrid_workflow(
     rerank: bool = False
 ) -> list[dict]:
     conn = get_connection()
+    if collection:
+        validate_collection(conn, collection)
     query_vector = embed_query(query)
     vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
     keyword_results = splade_search(conn, query, HYBRID_CANDIDATES, collection, document)
-    rrf_top = HYBRID_CANDIDATES if rerank else top_k
+    rrf_top = RERANK_CANDIDATES if rerank else top_k
     results = rrf_fusion(vector_results, keyword_results, rrf_top)
     if rerank:
         results = rerank_workflow(query, results, top_k)
+        results = filter_by_score(results, 0.3)
     if neighbors > 0:
         results = expand_results(conn, results, neighbors)
     conn.close()
@@ -107,7 +116,10 @@ def search_keyword_workflow(
     document: str | None = None
 ) -> list[dict]:
     conn = get_connection()
+    if collection:
+        validate_collection(conn, collection)
     results = bm25_search(conn, query, top_k, collection, document)
+    results = filter_by_score(results, 0.05)
     conn.close()
     logging.info(f"BM25 search '{query[:50]}...' returned {len(results)} results")
     return results
@@ -126,6 +138,18 @@ def get_connection():
     )
     register_vector(conn)
     return conn
+
+
+# Validate that collection exists in database
+def validate_collection(conn, collection: str):
+    existing = [r['collection'] for r in query_collections(conn)]
+    if collection not in existing:
+        raise ValueError(f"Collection '{collection}' not found. Available: {', '.join(existing)}")
+
+
+# Filter results below minimum relevance score
+def filter_by_score(results: list[dict], min_score: float) -> list[dict]:
+    return [r for r in results if r['score'] >= min_score]
 
 
 # Embed search query

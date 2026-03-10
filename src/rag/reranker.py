@@ -81,6 +81,7 @@ def start_reranker_server():
         "--host", "0.0.0.0",
         "--port", "8082",
         "-ngl", "99",
+        "-c", "32768",
     ]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

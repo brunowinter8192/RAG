@@ -25,6 +25,8 @@
 
 **Schema Extension = Backfill First:** When adding a new column to existing data (e.g., `sparse_embedding`), write a backfill script BEFORE starting full re-index. Full re-index only when content changed. Backfill updates only the new column, skipping expensive recomputation of existing embeddings.
 
+**Load-Test Before Default Change:** When changing defaults that affect system load (batch sizes, model params, candidate counts): test with production-scale data BEFORE changing the default. Example: setting rerank=True without testing that 50 candidates fit in llama-server context.
+
 ---
 
 ## General
@@ -325,6 +327,11 @@ System-level gotchas (version-specific behavior, Docker quirks) belong in README
 ```bash
 claude mcp list
 ```
+
+**Code Reload:** MCP server runs from plugin cache, not local repo. Code changes require:
+1. `plugin-sync.sh rag ~/Documents/ai/Meta/ClaudeCode/MCP/RAG`
+2. Claude Code restart (new session)
+`/mcp` only reconnects — does NOT reload Python code.
 
 ---
 
