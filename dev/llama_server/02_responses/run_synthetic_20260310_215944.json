@@ -1,0 +1,58 @@
+[
+  {
+    "n_chunks": 5,
+    "status": 500,
+    "duration_ms": 10.05254199844785,
+    "content_length": 10045,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 10,
+    "status": 500,
+    "duration_ms": 14.093166013481095,
+    "content_length": 20090,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 15,
+    "status": 500,
+    "duration_ms": 19.230166013585404,
+    "content_length": 30140,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 20,
+    "status": 500,
+    "duration_ms": 23.022999987006187,
+    "content_length": 40190,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 25,
+    "status": 500,
+    "duration_ms": 27.833375002956018,
+    "content_length": 50240,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 30,
+    "status": 500,
+    "duration_ms": 33.51091599324718,
+    "content_length": 60290,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 40,
+    "status": 500,
+    "duration_ms": 42.37766700680368,
+    "content_length": 80390,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  },
+  {
+    "n_chunks": 50,
+    "status": 500,
+    "duration_ms": 51.682541001355276,
+    "content_length": 100490,
+    "response_body": "{\"error\":{\"code\":500,\"message\":\"input (857 tokens) is too large to process. increase the physical batch size (current batch size: 512)\",\"type\":\"server_error\"}}"
+  }
+]

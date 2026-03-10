@@ -82,6 +82,8 @@ def start_reranker_server():
         "--port", "8082",
         "-ngl", "99",
         "-c", "32768",
+        "-ub", "4096",
+        "-b", "4096",
     ]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
