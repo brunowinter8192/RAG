@@ -34,7 +34,6 @@ Thumbs.db
 .claude/
 .beads/
 .mcp.json
-CLAUDE.md
 
 # Qdrant local storage (legacy)
 qdrant_storage/
