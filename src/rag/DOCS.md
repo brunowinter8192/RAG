@@ -228,6 +228,23 @@ count = index_json_workflow("./data/documents/specification/chunks.json")
 - `collection` = parent folder name (e.g., "specification")
 - `document` = from chunks.json "document" field or fallback to stem + ".md"
 
+### backfill_splade_workflow
+
+Backfill SPLADE sparse embeddings for chunks that have NULL `sparse_embedding`. Only computes sparse vectors — does NOT re-embed dense vectors.
+
+```python
+from src.rag.indexer import backfill_splade_workflow
+
+count = backfill_splade_workflow("GraphQL_GH")
+```
+
+**CLI Usage (via workflow.py):**
+```bash
+./venv/bin/python workflow.py backfill-splade --collection GraphQL_GH
+```
+
+**When to use:** After adding the `sparse_embedding` column or when new chunks were indexed without SPLADE (e.g., embedding server was down). Much faster than full re-index because it skips dense embedding computation.
+
 ### delete_collection
 
 Delete all chunks for a given collection (used internally for re-indexing).

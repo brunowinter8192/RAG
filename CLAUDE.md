@@ -23,6 +23,8 @@
 
 **GGUF-Dateinamen:** Nach Model-Download `ls models/` prüfen und Pfade im Code anpassen. HuggingFace-Dateinamen können von Erwartung abweichen (CamelCase vs lowercase).
 
+**Schema Extension = Backfill First:** When adding a new column to existing data (e.g., `sparse_embedding`), write a backfill script BEFORE starting full re-index. Full re-index only when content changed. Backfill updates only the new column, skipping expensive recomputation of existing embeddings.
+
 ---
 
 ## General
@@ -31,30 +33,6 @@
 - ALWAYS keep script console output concise
 
 For system configuration, hardware specs, and parameter details: **See README.md**
-
-### Plugin Distribution
-
-Plugin (`/plugin install rag@brunowinter-plugins`) ships these components:
-
-| Component | Source (edit here) | Plugin target (auto-generated) |
-|-----------|--------------------|-------------------------------|
-| Skill | `.claude/skills/RAG/*` | `skills/RAG/*` |
-| MCP Config | inline in `.claude-plugin/plugin.json` | `mcpServers` field |
-| Command | `.claude/commands/pdf-convert.md` | `commands/pdf-convert.md` |
-| Command | `.claude/commands/eval-agent.md` | `commands/eval-agent.md` |
-
-**NOT in plugin:** debug, index-subagent, explore-agent, md-cleanup -- these are local dev tools only.
-
-**pre-commit hook** (`.git/hooks/pre-commit`) syncs Skill + Command automatically.
-
-**Path substitution** (commands only):
-- Absolute repo root -> `${CLAUDE_PLUGIN_ROOT}`
-- `/Users/*/Documents/ai/Mineru` -> `${MINERU_PATH}`
-
-**Rules:**
-- ALWAYS edit `.claude/` files, NEVER `.claude-plugin/` directly
-- `.claude-plugin/` is the distribution folder -- auto-generated
-- Hook runs on every `git commit` -- no manual sync needed
 
 ### Testing
 
@@ -358,51 +336,6 @@ claude mcp list
 **Package markers:** src/__init__.py and src/rag/__init__.py (required for imports)
 **Orchestrator function:** tool_name_workflow()
 **MCP tool function:** @mcp.tool def tool_name()
-
----
-
-## EVAL PIPELINE
-
-**Command:** `/eval-agent <project-path>`
-
-Evaluates subagent sessions by indexing into RAG, analyzing issues, and proposing automation file improvements.
-
-### Evaluation Dimensions (checklist, not scoring)
-
-- Task fulfillment, tool efficiency, format compliance, scope control, path hygiene, dispatch quality
-
-### Proposal Format
-
-Each issue → one proposal with 3 parts: **Observation** (what happened), **Proposal** (file + exact change), **Reasoning** (why this fix addresses it).
-
-### Dispatch Context (`--dispatch` flag)
-
-`jsonl_to_md.py --dispatch` extracts main agent context around the subagent call. Only supports the **current CC JSONL format:**
-- Anchor: `progress` line with `data.agentId`
-- Tool: `Agent` (not `Task`)
-- Older formats (`queue-operation` + `Task`) are NOT supported.
-
-**When exploring JSONL session formats:** ALWAYS check sessions from the CURRENT project first (most recent). Sessions from other projects may use outdated CC versions with different JSONL structures.
-
-### Evaluation Principles
-
-**Focus on Root Cause:** Don't list symptoms. Identify which automation file caused the problem.
-- Symptom: "Agent reads too many files"
-- Root Cause: "Agent prompt has no stop criteria after N relevant findings"
-
-**Concrete Fixes:** Vague recommendations are useless. Be specific.
-- Vague: "Improve the prompt"
-- Concrete: "Add 'Stop after 3 relevant FILE blocks' rule in CRITICAL section"
-
-**Automation File Discovery:** Uses Global Plugins table in `~/.claude/CLAUDE.md` to find agent definitions, skills, and commands. No manual path specification needed.
-
-### Subagent Model Context
-
-**Haiku:** Shorter context window, tends toward format drift, needs explicit constraints, doesn't always follow all instructions.
-
-**Sonnet/Opus:** Tends toward over-engineering and unnecessary verbosity.
-
-Formulate all recommendations with the agent's model limitations in mind.
 
 ---
 

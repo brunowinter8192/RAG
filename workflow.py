@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from src.rag.chunker import chunk_workflow
-from src.rag.indexer import index_json_workflow, delete_workflow
+from src.rag.indexer import index_json_workflow, delete_workflow, backfill_splade_workflow
 from src.rag.retriever import search_workflow
 
 
@@ -37,6 +37,10 @@ def main(command: str, **kwargs) -> None:
             json.dump(output, f, indent=2, ensure_ascii=False)
         print(f"Chunked {len(chunks)} chunks -> {json_path}")
 
+    elif command == "backfill-splade":
+        count = backfill_splade_workflow(kwargs["collection"])
+        print(f"Backfilled {count} sparse embeddings")
+
     elif command == "delete":
         deleted = delete_workflow(
             collection=kwargs.get("collection"),
@@ -63,6 +67,9 @@ if __name__ == "__main__":
     chunk_parser.add_argument("--chunk-size", type=int, default=1000, help="Target chunk size in chars")
     chunk_parser.add_argument("--overlap", type=int, default=200, help="Overlap between chunks in chars")
     chunk_parser.add_argument("--document", help="Document name (default: input filename)")
+
+    backfill_parser = subparsers.add_parser("backfill-splade", help="Backfill SPLADE sparse embeddings")
+    backfill_parser.add_argument("--collection", required=True, help="Collection to backfill")
 
     delete_parser = subparsers.add_parser("delete", help="Delete indexed documents")
     delete_parser.add_argument("--collection", help="Delete by collection name")

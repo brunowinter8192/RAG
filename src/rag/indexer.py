@@ -75,6 +75,33 @@ def delete_workflow(collection: str | None = None, document: str | None = None) 
     return deleted
 
 
+# Backfill sparse embeddings for chunks that have NULL sparse_embedding
+def backfill_splade_workflow(collection: str) -> int:
+    conn = get_connection()
+    ensure_schema(conn)
+
+    rows = fetch_null_sparse(conn, collection)
+    if not rows:
+        print(f"No chunks with NULL sparse_embedding in {collection}")
+        conn.close()
+        return 0
+
+    total = len(rows)
+    updated = 0
+    for i in range(0, total, BATCH_SIZE):
+        batch = rows[i:i + BATCH_SIZE]
+        ids = [r[0] for r in batch]
+        texts = [r[1] for r in batch]
+        sparse_embeddings = sparse_embed_workflow(texts)
+        update_sparse(conn, ids, sparse_embeddings)
+        updated += len(batch)
+        print(f"Backfilled {min(updated, total)}/{total} chunks")
+
+    conn.close()
+    logging.info(f"Backfilled {total} sparse embeddings for {collection}")
+    return total
+
+
 # FUNCTIONS
 
 # Load chunks from JSON file
@@ -200,3 +227,28 @@ def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]], sparse
     conn.commit()
     if skipped:
         logging.warning(f"Skipped {skipped} chunks with NULL embeddings")
+
+
+# Fetch chunks with NULL sparse_embedding for backfill
+def fetch_null_sparse(conn, collection: str) -> list[tuple]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, content FROM documents
+            WHERE collection = %s AND sparse_embedding IS NULL
+            ORDER BY id
+            """,
+            (collection,)
+        )
+        return cur.fetchall()
+
+
+# Update sparse_embedding for given chunk IDs
+def update_sparse(conn, ids: list[int], sparse_embeddings: list[dict]) -> None:
+    with conn.cursor() as cur:
+        for chunk_id, sparse in zip(ids, sparse_embeddings):
+            cur.execute(
+                "UPDATE documents SET sparse_embedding = %s WHERE id = %s",
+                (format_sparsevec(sparse), chunk_id)
+            )
+    conn.commit()
