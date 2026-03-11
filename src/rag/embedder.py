@@ -31,12 +31,12 @@ _server_checked = False
 
 
 # ORCHESTRATOR
-def embed_workflow(texts: Union[str, list[str]]) -> list[list[float]]:
+def embed_workflow(texts: Union[str, list[str]], prefix: str | None = None) -> list[list[float]]:
     ensure_server_running()
     if isinstance(texts, str):
         texts = [texts]
     texts = [truncate_to_max_tokens(t, MAX_TOKENS) for t in texts]
-    embeddings = generate_embeddings(texts)
+    embeddings = generate_embeddings(texts, prefix)
     logging.info(f"Embedded {len(texts)} texts")
     return embeddings
 
@@ -97,11 +97,12 @@ def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
 
 
 # Generate embeddings via llama-server API
-def generate_embeddings(texts: list[str]) -> list[list[float]]:
-    prefixed = [f"search_document: {t}" for t in texts]
+def generate_embeddings(texts: list[str], prefix: str | None = None) -> list[list[float]]:
+    if prefix:
+        texts = [f"{prefix}{t}" for t in texts]
     response = httpx.post(
         EMBEDDING_URL,
-        json={"input": prefixed, "model": EMBEDDING_MODEL},
+        json={"input": texts, "model": EMBEDDING_MODEL},
         timeout=300.0
     )
     response.raise_for_status()

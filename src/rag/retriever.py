@@ -30,6 +30,7 @@ DEFAULT_TOP_K = 5
 HYBRID_CANDIDATES = 50
 RERANK_CANDIDATES = 50
 RRF_K = 60
+DEFAULT_QUERY_PREFIX = "Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "
 
 
 # ORCHESTRATORS
@@ -152,9 +153,9 @@ def filter_by_score(results: list[dict], min_score: float) -> list[dict]:
     return [r for r in results if r['score'] >= min_score]
 
 
-# Embed search query
+# Embed search query with Qwen3 instruct prefix
 def embed_query(query: str) -> list[float]:
-    embeddings = embed_workflow(query)
+    embeddings = embed_workflow(query, prefix=DEFAULT_QUERY_PREFIX)
     return embeddings[0]
 
 
