@@ -63,3 +63,5 @@
 {"actor":"Bruno Winter","comment":null,"created_at":"2026-03-11T01:58:45Z","event_type":"created","id":63,"issue_id":"RAG-upt","new_value":"","old_value":""}
 {"actor":"Bruno Winter","comment":null,"created_at":"2026-03-11T18:44:08Z","event_type":"created","id":64,"issue_id":"RAG-aoj","new_value":"","old_value":""}
 {"actor":"Bruno Winter","comment":null,"created_at":"2026-03-11T19:25:46Z","event_type":"created","id":65,"issue_id":"RAG-9g0","new_value":"","old_value":""}
+{"actor":"Bruno Winter","comment":null,"created_at":"2026-03-12T00:26:13Z","event_type":"closed","id":66,"issue_id":"RAG-n0m","new_value":"Re-Index komplett. 1353 Chunks in 5 Collections (Crawl4AIDocs, PyTorchMPS, Qwen3_Embedding_Paper, SPLADE_v3_Paper, Pipeline_Optimization_Paper) mit korrektem Prefix-Format indexiert. Documents: plain text (kein Prefix). Queries: Instruct+Query Format (DEFAULT_QUERY_PREFIX in retriever.py). Code-Fixes: embedder.py prefix Parameter, retriever.py DEFAULT_QUERY_PREFIX Konstante.","old_value":""}
+{"actor":"Bruno Winter","comment":null,"created_at":"2026-03-12T00:26:30Z","event_type":"created","id":67,"issue_id":"RAG-c5p","new_value":"","old_value":""}
