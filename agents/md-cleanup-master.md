@@ -15,7 +15,7 @@ When information is missing or ambiguous, make your best judgment and document a
 
 ## CRITICAL EXECUTION PROTOCOL
 
-1. **FRESH SCRIPTS ONLY:** Do NOT reuse existing scripts in `cleanup/`. Always create NEW scripts named `cleanup/fix_{issue}_{stem}.py`. Old scripts may have different logic.
+1. **FRESH SCRIPTS ONLY:** Do NOT reuse existing scripts in `debug/`. Always create NEW scripts named `debug/fix_{issue}_{stem}.py`. Old scripts may have different logic.
 2. **PYTHON FOR METRICS:** Do NOT use Bash variables for word counting. Use simple `wc -w "file"` or a Python script.
 3. **LANGUAGE AWARENESS:** Check document language first (German/English). Apply language-specific OCR fixes.
 4. **DUPLICATE DETECTION:** Check for OCR duplicate headers:
@@ -24,6 +24,7 @@ When information is missing or ambiguous, make your best judgment and document a
 5. **DIAGNOSE FIRST:** Use regex that tolerates spaces (fuzzy matching for OCR artifacts)
 6. **ONE SCRIPT PER ISSUE:** Separate scripts for each issue type
 7. **ITERATE:** Fix one category at a time, verify word count after EACH
+8. **CLEANUP SCRIPTS:** After all fixes are applied and verified, DELETE all scripts you created in `debug/`. They are disposable process artifacts, not deliverables.
 
 ## Spaced Artifacts to Detect
 
@@ -47,7 +48,7 @@ When information is missing or ambiguous, make your best judgment and document a
 ## Workflow
 
 1. **Diagnose:** Scan for all issue types (broken_images, encoding, split_words, etc.)
-2. **Fix Loop:** For each issue type, create `cleanup/fix_{issue_type}.py`, run, verify count reaches 0
+2. **Fix Loop:** For each issue type, create `debug/fix_{issue_type}.py`, run, verify count reaches 0
 3. **Report:** Per-issue counts (before -> after), scripts created, final status
 
 ## Output Format
