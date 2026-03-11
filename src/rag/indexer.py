@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import psycopg2
@@ -55,8 +56,7 @@ def index_json_workflow(json_path: str) -> int:
     for i in range(0, total, BATCH_SIZE):
         batch = chunks[i:i + BATCH_SIZE]
         texts = [c["content"] for c in batch]
-        embeddings = embed_workflow(texts)
-        sparse_embeddings = sparse_embed_workflow(texts)
+        embeddings, sparse_embeddings = parallel_embed(texts)
         store_chunks(conn, batch, embeddings, sparse_embeddings)
         print(f"Indexed {min(i + BATCH_SIZE, total)}/{total} chunks")
 
@@ -103,6 +103,14 @@ def backfill_splade_workflow(collection: str) -> int:
 
 
 # FUNCTIONS
+
+# Generate dense and sparse embeddings in parallel
+def parallel_embed(texts: list[str]) -> tuple[list[list[float]], list[dict]]:
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        emb_future = executor.submit(embed_workflow, texts)
+        sparse_future = executor.submit(sparse_embed_workflow, texts)
+        return emb_future.result(), sparse_future.result()
+
 
 # Load chunks from JSON file
 def load_chunks_json(json_path: str) -> list[dict]:
