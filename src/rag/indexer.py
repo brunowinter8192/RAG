@@ -166,11 +166,8 @@ def ensure_schema(conn) -> None:
                 embedding vector({VECTOR_DIMENSION})
             )
         """)
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_documents_embedding_hnsw
-            ON documents USING hnsw (embedding vector_cosine_ops)
-            WITH (m = 16, ef_construction = 200)
-        """)
+        # HNSW index skipped: pgvector limits HNSW to 2000 dims, Qwen3 embeddings have 4096
+        # Sequential scan is sufficient for <100k vectors
         cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS sparse_embedding sparsevec(30522)")
         cur.execute("""
             DO $$ BEGIN

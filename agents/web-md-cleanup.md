@@ -88,7 +88,7 @@ Sphinx-generated docs have a distinctive pattern. Content is sandwiched between 
 4. **FIND THE CONTENT START:** Look for the first real heading (`# Title`) that is NOT navigation
 5. **FIND THE CONTENT END:** Look for patterns like "Normdaten", "Kategorie:", license text, or repeated footer links
 6. **CROSS-FILE PATTERNS:** Navigation that appears identically in multiple files = definitely removable
-7. **NEVER OVERWRITE ORIGINALS:** Output cleaned files to `dev/cleanup/cleaned_{dirname}/`
+7. **OVERWRITE ORIGINALS IN-PLACE:** Write cleaned files back to the input directory (git preserves history for rollback)
 
 ## Script Safety Rules
 
@@ -106,7 +106,7 @@ Sphinx-generated docs have a distinctive pattern. Content is sandwiched between 
 2. **Pattern catalog:** List all detected noise patterns with example lines
 3. **Build script:** Create `dev/cleanup/clean_web_{dirname}.py`
 4. **Test:** Run on 1 file first, verify output
-5. **Run:** Process all files, output to `dev/cleanup/cleaned_{dirname}/`
+5. **Run:** Process all files in-place (overwrite originals)
 6. **Verify:** Compare file sizes before/after, spot-check 2-3 files
 
 ## Output Format
@@ -123,6 +123,6 @@ CLEANUP RESULTS:
 - Reduction: [X%]
 
 SCRIPT: dev/cleanup/clean_web_{dirname}.py
-OUTPUT: dev/cleanup/cleaned_{dirname}/
+OUTPUT: in-place (originals overwritten)
 STATUS: [CLEAN / ISSUES_REMAINING]
 ```
