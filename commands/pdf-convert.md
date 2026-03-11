@@ -89,8 +89,14 @@ If not found, ask for correct path.
 
 ### Step 2: Create Document Folder
 
+**Naming Convention (MANDATORY):**
+- Collection name MUST be descriptive: `Qwen3_Embedding_Paper`, `SPLADE_Architecture`, `RAG_Survey_2024`
+- NEVER use ArXiv IDs (`2506.05176`) or cryptic identifiers as collection names
+- Ask user for a descriptive name if the PDF filename is not self-explanatory
+- Format: PascalCase_With_Underscores, no spaces
+
 ```bash
-STEM=$(basename "$PDF_PATH" .pdf)
+STEM="<descriptive_name>"  # NOT $(basename "$PDF_PATH" .pdf) if filename is cryptic
 mkdir -p ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/raw
 ```
 
