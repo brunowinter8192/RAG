@@ -166,9 +166,11 @@ def ensure_schema(conn) -> None:
                 embedding vector({VECTOR_DIMENSION})
             )
         """)
-        # Note: pgvector limits index to 2000 dims, Qwen3 has 4096
-        # For small collections (<10k), sequential scan is fast enough
-        # For larger collections, consider dimensionality reduction
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_documents_embedding_hnsw
+            ON documents USING hnsw (embedding vector_cosine_ops)
+            WITH (m = 16, ef_construction = 200)
+        """)
         cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS sparse_embedding sparsevec(30522)")
         cur.execute("""
             DO $$ BEGIN
