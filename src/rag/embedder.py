@@ -81,6 +81,8 @@ def start_embedding_server():
         "--host", "0.0.0.0",
         "--port", "8081",
         "-ngl", "99",
+        "-ub", "4096",
+        "-b", "4096",
     ]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

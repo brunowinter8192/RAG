@@ -284,7 +284,7 @@ At least one of `collection` or `document` is required.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | POSTGRES_HOST | localhost | PostgreSQL host |
-| POSTGRES_PORT | 5432 | PostgreSQL port |
+| POSTGRES_PORT | 5433 | PostgreSQL port (Docker-mapped) |
 | POSTGRES_USER | rag | Database user |
 | POSTGRES_PASSWORD | rag | Database password |
 | POSTGRES_DB | rag | Database name |
@@ -301,9 +301,18 @@ CREATE TABLE documents (
     chunk_index INTEGER NOT NULL,
     total_chunks INTEGER NOT NULL,
     embedding vector(4096),
+    tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
     sparse_embedding sparsevec(30522)
 )
 ```
+
+**Indexes:**
+```sql
+CREATE INDEX idx_documents_tsv ON documents USING gin(tsv);
+CREATE UNIQUE INDEX idx_documents_unique ON documents(collection, document, chunk_index);
+```
+
+All schema elements are created automatically by `ensure_schema()` in `indexer.py` (idempotent — safe to run on existing databases).
 
 ---
 
@@ -330,7 +339,7 @@ reranked = rerank_workflow("authentication patterns", search_results, top_k=5)
 
 **Model:** Qwen3-Reranker-0.6B (GGUF Q8_0, ~610MB). Official ggml-org conversion.
 
-**Server:** Second llama-server instance on port 8082 with `--rerank -c 32768` flags. Auto-started on first use (same pattern as embedder.py). Context size 32768 required to handle reranking payloads.
+**Server:** Second llama-server instance on port 8082 with `--rerank -c 32768 -ub 4096 -b 4096` flags. Auto-started on first use (same pattern as embedder.py). Context size 32768 and batch size 4096 required to handle reranking payloads (default `-ub 512` causes HTTP 500 on token-dense chunks).
 
 **Environment Variables (.env):**
 | Variable | Default | Description |
@@ -413,7 +422,7 @@ When `neighbors > 0`, each result's content is expanded to include adjacent chun
 | Constant | Value | Description |
 |----------|-------|-------------|
 | HYBRID_CANDIDATES | 50 | Number of candidates per search method for RRF fusion |
-| RERANK_CANDIDATES | 10 | Number of RRF candidates sent to cross-encoder (limited by llama-server context) |
+| RERANK_CANDIDATES | 50 | Number of RRF candidates sent to cross-encoder for reranking |
 | RRF_K | 60 | RRF smoothing constant |
 
 ### list_collections_workflow
@@ -501,7 +510,7 @@ results = search_hybrid_workflow("complex query", top_k=5, collection="docs", re
 2. Applies RRF fusion: `score = Σ 1/(k + rank)` across both result lists (k=60)
 3. Chunks appearing in both lists get boosted scores
 4. If `rerank=False`: Returns top_k results sorted by fused score
-5. If `rerank=True` (default): Top 10 RRF candidates (RERANK_CANDIDATES) sent to cross-encoder, returns top_k by relevance score. Results below 0.3 cross-encoder score are filtered out.
+5. If `rerank=True` (default): Top 50 RRF candidates (RERANK_CANDIDATES) sent to cross-encoder, returns top_k by relevance score. Results below 0.3 cross-encoder score are filtered out.
 
 **SPLADE vs BM25:** SPLADE (used in hybrid) learns term importance and expands synonyms automatically (e.g., "revenue" matches "profit", "earnings"). BM25 (used in `search_keyword_workflow`) matches exact terms only. Hybrid combines dense semantic + SPLADE sparse for best coverage.
 

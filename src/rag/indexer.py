@@ -162,6 +162,15 @@ def ensure_schema(conn) -> None:
         # For small collections (<10k), sequential scan is fast enough
         # For larger collections, consider dimensionality reduction
         cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS sparse_embedding sparsevec(30522)")
+        cur.execute("""
+            DO $$ BEGIN
+                ALTER TABLE documents ADD COLUMN tsv tsvector
+                    GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_documents_tsv ON documents USING gin(tsv)")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_unique ON documents(collection, document, chunk_index)")
     conn.commit()
     logging.info("Schema ensured")
 

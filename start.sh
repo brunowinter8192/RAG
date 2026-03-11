@@ -24,4 +24,4 @@ echo "Starting llama.cpp embedding server (Metal GPU)..."
 # Pre-start for faster first query:
 # ./llama.cpp/build/bin/llama-server \
 #   -m ./models/qwen3-reranker-0.6b-q8_0.gguf \
-#   --rerank --host 0.0.0.0 --port 8082 -ngl 99 &
+#   --rerank --host 0.0.0.0 --port 8082 -ngl 99 -c 32768 -ub 4096 -b 4096 &

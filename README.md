@@ -347,5 +347,8 @@ The workflow.py and server.py handle connections internally.
   --rerank \
   --host 0.0.0.0 \
   --port 8082 \
-  -ngl 99
+  -ngl 99 \
+  -c 32768 \
+  -ub 4096 \
+  -b 4096
 ```

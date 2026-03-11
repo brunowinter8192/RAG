@@ -1,0 +1,58 @@
+[
+  {
+    "n_chunks": 5,
+    "status": 200,
+    "duration_ms": 328.85162500315346,
+    "content_length": 4529,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":1338,\"total_tokens\":1338},\"results\":[{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030136823188513517},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 8,
+    "status": 200,
+    "duration_ms": 564.1897500026971,
+    "content_length": 7459,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":2485,\"total_tokens\":2485},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 10,
+    "status": 200,
+    "duration_ms": 715.8642919966951,
+    "content_length": 9365,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":3154,\"total_tokens\":3154},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":8,\"relevance_score\":0.02329264022409916},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":9,\"relevance_score\":0.009996815584599972},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 12,
+    "status": 200,
+    "duration_ms": 871.3818330143113,
+    "content_length": 11319,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":3853,\"total_tokens\":3853},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":11,\"relevance_score\":0.02488190121948719},{\"index\":8,\"relevance_score\":0.02324707806110382},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":10,\"relevance_score\":0.010909421369433403},{\"index\":9,\"relevance_score\":0.009944229386746883},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 13,
+    "status": 200,
+    "duration_ms": 952.2113330021966,
+    "content_length": 12288,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":4199,\"total_tokens\":4199},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":11,\"relevance_score\":0.02488190121948719},{\"index\":8,\"relevance_score\":0.02324707806110382},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":12,\"relevance_score\":0.01618344709277153},{\"index\":10,\"relevance_score\":0.010909421369433403},{\"index\":9,\"relevance_score\":0.009944229386746883},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 14,
+    "status": 200,
+    "duration_ms": 1030.6374590145424,
+    "content_length": 13224,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":4576,\"total_tokens\":4576},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":11,\"relevance_score\":0.02488190121948719},{\"index\":8,\"relevance_score\":0.02324707806110382},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":12,\"relevance_score\":0.01615993306040764},{\"index\":13,\"relevance_score\":0.012435059063136578},{\"index\":10,\"relevance_score\":0.010909421369433403},{\"index\":9,\"relevance_score\":0.009944229386746883},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 15,
+    "status": 200,
+    "duration_ms": 1112.6430000003893,
+    "content_length": 14182,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":4924,\"total_tokens\":4924},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":11,\"relevance_score\":0.02488190121948719},{\"index\":8,\"relevance_score\":0.02324707806110382},{\"index\":14,\"relevance_score\":0.01987183280289173},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":12,\"relevance_score\":0.01617518998682499},{\"index\":13,\"relevance_score\":0.012435071170330048},{\"index\":10,\"relevance_score\":0.010909421369433403},{\"index\":9,\"relevance_score\":0.009944229386746883},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  },
+  {
+    "n_chunks": 20,
+    "status": 200,
+    "duration_ms": 1515.670583001338,
+    "content_length": 19039,
+    "response_body": "{\"model\":\"qwen3-reranker-0.6b-q8_0.gguf\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":6739,\"total_tokens\":6739},\"results\":[{\"index\":7,\"relevance_score\":0.02550029382109642},{\"index\":11,\"relevance_score\":0.02488190121948719},{\"index\":8,\"relevance_score\":0.02324707806110382},{\"index\":17,\"relevance_score\":0.02129313535988331},{\"index\":14,\"relevance_score\":0.019908159971237183},{\"index\":19,\"relevance_score\":0.018307900056242943},{\"index\":6,\"relevance_score\":0.01755557209253311},{\"index\":18,\"relevance_score\":0.016753537580370903},{\"index\":12,\"relevance_score\":0.01615522988140583},{\"index\":16,\"relevance_score\":0.013494708575308323},{\"index\":13,\"relevance_score\":0.012421013787388802},{\"index\":10,\"relevance_score\":0.010909421369433403},{\"index\":9,\"relevance_score\":0.009944229386746883},{\"index\":0,\"relevance_score\":0.005516338627785444},{\"index\":15,\"relevance_score\":0.004955765791237354},{\"index\":4,\"relevance_score\":0.0030282216612249613},{\"index\":5,\"relevance_score\":0.0022482427302747965},{\"index\":1,\"relevance_score\":0.0015257347840815783},{\"index\":3,\"relevance_score\":0.001335166860371828},{\"index\":2,\"relevance_score\":0.00029993729549460113}]}"
+  }
+]

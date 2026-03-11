@@ -1,0 +1,42 @@
+[
+  {
+    "index": 6,
+    "relevance_score": 0.9998084306716919
+  },
+  {
+    "index": 0,
+    "relevance_score": 0.9993205070495605
+  },
+  {
+    "index": 4,
+    "relevance_score": 0.9968340992927551
+  },
+  {
+    "index": 2,
+    "relevance_score": 0.9936808347702026
+  },
+  {
+    "index": 5,
+    "relevance_score": 0.07470126450061798
+  },
+  {
+    "index": 1,
+    "relevance_score": 0.0001604223216418177
+  },
+  {
+    "index": 3,
+    "relevance_score": 0.00011584688763832673
+  },
+  {
+    "index": 9,
+    "relevance_score": 6.211569416336715e-05
+  },
+  {
+    "index": 7,
+    "relevance_score": 5.296702147461474e-05
+  },
+  {
+    "index": 8,
+    "relevance_score": 5.004939157515764e-05
+  }
+]
