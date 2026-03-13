@@ -8,7 +8,7 @@ Vector-based retrieval system exposing search via MCP for Claude Code agents.
 |-----------|--------|--------|
 | PDF Extraction | MinerU | Best open-source PDF extraction |
 | Embedding Model | Qwen3-Embedding-8B | #1 MTEB Multilingual, Programming Languages support, 32K context |
-| Reranker Model | Qwen3-Reranker-0.6B | Cross-encoder reranking, official ggml-org GGUF, ~610MB |
+| Reranker Model | Qwen3-Reranker-8B | Cross-encoder reranking, self-converted GGUF Q8_0, ~7.5GB |
 | Vector DB | PostgreSQL 18 + pgvector 0.8 | Production-ready, native SQL, HNSW index support |
 | MCP Framework | FastMCP | Consistent with other MCP servers |
 

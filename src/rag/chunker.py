@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 LOG_DIR = Path(__file__).parent / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 
 logging.basicConfig(
     filename=LOG_DIR / "chunker.log",

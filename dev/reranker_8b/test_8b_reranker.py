@@ -7,9 +7,9 @@ import httpx
 
 RAG_ROOT = Path(__file__).parent.parent.parent
 
-LLAMA_SERVER = RAG_ROOT / "llama.cpp/build/bin/llama-server"
+LLAMA_SERVER = "llama-server"
 MODEL_0_6B = RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"
-MODEL_8B = RAG_ROOT / "models/Qwen3-Reranker-8B.Q8_0.gguf"
+MODEL_8B = RAG_ROOT / "models/Qwen3-Reranker-8B-Q8_0.gguf"
 
 PORT_0_6B = 8082
 PORT_8B = 8084
@@ -39,7 +39,7 @@ TEST_CASES = [
 # Start llama-server on the given port and return the process
 def start_server(model_path: Path, port: int) -> subprocess.Popen:
     cmd = [
-        str(LLAMA_SERVER),
+        LLAMA_SERVER,
         "-m", str(model_path),
         "--rerank",
         "--host", "0.0.0.0",
@@ -111,24 +111,31 @@ def validate_scores(scores_06b: list[list[float]], scores_8b: list[list[float]])
 
 def main():
     print(f"RAG root: {RAG_ROOT}")
-    print(f"Starting 8B server on port {PORT_8B}...")
 
+    print(f"Starting 0.6B server on port {PORT_0_6B}...")
+    proc_06b = start_server(MODEL_0_6B, PORT_0_6B)
+
+    print(f"Starting 8B server on port {PORT_8B}...")
     proc_8b = start_server(MODEL_8B, PORT_8B)
 
     try:
+        print(f"Waiting for 0.6B server health check (port {PORT_0_6B})...")
+        if not wait_for_health(PORT_0_6B):
+            print("ERROR: 0.6B server did not become healthy within timeout")
+            proc_06b.terminate()
+            proc_8b.terminate()
+            sys.exit(1)
+        print("0.6B server ready.")
+
         print(f"Waiting for 8B server health check (port {PORT_8B})...")
         if not wait_for_health(PORT_8B):
             print("ERROR: 8B server did not become healthy within timeout")
+            proc_06b.terminate()
             proc_8b.terminate()
             sys.exit(1)
         print("8B server ready.")
 
-        print(f"Checking 0.6B server on port {PORT_0_6B}...")
-        if not wait_for_health(PORT_0_6B, timeout=5):
-            print(f"WARNING: 0.6B server not responding on port {PORT_0_6B} — skipping comparison")
-            run_comparison = False
-        else:
-            run_comparison = True
+        run_comparison = True
 
         scores_06b = []
         scores_8b = []
@@ -178,8 +185,10 @@ def main():
             sys.exit(1)
 
     finally:
-        print("\nStopping 8B server...")
+        print("\nStopping servers...")
+        proc_06b.terminate()
         proc_8b.terminate()
+        proc_06b.wait(timeout=10)
         proc_8b.wait(timeout=10)
         print("Done.")
 

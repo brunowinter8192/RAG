@@ -8,13 +8,16 @@
 ### Sources
 - **pgvector:** https://github.com/pgvector/pgvector (HNSW limits, index types, performance)
 - **Qwen3-Embedding Model Card:** https://github.com/QwenLM/Qwen3-Embedding (MRL, instruct format, dimensions)
+- **llama.cpp:** https://github.com/ggml-org/llama.cpp (convert_hf_to_gguf, model support, issues, PRs)
 - **llama-server:** https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md (embedding mode, batching, concurrent requests)
 - **SPLADE:** https://github.com/naver/splade (model variants, architecture — we use naver/splade-cocondenser-ensembledistil)
 - **sentence-transformers SparseEncoder:** https://github.com/huggingface/sentence-transformers/blob/main/docs/package_reference/sparse_encoder/SparseEncoder.md
 - **FastMCP:** https://github.com/PrefectHQ/fastmcp (MCP server framework)
 - **Qwen3-Embedding Paper:** https://arxiv.org/abs/2506.05176 (MRL details, dimension reduction benchmarks)
+- **Qwen3-Reranker Model Card:** https://github.com/QwenLM/Qwen3-Reranker (architecture, usage, supported formats)
+- **llama.cpp Docs:** RAG Collection `llama.cppDocs` (API reference, server usage, model conversion, changelog)
 
-Consult these sources via GitHub plugin before making assumptions about model behavior, server parameters, or index tuning.
+Consult these sources via GitHub plugin or RAG search before making assumptions about model behavior, server parameters, or index tuning.
 
 ---
 

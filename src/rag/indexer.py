@@ -15,6 +15,7 @@ from .sparse_embedder import sparse_embed_workflow
 load_dotenv()
 
 LOG_DIR = Path(__file__).parent / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 
 logging.basicConfig(
     filename=LOG_DIR / "indexer.log",

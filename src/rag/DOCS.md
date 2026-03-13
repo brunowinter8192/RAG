@@ -76,11 +76,11 @@ chunks = chunk_workflow("src/main.py", strategy="code")
 ```
 
 **Strategies:**
-| Strategy | Use Case |
-|----------|----------|
-| semantic | Markdown, text documents (sentence-aware recursive splitting) |
-| code | Source code (function/class-level) |
-| fixed | Fallback (fixed size with overlap) |
+| Strategy | Use Case | Status |
+|----------|----------|--------|
+| semantic | Markdown, text documents (sentence-aware recursive splitting) | Implemented |
+| code | Source code (function/class-level) | Not yet implemented |
+| fixed | Fallback (fixed size with overlap) | Not yet implemented |
 
 **Semantic Chunking (Recursive Split):**
 
@@ -337,9 +337,9 @@ reranked = rerank_workflow("authentication patterns", search_results, top_k=5)
 3. Maps relevance scores back to original document dicts
 4. Returns top_k sorted by relevance score (descending)
 
-**Model:** Qwen3-Reranker-0.6B (GGUF Q8_0, ~610MB). Official ggml-org conversion.
+**Model:** Qwen3-Reranker-8B (GGUF Q8_0, ~7.5GB). Self-converted from HF (`convert_hf_to_gguf.py` → f16, then `llama-quantize` → Q8_0). Verified against Issue #16407 test data — ranking identical to official ggml-org 0.6B.
 
-**Server:** Second llama-server instance on port 8082 with `--rerank -c 32768 -ub 4096 -b 4096` flags. Auto-started on first use (same pattern as embedder.py). Context size 32768 and batch size 4096 required to handle reranking payloads (default `-ub 512` causes HTTP 500 on token-dense chunks).
+**Server:** Second llama-server instance (Homebrew) on port 8082 with `--rerank -c 4096 --no-webui` flags. Auto-started on first use (same pattern as embedder.py).
 
 **Environment Variables (.env):**
 | Variable | Default | Description |
@@ -350,7 +350,7 @@ reranked = rerank_workflow("authentication patterns", search_results, top_k=5)
 | Constant | Value | Description |
 |----------|-------|-------------|
 | RERANKER_HEALTH_URL | http://localhost:8082/health | Health check endpoint |
-| RERANKER_MODEL_PATH | models/qwen3-reranker-0.6b-q8_0.gguf | Model file path |
+| RERANKER_MODEL_PATH | models/Qwen3-Reranker-8B-Q8_0.gguf | Model file path |
 
 ---
 
@@ -503,7 +503,7 @@ results = search_hybrid_workflow("complex query", top_k=5, collection="docs", re
 | collection | str | None | Filter by collection name |
 | document | str | None | Filter by document name |
 | neighbors | int | 0 | Include N chunks before/after each match (0-2) |
-| rerank | bool | True | Re-score with cross-encoder (Qwen3-Reranker-0.6B) |
+| rerank | bool | True | Re-score with cross-encoder (Qwen3-Reranker-8B) |
 
 **How it works:**
 1. Runs vector search (top 50 candidates) and SPLADE sparse search (top 50 candidates)

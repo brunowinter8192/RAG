@@ -22,7 +22,7 @@ logging.basicConfig(
 
 RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8082/v1/rerank")
 RERANKER_HEALTH_URL = "http://localhost:8082/health"
-RERANKER_MODEL_PATH = RAG_ROOT / "models" / "qwen3-reranker-0.6b-q8_0.gguf"
+RERANKER_MODEL_PATH = RAG_ROOT / "models" / "Qwen3-Reranker-8B-Q8_0.gguf"
 
 _server_checked = False
 
@@ -75,7 +75,7 @@ def check_reranker_health() -> bool:
 # Start reranker llama-server in background
 def start_reranker_server():
     cmd = [
-        str(RAG_ROOT / "llama.cpp/build/bin/llama-server"),
+        "llama-server",
         "-m", str(RERANKER_MODEL_PATH),
         "--rerank",
         "--host", "0.0.0.0",
