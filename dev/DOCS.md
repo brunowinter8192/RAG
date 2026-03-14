@@ -11,6 +11,7 @@ Standalone scripts for testing, debugging, and data preparation. Exempt from CLA
 | `llama_server/` | llama-server debugging (reranker 500 errors, batch size tuning) | `01_capture_stderr.py`, `02_reproduce_500.py`, `03_test_batch_size.py` |
 | `splade_benchmark/` | Sequential vs parallel embedding benchmark (dense + SPLADE) | `benchmark.py` |
 | `reranker_8b/` | Reranker 8B GGUF validation (mradermacher defect detection) | `test_8b_reranker.py` |
+| `indexing_benchmark/` | Indexing pipeline profiling (dense, sparse, DB timing per batch) | `benchmark.py` |
 
 ## Usage
 

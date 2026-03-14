@@ -13,15 +13,15 @@ BATCH_SIZE = 32
 
 def benchmark_batch(texts: list[str]) -> dict:
     t0 = time.perf_counter()
-    embeddings = embed_workflow(texts)
+    embed_workflow(texts)
     t_dense = time.perf_counter() - t0
 
     t0 = time.perf_counter()
-    sparse_embeddings = sparse_embed_workflow(texts)
+    sparse_embed_workflow(texts)
     t_sparse = time.perf_counter() - t0
 
     t0 = time.perf_counter()
-    emb_par, sparse_par = parallel_embed(texts)
+    parallel_embed(texts)
     t_parallel = time.perf_counter() - t0
 
     return {
