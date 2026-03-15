@@ -36,7 +36,16 @@ from src.rag.embedder import embed_workflow
 
 embeddings = embed_workflow("Your text here")
 embeddings = embed_workflow(["Text 1", "Text 2"])
+
+# With Qwen3 instruct prefix (used internally by retriever.py)
+embeddings = embed_workflow("Your text", prefix="Instruct: ...\nQuery: ")
 ```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| texts | str \| list[str] | required | Text or list of texts to embed |
+| prefix | str \| None | None | Optional prefix prepended to each text (e.g., Qwen3 instruct format) |
 
 **Token Truncation:**
 
@@ -57,6 +66,17 @@ truncate_to_max_tokens(text: str, max: int) -> str  # Truncate using char estima
 |----------|-------|-------------|
 | MAX_TOKENS | 4000 | Max tokens per embedding request |
 | CHARS_PER_TOKEN | 3 | Conservative char/token ratio for truncation |
+| HEALTH_URL | http://localhost:8081/health | Health check endpoint |
+
+**Server Startup Flags** (used by `start_embedding_server()`):
+
+| Flag | Value | Description |
+|------|-------|-------------|
+| `-c` | 2048 | Context size (KV cache) |
+| `-np` | 1 | Number of parallel slots |
+| `-b` | 4096 | Batch size |
+| `-ub` | 4096 | Ubatch size |
+| `-ngl` | 99 | GPU layers (offload all) |
 
 ---
 
@@ -71,18 +91,18 @@ truncate_to_max_tokens(text: str, max: int) -> str  # Truncate using char estima
 ```python
 from src.rag.chunker import chunk_workflow
 
-chunks = chunk_workflow("docs/readme.md", strategy="semantic")
-chunks = chunk_workflow("src/main.py", strategy="code")
+chunks = chunk_workflow("docs/readme.md")
+chunks = chunk_workflow("docs/readme.md", chunk_size=1500, overlap=200)
 ```
 
-**Strategies:**
-| Strategy | Use Case | Status |
-|----------|----------|--------|
-| semantic | Markdown, text documents (sentence-aware recursive splitting) | Implemented |
-| code | Source code (function/class-level) | Not yet implemented |
-| fixed | Fallback (fixed size with overlap) | Not yet implemented |
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| file_path | str | required | Path to file to chunk |
+| chunk_size | int | 1000 | Max characters per chunk |
+| overlap | int | 200 | Overlap between chunks (word-aligned) |
 
-**Semantic Chunking (Recursive Split):**
+**Chunking (Recursive Split — semantic boundaries):**
 
 Uses hierarchical separators to split at natural boundaries:
 1. `\n\n` (paragraphs)
@@ -99,11 +119,11 @@ Overlap text is aligned to word boundaries to prevent mid-word cuts:
 get_word_aligned_overlap(text, overlap) -> str  # Returns overlap starting at word boundary
 ```
 
-**Variables:**
-| Variable | Default | Description |
-|----------|---------|-------------|
+**Constants:**
+| Constant | Value | Description |
+|----------|-------|-------------|
 | DEFAULT_CHUNK_SIZE | 1000 | Max characters per chunk |
-| DEFAULT_OVERLAP | 200 | Overlap between chunks (word-aligned)
+| DEFAULT_OVERLAP | 200 | Overlap between chunks (word-aligned) |
 
 **CLI Usage (via workflow.py):**
 ```bash
@@ -424,6 +444,7 @@ When `neighbors > 0`, each result's content is expanded to include adjacent chun
 | HYBRID_CANDIDATES | 50 | Number of candidates per search method for RRF fusion |
 | RERANK_CANDIDATES | 50 | Number of RRF candidates sent to cross-encoder for reranking |
 | RRF_K | 60 | RRF smoothing constant |
+| DEFAULT_QUERY_PREFIX | `"Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "` | Qwen3 instruct prefix applied to all search queries via `embed_query()` |
 
 ### list_collections_workflow
 
@@ -503,7 +524,7 @@ results = search_hybrid_workflow("complex query", top_k=5, collection="docs", re
 | collection | str | None | Filter by collection name |
 | document | str | None | Filter by document name |
 | neighbors | int | 0 | Include N chunks before/after each match (0-2) |
-| rerank | bool | True | Re-score with cross-encoder (Qwen3-Reranker-8B) |
+| rerank | bool | False | Re-score with cross-encoder (Qwen3-Reranker-8B) |
 
 **How it works:**
 1. Runs vector search (top 50 candidates) and SPLADE sparse search (top 50 candidates)
