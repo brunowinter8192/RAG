@@ -1,0 +1,38 @@
+{
+  "collection": "Qwen3_Embedding_Paper",
+  "source_json": "data/documents/Qwen3_Embedding_Paper/Qwen3_Embedding_Paper.json",
+  "queries": {
+    "q01": "What model sizes are available in the Qwen3 Embedding series?",
+    "q02": "What embedding dimensions does each Qwen3 model support?",
+    "q03": "Does Qwen3 support Matryoshka Representation Learning for flexible dimensions?",
+    "q04": "What loss function is used for training the embedding model?",
+    "q05": "How is the reranking score calculated in Qwen3 Reranker?",
+    "q06": "What is the multi-stage training pipeline for Qwen3 embeddings?",
+    "q07": "How is synthetic training data generated for Qwen3?",
+    "q08": "What role does model merging play in Qwen3 training?",
+    "q09": "How does Qwen3 Embedding perform on MTEB multilingual benchmark?",
+    "q10": "How does Qwen3 compare to Gemini Embedding on benchmarks?",
+    "q11": "What is the impact of weak supervised pre-training?",
+    "q12": "What sequence length does Qwen3 Embedding support?",
+    "q13": "How does the EOS token embedding extraction work?",
+    "q14": "What datasets are used for fine-tuning Qwen3 embeddings?",
+    "q15": "What is the architecture of Qwen3 Reranker?"
+  },
+  "qrels": {
+    "q01": {"chunk_1": 1, "chunk_13": 1},
+    "q02": {"chunk_13": 1},
+    "q03": {"chunk_13": 1, "chunk_8": 1},
+    "q04": {"chunk_15": 1, "chunk_16": 1},
+    "q05": {"chunk_14": 1},
+    "q06": {"chunk_18": 1, "chunk_19": 1},
+    "q07": {"chunk_23": 1, "chunk_24": 1, "chunk_42": 1},
+    "q08": {"chunk_22": 1},
+    "q09": {"chunk_8": 1, "chunk_27": 1},
+    "q10": {"chunk_27": 1, "chunk_34": 1},
+    "q11": {"chunk_38": 1, "chunk_39": 1},
+    "q12": {"chunk_13": 1},
+    "q13": {"chunk_12": 1},
+    "q14": {"chunk_25": 1, "chunk_47": 1},
+    "q15": {"chunk_11": 1, "chunk_13": 1, "chunk_14": 1}
+  }
+}
