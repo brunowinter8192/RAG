@@ -84,8 +84,7 @@ def start_embedding_server():
         "-c", "2048",
         "-np", "1",
         "-b", "4096",
-        "-ub", "512",
-        "-fa", "on",
+        "-ub", "4096",
     ]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

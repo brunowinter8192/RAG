@@ -12,6 +12,7 @@ Standalone scripts for testing, debugging, and data preparation. Exempt from CLA
 | `splade_benchmark/` | Sequential vs parallel embedding benchmark (dense + SPLADE) | `benchmark.py` |
 | `reranker_8b/` | Reranker 8B GGUF validation (mradermacher defect detection) | `test_8b_reranker.py` |
 | `indexing_benchmark/` | Indexing pipeline profiling (dense, sparse, DB timing per batch) | `benchmark.py` |
+| `retrieval_eval/` | Retrieval quality evaluation (BEIR-format, pytrec_eval metrics) | `eval_runner.py` |
 
 ## Usage
 

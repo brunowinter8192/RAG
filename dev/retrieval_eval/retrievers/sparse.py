@@ -24,7 +24,7 @@ class SparseRetriever(BaseRetriever):
         query_ids = list(queries.keys())
         query_texts = [queries[qid] for qid in query_ids]
 
-        corpus_vecs = sparse_embed_workflow(corpus_texts)
+        corpus_vecs = _batched_sparse_embed(corpus_texts)
         query_vecs = sparse_embed_workflow(query_texts)
 
         corpus_dicts = [_to_dict(v) for v in corpus_vecs]
@@ -46,6 +46,19 @@ class SparseRetriever(BaseRetriever):
             results[qid] = {corpus_ids[idx]: float(scores_arr[idx]) for idx in top_indices}
 
         return results
+
+
+# Batch sparse embedding to avoid timeout on large corpus
+def _batched_sparse_embed(texts: list[str], batch_size: int = 32) -> list[dict]:
+    all_vecs = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        all_vecs.extend(sparse_embed_workflow(batch))
+        if len(texts) > batch_size:
+            print(f"  Sparse embedded {min(i + batch_size, len(texts))}/{len(texts)}", end="\r")
+    if len(texts) > batch_size:
+        print()
+    return all_vecs
 
 
 # Convert sparse vector dict {indices, values} to index→value dict

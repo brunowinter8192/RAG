@@ -1,0 +1,15 @@
+{
+  "retriever": "Sparse(splade++)",
+  "dataset": "searxng_docs",
+  "metrics": {
+    "NDCG@3": 0.2558,
+    "Recall@3": 0.2444,
+    "P@3": 0.1667,
+    "NDCG@5": 0.3159,
+    "Recall@5": 0.3556,
+    "P@5": 0.1533,
+    "NDCG@10": 0.3666,
+    "Recall@10": 0.4778,
+    "P@10": 0.1067
+  }
+}

@@ -37,10 +37,17 @@ class DenseRetriever(BaseRetriever):
 
         return results
 
-    def _embed_and_truncate(self, texts: list[str], is_query: bool = False) -> np.ndarray:
+    def _embed_and_truncate(self, texts: list[str], is_query: bool = False, batch_size: int = 32) -> np.ndarray:
         prefix = self.query_prefix if is_query else None
-        embeddings = embed_workflow(texts, prefix=prefix)
-        arr = np.array(embeddings)
+        all_embeddings = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            all_embeddings.extend(embed_workflow(batch, prefix=prefix))
+            if len(texts) > batch_size:
+                print(f"  Embedded {min(i + batch_size, len(texts))}/{len(texts)}", end="\r")
+        if len(texts) > batch_size:
+            print()
+        arr = np.array(all_embeddings)
 
         if self.truncate_dims and self.truncate_dims < arr.shape[1]:
             arr = arr[:, :self.truncate_dims]
