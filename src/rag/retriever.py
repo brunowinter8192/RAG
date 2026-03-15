@@ -154,6 +154,15 @@ def filter_by_score(results: list[dict], min_score: float) -> list[dict]:
     return [r for r in results if r['score'] >= min_score]
 
 
+# Add document filter clause (LIKE if value contains %, else exact match)
+def add_document_filter(where_clauses: list, where_params: list, document: str):
+    if '%' in document:
+        where_clauses.append("document LIKE %s")
+    else:
+        where_clauses.append("document = %s")
+    where_params.append(document)
+
+
 # Embed search query with Qwen3 instruct prefix
 def embed_query(query: str) -> list[float]:
     embeddings = embed_workflow(query, prefix=DEFAULT_QUERY_PREFIX)
@@ -175,8 +184,7 @@ def search_vectors(
         where_clauses.append("collection = %s")
         where_params.append(collection)
     if document:
-        where_clauses.append("document = %s")
-        where_params.append(document)
+        add_document_filter(where_clauses, where_params, document)
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
     params = [query_vector] + where_params + [query_vector, top_k]
@@ -244,8 +252,7 @@ def _bm25_query(
         where_clauses.append("collection = %s")
         where_params.append(collection)
     if document:
-        where_clauses.append("document = %s")
-        where_params.append(document)
+        add_document_filter(where_clauses, where_params, document)
 
     where_sql = " AND ".join(where_clauses)
     params = [tsquery] + where_params + [top_k]
@@ -289,8 +296,7 @@ def splade_search(conn, query: str, top_k: int, collection: str | None = None, d
         where_clauses.append("collection = %s")
         where_params.append(collection)
     if document:
-        where_clauses.append("document = %s")
-        where_params.append(document)
+        add_document_filter(where_clauses, where_params, document)
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
     params = [sparsevec] + where_params + [sparsevec, top_k]

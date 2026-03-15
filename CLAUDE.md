@@ -8,16 +8,32 @@ Hybrid RAG pipeline with dense (Qwen3) + sparse (SPLADE) embeddings, pgvector, a
 
 ## Sources
 
-| Source | Purpose |
-|--------|---------|
-| pgvector | HNSW limits, index types, performance |
-| Qwen3-Embedding | MRL, instruct format, dimensions |
-| llama.cpp / llama-server | Embedding mode, batching, model conversion |
-| SPLADE | Sparse encoder model (naver/splade-cocondenser-ensembledistil) |
-| Qwen3-Reranker | Reranking architecture and usage |
-| RAG Collection `llama.cppDocs` | llama.cpp API reference, server usage, changelog |
+**RAG Collection `RAG_MCP`** — Indexed papers for this project. Search with `mcp__rag__search_hybrid(collection="RAG_MCP")`.
 
-Consult via GitHub plugin or RAG search before making assumptions.
+| Source | Type | Pipeline Steps | Status |
+|--------|------|---------------|--------|
+| Pipeline_Optimization_Paper | Paper | index01, retrieval03, retrieval04 | Indexed (RAG_MCP) |
+| Qwen3_Embedding_Paper | Paper | index02, retrieval01 | Indexed (RAG_MCP) |
+| SPLADE_v3_Paper | Paper | index03 | Indexed (RAG_MCP) |
+| anthropic.com/news/contextual-retrieval | Web | index01, index02, index03, retrieval01, retrieval03 | Not indexed |
+| platform.claude.com/.../contextual-embeddings-guide | Web | index02 | Not indexed |
+| blog.vectorchord.ai/.../colbert-rerank-in-postgresql | Web | retrieval02, retrieval04 | Not indexed |
+| aws.amazon.com/.../pgvector-0-8-0 | Web | retrieval02 | Not indexed |
+| blog.voyageai.com/voyage-context-3 | Web | index02 | Not indexed |
+| developer.nvidia.com/.../chunking-strategy | Web | index01 | Not indexed |
+| research.trychroma.com/evaluating-chunking | Web | index01 | Not indexed |
+| superlinked.com/.../chunking-methods | Web | index01, retrieval04 | Not indexed |
+| towardsdatascience.com/hnsw-at-scale | Web | retrieval02 | Not indexed |
+| medium.com/.../late-chunking-vs-contextual-retrieval | Web | index01, index02 | Not indexed |
+| docs.together.ai/.../contextual-rag | Web | index02, retrieval04 | Not indexed |
+| zilliz.com/.../hyde | Web | retrieval01 | Not indexed |
+| docs.haystack.deepset.ai/.../hyde | Web | retrieval01 | Not indexed |
+| weaviate.io/blog/late-chunking | Web | index02 | Not indexed |
+| crunchydata.com/.../hnsw-indexes | Web | retrieval02 | Not indexed |
+
+**Other RAG Collections:** `llama.cppDocs` (llama-server API reference), `SearXNG_Docs` (SearXNG documentation)
+
+Consult via RAG search or GitHub plugin before making assumptions. Pipeline step references match `decisions/` files.
 
 ## Pipeline Components
 
@@ -63,6 +79,14 @@ RAG/
 ├── mcp-start.sh
 ├── requirements.txt
 ├── README.md                       → [Setup & External Docs](README.md)
+├── decisions/                      → Pipeline decisions & evidence per step
+│   ├── index01_chunking.md
+│   ├── index02_dense_embedding.md
+│   ├── index03_sparse_embedding.md
+│   ├── retrieval01_query_embedding.md
+│   ├── retrieval02_search.md
+│   ├── retrieval03_fusion.md
+│   └── retrieval04_reranking.md
 ├── src/
 │   └── rag/                        → [DOCS.md](src/rag/DOCS.md)
 ├── dev/                            → [DOCS.md](dev/DOCS.md)
