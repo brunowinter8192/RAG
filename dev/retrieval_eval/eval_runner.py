@@ -93,13 +93,36 @@ def save_results(retriever_name: str, dataset_name: str, metrics: dict):
     print(f"\nSaved to {path}")
 
 
+# Print comparison table for multiple retrievers
+def print_comparison_table(all_metrics: list[tuple[str, dict]]):
+    print(f"\n{'='*80}")
+    print("Retriever Comparison")
+    print(f"{'='*80}")
+
+    header = f"{'Retriever':<30}"
+    for label in ["NDCG", "Recall", "P"]:
+        for k in K_VALUES:
+            header += f" {label}@{k:>2}"
+    print(header)
+    print("-" * 80)
+
+    for name, metrics in all_metrics:
+        row = f"{name:<30}"
+        for label in ["NDCG", "Recall", "P"]:
+            for k in K_VALUES:
+                row += f" {metrics.get(f'{label}@{k}', 0):>6.4f}"
+        print(row)
+
+
 def main():
     parser = argparse.ArgumentParser(description="RAG Retrieval Evaluation")
     parser.add_argument("--dataset", required=True, help="Dataset name (without .json)")
     parser.add_argument("--retriever", default="dense", choices=["dense", "sparse", "hybrid"])
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--truncate-dims", type=int, default=None, help="MRL dimension truncation")
+    parser.add_argument("--rrf-k", type=int, default=60, help="RRF k parameter for hybrid fusion")
     parser.add_argument("--mrl-sweep", action="store_true", help="Run MRL sweep over multiple dims")
+    parser.add_argument("--hybrid-sweep", action="store_true", help="Run Dense, Sparse, Hybrid side by side")
     args = parser.parse_args()
 
     dataset = load_dataset(args.dataset)
@@ -121,11 +144,40 @@ def main():
             save_results(retriever.name(), args.dataset, metrics)
         return
 
+    if args.hybrid_sweep:
+        from retrievers.dense import DenseRetriever
+        from retrievers.sparse import SparseRetriever
+        from retrievers.hybrid import HybridRetriever
+        print(f"\nHybrid Sweep: Dense vs Sparse vs Hybrid")
+        print(f"Dataset: {args.dataset} ({len(queries)} queries, {len(corpus)} docs)")
+
+        dense = DenseRetriever(truncate_dims=args.truncate_dims)
+        sparse = SparseRetriever()
+        hybrid = HybridRetriever(dense, sparse, rrf_k=args.rrf_k)
+
+        all_metrics = []
+        for retriever in [dense, sparse, hybrid]:
+            results = retriever.search(corpus, queries, args.top_k)
+            metrics = evaluate(qrels, results)
+            all_metrics.append((retriever.name(), metrics))
+            save_results(retriever.name(), args.dataset, metrics)
+
+        print_comparison_table(all_metrics)
+        return
+
     if args.retriever == "dense":
         from retrievers.dense import DenseRetriever
         retriever = DenseRetriever(truncate_dims=args.truncate_dims)
-    else:
-        raise NotImplementedError(f"Retriever '{args.retriever}' not yet implemented")
+    elif args.retriever == "sparse":
+        from retrievers.sparse import SparseRetriever
+        retriever = SparseRetriever()
+    elif args.retriever == "hybrid":
+        from retrievers.dense import DenseRetriever
+        from retrievers.sparse import SparseRetriever
+        from retrievers.hybrid import HybridRetriever
+        dense = DenseRetriever(truncate_dims=args.truncate_dims)
+        sparse = SparseRetriever()
+        retriever = HybridRetriever(dense, sparse, rrf_k=args.rrf_k)
 
     print(f"Dataset: {args.dataset} ({len(queries)} queries, {len(corpus)} docs)")
     print(f"Retriever: {retriever.name()}")
