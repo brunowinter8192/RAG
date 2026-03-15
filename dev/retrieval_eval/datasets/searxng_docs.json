@@ -1,0 +1,170 @@
+{
+  "collection": "SearXNG_Docs",
+  "corpus_from_db": true,
+  "queries": {
+    "q01": "How to install SearXNG with Docker?",
+    "q02": "How to configure nginx as reverse proxy for SearXNG?",
+    "q03": "How does SearXNG bot protection and rate limiting work?",
+    "q04": "What does the SearXNG Administration API provide?",
+    "q05": "How to update a SearXNG instance?",
+    "q06": "How to solve CAPTCHA issues blocking SearXNG server IP?",
+    "q07": "What are the search settings available in settings.yml?",
+    "q08": "How to configure engines in SearXNG settings.yml?",
+    "q09": "What UI options can be configured in SearXNG?",
+    "q10": "How to configure outgoing HTTP connections and proxies?",
+    "q11": "How to configure Valkey in SearXNG?",
+    "q12": "How to configure the general instance settings in SearXNG?",
+    "q13": "How to write a custom online engine for SearXNG?",
+    "q14": "What are offline engines in SearXNG and how do they work?",
+    "q15": "How to configure the XPath engine in SearXNG?",
+    "q16": "How to configure the JSON engine in SearXNG?",
+    "q17": "What engine types are available in SearXNG?",
+    "q18": "What is the Engine Library and EngineCache in SearXNG?",
+    "q19": "What built-in plugins does SearXNG include?",
+    "q20": "How to develop a custom SearXNG plugin?",
+    "q21": "How does the hostnames plugin filter and prioritize search results?",
+    "q22": "What is the deployment architecture of a SearXNG instance?",
+    "q23": "How to query SearXNG using the Search API with GET and POST?",
+    "q24": "What output format options does the SearXNG Search API support?",
+    "q25": "What result types does SearXNG return from search engines?",
+    "q26": "How to enable favicon display in SearXNG search results?",
+    "q27": "How to configure the SearXNG favicon cache?",
+    "q28": "How to configure limiter.toml for bot detection?",
+    "q29": "Is Redis still supported in SearXNG?",
+    "q30": "How to configure trusted proxies for SearXNG behind a load balancer?"
+  },
+  "qrels": {
+    "q01": {
+      "chunk_3_admin_installation-docker.md": 1,
+      "chunk_4_admin_installation-docker.md": 1
+    },
+    "q02": {
+      "chunk_3_admin_installation-nginx.md": 1,
+      "chunk_4_admin_installation-nginx.md": 1,
+      "chunk_5_admin_installation-nginx.md": 1
+    },
+    "q03": {
+      "chunk_0_admin_searx.limiter.md": 1,
+      "chunk_1_admin_searx.limiter.md": 1,
+      "chunk_2_admin_searx.limiter.md": 1
+    },
+    "q04": {
+      "chunk_0_admin_api.md": 1,
+      "chunk_1_admin_api.md": 1
+    },
+    "q05": {
+      "chunk_0_admin_update-searxng.md": 1
+    },
+    "q06": {
+      "chunk_0_admin_answer-captcha.md": 1,
+      "chunk_1_admin_answer-captcha.md": 1
+    },
+    "q07": {
+      "chunk_0_admin_settings_settings_search.md": 1,
+      "chunk_3_admin_settings_settings_search.md": 1
+    },
+    "q08": {
+      "chunk_0_admin_settings_settings_engines.md": 1,
+      "chunk_1_admin_settings_settings_engines.md": 1,
+      "chunk_3_admin_settings_settings_engines.md": 1
+    },
+    "q09": {
+      "chunk_0_admin_settings_settings_ui.md": 1,
+      "chunk_1_admin_settings_settings_ui.md": 1,
+      "chunk_2_admin_settings_settings_ui.md": 1
+    },
+    "q10": {
+      "chunk_0_admin_settings_settings_outgoing.md": 1,
+      "chunk_3_admin_settings_settings_outgoing.md": 1,
+      "chunk_4_admin_settings_settings_outgoing.md": 1
+    },
+    "q11": {
+      "chunk_0_admin_settings_settings_valkey.md": 1,
+      "chunk_1_admin_settings_settings_valkey.md": 1
+    },
+    "q12": {
+      "chunk_0_admin_settings_settings_general.md": 1,
+      "chunk_1_admin_settings_settings_general.md": 1
+    },
+    "q13": {
+      "chunk_0_dev_engines_demo_demo_online.md": 1,
+      "chunk_1_dev_engines_demo_demo_online.md": 1,
+      "chunk_3_dev_engines_demo_demo_online.md": 1
+    },
+    "q14": {
+      "chunk_0_dev_engines_offline_concept.md": 1,
+      "chunk_1_dev_engines_offline_concept.md": 1,
+      "chunk_2_dev_engines_offline_concept.md": 1
+    },
+    "q15": {
+      "chunk_0_dev_engines_xpath.md": 1,
+      "chunk_1_dev_engines_xpath.md": 1,
+      "chunk_2_dev_engines_xpath.md": 1
+    },
+    "q16": {
+      "chunk_0_dev_engines_json_engine.md": 1,
+      "chunk_1_dev_engines_json_engine.md": 1
+    },
+    "q17": {
+      "chunk_0_dev_engines_engine_overview.md": 1,
+      "chunk_2_dev_engines_engine_overview.md": 1
+    },
+    "q18": {
+      "chunk_0_dev_engines_enginelib.md": 1,
+      "chunk_1_dev_engines_enginelib.md": 1
+    },
+    "q19": {
+      "chunk_0_admin_plugins.md": 1,
+      "chunk_1_admin_plugins.md": 1,
+      "chunk_0_dev_plugins_builtins.md": 1
+    },
+    "q20": {
+      "chunk_0_dev_plugins_development.md": 1,
+      "chunk_1_dev_plugins_development.md": 1,
+      "chunk_2_dev_plugins_development.md": 1
+    },
+    "q21": {
+      "chunk_0_dev_plugins_hostnames.md": 1,
+      "chunk_1_dev_plugins_hostnames.md": 1,
+      "chunk_2_dev_plugins_hostnames.md": 1
+    },
+    "q22": {
+      "chunk_0_admin_architecture.md": 1,
+      "chunk_1_admin_architecture.md": 1,
+      "chunk_2_admin_architecture.md": 1
+    },
+    "q23": {
+      "chunk_0_dev_search_api.md": 1,
+      "chunk_1_dev_search_api.md": 1
+    },
+    "q24": {
+      "chunk_1_dev_search_api.md": 1,
+      "chunk_3_dev_search_api.md": 1
+    },
+    "q25": {
+      "chunk_0_dev_result_types_index.md": 1,
+      "chunk_1_dev_result_types_index.md": 1,
+      "chunk_2_dev_result_types_index.md": 1
+    },
+    "q26": {
+      "chunk_0_admin_searx.favicons.md": 1,
+      "chunk_1_admin_searx.favicons.md": 1,
+      "chunk_2_admin_searx.favicons.md": 1
+    },
+    "q27": {
+      "chunk_3_admin_searx.favicons.md": 1,
+      "chunk_4_admin_searx.favicons.md": 1
+    },
+    "q28": {
+      "chunk_3_admin_searx.limiter.md": 1,
+      "chunk_4_admin_searx.limiter.md": 1,
+      "chunk_5_admin_searx.limiter.md": 1
+    },
+    "q29": {
+      "chunk_0_admin_settings_settings_redis.md": 1
+    },
+    "q30": {
+      "chunk_5_admin_searx.limiter.md": 1
+    }
+  }
+}

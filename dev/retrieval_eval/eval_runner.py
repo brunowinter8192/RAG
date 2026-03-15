@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from eval_config import K_VALUES, METRICS, DATASETS_DIR, RESULTS_DIR
 
 
-# Load dataset from JSON file, auto-build corpus from source chunks
+# Load dataset from JSON file, auto-build corpus from source chunks or DB
 def load_dataset(name: str) -> dict:
     path = Path(DATASETS_DIR) / f"{name}.json"
     if not path.exists():
@@ -30,7 +30,29 @@ def load_dataset(name: str) -> dict:
             for c in source.get("chunks", [])
         }
 
+    if "corpus" not in dataset and dataset.get("corpus_from_db"):
+        dataset["corpus"] = load_corpus_from_db(dataset["collection"])
+
     return dataset
+
+
+# Load corpus from PostgreSQL for a given collection
+def load_corpus_from_db(collection: str) -> dict:
+    from src.rag.retriever import get_connection
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT content, collection, document, chunk_index FROM documents WHERE collection = %s ORDER BY document, chunk_index",
+        (collection,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return {
+        f"chunk_{chunk_index}_{document}": {"text": content, "document": document}
+        for content, _collection, document, chunk_index in rows
+    }
+
 
 
 # Evaluate retriever results against ground truth using pytrec_eval
