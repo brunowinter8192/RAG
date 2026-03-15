@@ -194,6 +194,19 @@ Starts: PostgreSQL (Docker, port 5433) + llama.cpp embedding server (native, por
 
 ## Pipeline
 
+### Components
+
+| Stage | Component | What it does |
+|-------|-----------|-------------|
+| **Indexing** | Chunking | Splits documents into ~1000 char chunks with overlap |
+| | Dense Embedding | Generates 4096d vectors via Qwen3-Embedding-8B |
+| | Sparse Embedding | Generates SPLADE sparse vectors for keyword matching |
+| | Storage | Stores vectors in pgvector (PostgreSQL) |
+| **Retrieval** | Dense Search | Cosine similarity over dense vectors |
+| | Sparse Search | Cosine similarity over sparse vectors |
+| | Fusion | Reciprocal Rank Fusion (RRF) merges both rankings |
+| | Reranking | Cross-encoder re-scores top candidates (optional) |
+
 ### Full Flow (PDF to RAG)
 
 ```
@@ -331,8 +344,10 @@ The workflow.py and server.py handle connections internally.
   --host 0.0.0.0 \
   --port 8081 \
   -ngl 99 \
-  -ub 4096 \
-  -b 4096
+  -c 2048 \
+  -np 1 \
+  -b 4096 \
+  -ub 4096
 ```
 
 ### Reranker Server (llama.cpp)

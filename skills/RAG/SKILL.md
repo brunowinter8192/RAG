@@ -1,5 +1,5 @@
 ---
-name: searchR
+name: RAG
 description: Vector search over indexed documents
 ---
 
