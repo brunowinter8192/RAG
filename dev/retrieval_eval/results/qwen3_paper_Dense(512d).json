@@ -1,0 +1,15 @@
+{
+  "retriever": "Dense(512d)",
+  "dataset": "qwen3_paper",
+  "metrics": {
+    "NDCG@3": 0.4207,
+    "Recall@3": 0.5,
+    "P@3": 0.2444,
+    "NDCG@5": 0.4476,
+    "Recall@5": 0.5444,
+    "P@5": 0.1733,
+    "NDCG@10": 0.54,
+    "Recall@10": 0.7778,
+    "P@10": 0.1333
+  }
+}
