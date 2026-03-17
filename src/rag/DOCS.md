@@ -582,3 +582,31 @@ results = search_keyword_workflow("TPC-H benchmark", top_k=10)
 - Specific phrases
 
 **Complements search_workflow:** Use `search()` for semantic/conceptual queries, `search_keyword()` for exact matches.
+
+---
+
+## jsonl_to_md.py
+
+**Purpose:** Convert Claude Code JSONL session files to readable Markdown. Extracts tool calls (input + output), task prompt, and final response. Optionally includes dispatch context from the main session (for subagent sessions).
+**Input:** Path to a JSONL session file (Claude Code conversation log). Optional `--dispatch` flag to include the main session's dispatch context.
+**Output:** Markdown file with tool call summary table, task prompt, final response, and per-tool-call detail sections.
+
+**Usage:**
+```bash
+./venv/bin/python src/rag/jsonl_to_md.py \
+    --input ~/.claude/projects/<project>/<session>.jsonl \
+    --output /tmp/session.md
+
+# Include dispatch context (for subagent sessions)
+./venv/bin/python src/rag/jsonl_to_md.py \
+    --input ~/.claude/projects/<project>/agents/<agent-id>.jsonl \
+    --output /tmp/agent_session.md \
+    --dispatch
+```
+
+**Output structure:**
+- `# Dispatch Context` — pre/post-dispatch messages from main session (if `--dispatch`)
+- `# Task Prompt` — first user message
+- `# Tool Call Summary` — compact table: tool name, input brief, output size
+- `# Final Response` — last assistant text block
+- `# Tool Call N: ToolName` — full input + output for each tool call

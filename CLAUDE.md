@@ -88,7 +88,8 @@ RAG/
 ├── mcp-start.sh
 ├── requirements.txt
 ├── README.md                       → [Setup & External Docs](README.md)
-├── decisions/                      → Pipeline decisions & evidence per step
+├── DOCS.md                         → [Root Module Docs](DOCS.md)
+├── decisions/                      → Pipeline decision records (rationale per implementation choice)
 │   ├── index01_chunking.md
 │   ├── index02_dense_embedding.md
 │   ├── index03_sparse_embedding.md
@@ -96,16 +97,18 @@ RAG/
 │   ├── retrieval02_search.md
 │   ├── retrieval03_fusion.md
 │   └── retrieval04_reranking.md
+├── data/
+│   └── documents/                  → Document folders per collection (raw.md, cleaned.md, chunks.json)
 ├── src/
 │   └── rag/                        → [DOCS.md](src/rag/DOCS.md)
 ├── dev/                            → [DOCS.md](dev/DOCS.md)
-│   ├── cleanup/
-│   ├── indexing/
+│   ├── cleanup/                    → [DOCS.md](dev/cleanup/DOCS.md)
+│   ├── indexing/                   → [DOCS.md](dev/indexing/DOCS.md)
 │   │   ├── chunking_eval/
 │   │   ├── embedding_benchmark/
 │   │   ├── indexing_benchmark/
-│   │   └── llama_server/
-│   └── retrieval/
-│       ├── eval/
+│   │   └── llama_server/           → [DOCS.md](dev/indexing/llama_server/DOCS.md)
+│   └── retrieval/                  → [DOCS.md](dev/retrieval/DOCS.md)
+│       ├── eval/                   → [DOCS.md](dev/retrieval/eval/DOCS.md)
 │       └── reranker_8b/
 ```
