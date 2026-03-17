@@ -10,7 +10,7 @@ from pathlib import Path
 
 import httpx
 
-RAG_ROOT = Path(__file__).parent.parent.parent
+RAG_ROOT = Path(__file__).parent.parent.parent.parent
 LLAMA_SERVER = RAG_ROOT / "llama.cpp/build/bin/llama-server"
 MODEL_PATH = RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"
 LOG_DIR = Path(__file__).parent / "01_server_logs"

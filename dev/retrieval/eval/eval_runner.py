@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytrec_eval
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from eval_config import K_VALUES, METRICS, DATASETS_DIR, RESULTS_DIR
 

@@ -7,7 +7,7 @@ Debug scripts for investigating llama-server reranker issues (500 errors, batch 
 **`01_capture_stderr.py`** — Starts reranker server (0.6B, port 8082) with stderr/stdout capture to log files. Useful for seeing llama.cpp internal errors.
 
 ```bash
-./venv/bin/python dev/llama_server/01_capture_stderr.py
+./venv/bin/python dev/indexing/llama_server/01_capture_stderr.py
 # Logs -> 01_server_logs/stderr_*.log, stdout_*.log
 ```
 
@@ -18,14 +18,14 @@ Debug scripts for investigating llama-server reranker issues (500 errors, batch 
 - `--compare`: Compares two models on same data (port 8082 vs 8083)
 
 ```bash
-./venv/bin/python dev/llama_server/02_reproduce_500.py [--synthetic|--verify|--compare]
+./venv/bin/python dev/indexing/llama_server/02_reproduce_500.py [--synthetic|--verify|--compare]
 # Results -> 02_responses/run_*.json
 ```
 
 **`03_test_batch_size.py`** — Tests reranker with different `-b` (batch size) flags: 512, 1024, 2048, 4096. Restarts server for each size. Identifies which batch size avoids 500 errors.
 
 ```bash
-./venv/bin/python dev/llama_server/03_test_batch_size.py
+./venv/bin/python dev/indexing/llama_server/03_test_batch_size.py
 ```
 
 ## Context

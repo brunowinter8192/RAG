@@ -10,11 +10,11 @@ from pathlib import Path
 
 import httpx
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from src.rag.retriever import get_connection
 
-RAG_ROOT = Path(__file__).parent.parent.parent
+RAG_ROOT = Path(__file__).parent.parent.parent.parent
 LLAMA_SERVER = RAG_ROOT / "llama.cpp/build/bin/llama-server"
 MODEL_PATH = RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"
 RERANKER_URL = "http://localhost:8082/v1/rerank"

@@ -18,7 +18,7 @@ Background: mradermacher GGUF conversions of Qwen3-Reranker are known defective 
 ## How to run
 
 ```bash
-./venv/bin/python dev/reranker_8b/test_8b_reranker.py
+./venv/bin/python dev/retrieval/reranker_8b/test_8b_reranker.py
 ```
 
 The script starts the 8B server on port 8084, runs tests, then shuts it down.

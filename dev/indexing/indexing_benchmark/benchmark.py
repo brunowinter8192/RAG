@@ -4,7 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.rag.embedder import embed_workflow
 from src.rag.indexer import get_connection, load_chunks_json, store_chunks
 from src.rag.sparse_embedder import sparse_embed_workflow

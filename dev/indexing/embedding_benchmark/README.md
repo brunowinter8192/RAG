@@ -1,4 +1,4 @@
-# SPLADE Parallel Embedding Benchmark
+# Embedding Benchmark (Dense + SPLADE Parallel)
 
 Measures wall time for sequential vs parallel execution of dense (port 8081) and sparse/SPLADE (port 8083) embedding servers.
 
@@ -15,7 +15,7 @@ Both embedding servers must be running before starting the benchmark.
 
 ```bash
 cd /path/to/RAG
-./venv/bin/python dev/splade_benchmark/benchmark.py
+./venv/bin/python dev/indexing/embedding_benchmark/benchmark.py
 ```
 
 ## Expected Output

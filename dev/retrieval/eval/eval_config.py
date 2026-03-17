@@ -6,5 +6,5 @@ METRICS = {
     "P." + ",".join(str(k) for k in K_VALUES),
 }
 
-DATASETS_DIR = "dev/retrieval_eval/datasets"
-RESULTS_DIR = "dev/retrieval_eval/results"
+DATASETS_DIR = "dev/retrieval/eval/datasets"
+RESULTS_DIR = "dev/retrieval/eval/results"
