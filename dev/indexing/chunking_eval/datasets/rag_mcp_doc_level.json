@@ -1,0 +1,42 @@
+{
+  "queries": {
+    "q01": "What embedding dimensions does Qwen3 support and how does Matryoshka Representation Learning enable flexible truncation?",
+    "q02": "What is the multi-stage training pipeline used for Qwen3 embeddings, including weak supervised pre-training?",
+    "q03": "How does SPLADE sparse embedding represent out-of-vocabulary technical terms using vocabulary expansion?",
+    "q04": "What retrieval pipeline optimizations reduce latency while maintaining recall in production RAG systems?",
+    "q05": "How does contextual retrieval improve chunk relevance by prepending document-level context to each chunk?",
+    "q06": "What is the difference between semantic chunking and fixed-size chunking, and how does chunk size affect retrieval quality?",
+    "q07": "How does the Claude API generate text embeddings and what use cases are supported?",
+    "q08": "How does ColBERT late interaction reranking work and how is it implemented with pgvector?",
+    "q09": "What new features and performance improvements does pgvector 0.8.0 introduce?",
+    "q10": "What metrics should be used to evaluate chunking strategies, and how does chunk size affect retrieval recall?",
+    "q11": "What is context rot and how does long context degrade retrieval performance in RAG pipelines?",
+    "q12": "What are the main chunking strategies for RAG (fixed-size, semantic, sentence, recursive) and their trade-offs?",
+    "q13": "What are the key components of a production RAG workflow including document ingestion, retrieval, and generation?",
+    "q14": "What is HyDE (Hypothetical Document Embeddings) and how does it improve dense retrieval?",
+    "q15": "What advanced RAG techniques exist beyond naive retrieval, such as query rewriting, step-back prompting, and fusion?",
+    "q16": "How does late chunking preserve long-context embeddings by chunking after encoding rather than before?",
+    "q17": "How do HNSW indexes work in pgvector and what parameters control the speed-recall trade-off?",
+    "q18": "What factors affect pgvector query performance and how can indexing strategy be tuned for vector dimensions?"
+  },
+  "doc_qrels": {
+    "q01": ["arxiv__2506.05176__qwen3-embedding.md"],
+    "q02": ["arxiv__2506.05176__qwen3-embedding.md"],
+    "q03": ["arxiv__2403.06789__splade-v3.md"],
+    "q04": ["arxiv__2511.22240__pipeline-optimization.md"],
+    "q05": ["www_anthropic_com__engineering__contextual-retrieval.md", "www_anthropic_com__news__contextual-retrieval.md"],
+    "q06": ["research_trychroma_com__evaluating-chunking.md", "zilliz_com__learn__guide-to-chunking-strategies-for-rag.md"],
+    "q07": ["anthropic__docs__en__build-with-claude__embeddings.md"],
+    "q08": ["docs_vectorchord_ai__vectorchord__use-case__colbert-rerank.md"],
+    "q09": ["www_thenile_dev__blog__pgvector-080.md"],
+    "q10": ["research_trychroma_com__evaluating-chunking.md"],
+    "q11": ["research_trychroma_com__context-rot.md"],
+    "q12": ["zilliz_com__learn__guide-to-chunking-strategies-for-rag.md"],
+    "q13": ["docs_together_ai__docs__building-a-rag-workflow.md"],
+    "q14": ["docs_haystack_deepset_ai__docs__hypothetical-document-embeddings-hyde.md"],
+    "q15": ["docs_haystack_deepset_ai__docs__advanced-rag-techniques.md"],
+    "q16": ["weaviate_io__blog__late-chunking.md"],
+    "q17": ["www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md"],
+    "q18": ["www_crunchydata_com__blog__pgvector-performance-for-developers.md"]
+  }
+}

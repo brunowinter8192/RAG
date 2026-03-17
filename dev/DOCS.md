@@ -8,7 +8,7 @@ Pipeline-oriented layout matching the RAG system architecture. Exempt from CLAUD
 
 | Directory | Purpose | Key Scripts |
 |-----------|---------|-------------|
-| `chunking_eval/` | Chunking strategy evaluation (chunk size, separators) | TBD |
+| `chunking_eval/` | Chunking strategy evaluation (chunk size, separators) | `chunking_sweep.py` |
 | `embedding_benchmark/` | Dense+SPLADE parallel embedding benchmark | `benchmark.py` |
 | `indexing_benchmark/` | DB write profiling (batch timing) | `benchmark.py` |
 | `llama_server/` | llama-server debugging (500 errors, batch size) | `01_capture_stderr.py`, `02_reproduce_500.py`, `03_test_batch_size.py` |
