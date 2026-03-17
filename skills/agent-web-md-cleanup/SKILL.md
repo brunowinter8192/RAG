@@ -31,6 +31,27 @@ Sample 3-5 files first to identify common navigation/footer patterns,
 then build a single cleanup script that processes all files.
 ```
 
+## Footer Pattern Safety (CRITICAL)
+
+**NEVER use sidebar/navigation text as footer cut-off triggers.**
+
+Doc sites (together.ai, haystack, vectorchord) place interactive elements like "Was this page helpful?", "Edit this page", or feedback widgets in the sidebar BEFORE the article content. Using these as universal footer triggers cuts the entire article.
+
+**Safe footer patterns** (appear AFTER article content):
+- Company/legal footer links (Terms, Privacy, Copyright ©)
+- Social media link blocks at page bottom
+- Cookie consent banners
+- "Newer Post / Older Post" blog navigation
+- Newsletter signup sections at page end
+
+**Unsafe patterns** (appear in sidebar BEFORE content on doc sites):
+- "Was this page helpful?"
+- "Edit this page"
+- "Rate this article"
+- Table of contents / "On this page"
+
+**Rule:** Only use footer triggers that are guaranteed to appear AFTER the main article heading (`# Title`). If a pattern might appear in a sidebar, make it a POST_CONTENT trigger (only fires after the first `# heading` is found).
+
 ## After Agent Returns
 
 1. **Char reduction check:** Total reduction should be 10-50%. Less than 5% = agent missed patterns. More than 60% = agent may have removed content.

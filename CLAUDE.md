@@ -8,32 +8,41 @@ Hybrid RAG pipeline with dense (Qwen3) + sparse (SPLADE) embeddings, pgvector, a
 
 ## Sources
 
-**RAG Collection `RAG_MCP`** — Indexed papers for this project. Search with `mcp__rag__search_hybrid(collection="RAG_MCP")`.
+**RAG Collection `RAG_MCP`** — Knowledge base for this project. Search with `mcp__rag__search_hybrid(collection="RAG_MCP")`.
 
-| Source | Type | Pipeline Steps | Status |
-|--------|------|---------------|--------|
-| Pipeline_Optimization_Paper | Paper | index01, retrieval03, retrieval04 | Indexed (RAG_MCP) |
-| Qwen3_Embedding_Paper | Paper | index02, retrieval01 | Indexed (RAG_MCP) |
-| SPLADE_v3_Paper | Paper | index03 | Indexed (RAG_MCP) |
-| anthropic.com/news/contextual-retrieval | Web | index01, index02, index03, retrieval01, retrieval03 | Not indexed |
-| platform.claude.com/.../contextual-embeddings-guide | Web | index02 | Not indexed |
-| blog.vectorchord.ai/.../colbert-rerank-in-postgresql | Web | retrieval02, retrieval04 | Not indexed |
-| aws.amazon.com/.../pgvector-0-8-0 | Web | retrieval02 | Not indexed |
-| blog.voyageai.com/voyage-context-3 | Web | index02 | Not indexed |
-| developer.nvidia.com/.../chunking-strategy | Web | index01 | Not indexed |
-| research.trychroma.com/evaluating-chunking | Web | index01 | Not indexed |
-| superlinked.com/.../chunking-methods | Web | index01, retrieval04 | Not indexed |
-| towardsdatascience.com/hnsw-at-scale | Web | retrieval02 | Not indexed |
-| medium.com/.../late-chunking-vs-contextual-retrieval | Web | index01, index02 | Not indexed |
-| docs.together.ai/.../contextual-rag | Web | index02, retrieval04 | Not indexed |
-| zilliz.com/.../hyde | Web | retrieval01 | Not indexed |
-| docs.haystack.deepset.ai/.../hyde | Web | retrieval01 | Not indexed |
-| weaviate.io/blog/late-chunking | Web | index02 | Not indexed |
-| crunchydata.com/.../hnsw-indexes | Web | retrieval02 | Not indexed |
+| Source | Domain | Type | Pipeline Steps | Status |
+|--------|--------|------|---------------|--------|
+| Pipeline Optimization Paper | arxiv.org | Paper | index01, retrieval03, retrieval04 | Indexed |
+| Qwen3 Embedding Paper | arxiv.org | Paper | index02, retrieval01 | Indexed |
+| SPLADE v3 Paper | arxiv.org | Paper | index03 | Indexed |
+| Contextual Retrieval (2 articles) | anthropic.com | Web | index01, index02, index03, retrieval01, retrieval03 | Indexed |
+| Embeddings Guide | platform.claude.com | Web | index02 | Indexed |
+| ColBERT Rerank Tutorial | docs.vectorchord.ai | Web | retrieval02, retrieval04 | Indexed |
+| pgvector 0.8.0 Walkthrough | thenile.dev | Web | retrieval02 | Indexed |
+| Evaluating Chunking + Context Rot | research.trychroma.com | Web | index01 | Indexed |
+| Chunking Strategies Guide | zilliz.com | Web | index01, retrieval04 | Indexed |
+| HNSW Algorithm Guide | pinecone.io | Web | retrieval02 | Indexed |
+| Contextual RAG + RAG Workflow + Rerankers + Embeddings (4 articles) | docs.together.ai | Web | index02, retrieval04 | Indexed |
+| HyDE + Advanced RAG (2 articles) | docs.haystack.deepset.ai | Web | retrieval01 | Indexed |
+| Late Chunking | weaviate.io | Web | index02 | Indexed |
+| HNSW Indexes + pgvector Performance + Scaling Vectors (3 articles) | crunchydata.com | Web | retrieval02 | Indexed |
+| Reranker Docs | docs.voyageai.com | Web | retrieval04 | Indexed |
 
-**Other RAG Collections:** `llama.cppDocs` (llama-server API reference), `SearXNG_Docs` (SearXNG documentation)
+**Other RAG Collections:** `searxng` (SearXNG project docs), `TradBot` (trading bot docs)
 
 Consult via RAG search or GitHub plugin before making assumptions. Pipeline step references match `decisions/` files.
+
+## Startup
+
+**MCP Server** starts automatically via `mcp-start.sh` (PostgreSQL + FastMCP). Supports `list_collections`, `list_documents`, `read_document` without GPU servers.
+
+**GPU Servers (manual start required for search/embed/index):**
+
+```bash
+./start.sh   # Starts llama-server (embedding, port 8081), llama-server (reranker, port 8082), SPLADE server (port 8083)
+```
+
+Without GPU servers: `search`, `search_hybrid`, `search_keyword` and indexing will fail. `list_*` and `read_document` work without them.
 
 ## Pipeline Components
 

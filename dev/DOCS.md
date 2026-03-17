@@ -6,7 +6,7 @@ Standalone scripts for testing, debugging, and data preparation. Exempt from CLA
 
 | Directory | Purpose | Key Scripts |
 |-----------|---------|-------------|
-| `cleanup/` | SearXNG Sphinx docs cleaning (v2, production) | `clean_web_SearXNG_Docs.py` |
+| `cleanup/` | Web markdown cleanup scripts (per-collection) | `clean_web_SearXNG_Docs.py`, `clean_web_RAG_MCP.py` |
 | `explore/` | Pattern analysis & initial cleaning (v1, predecessor to cleanup/) | `analyze_patterns.py`, `clean_searxng.py` |
 | `llama_server/` | llama-server debugging (reranker 500 errors, batch size tuning) | `01_capture_stderr.py`, `02_reproduce_500.py`, `03_test_batch_size.py` |
 | `splade_benchmark/` | Sequential vs parallel embedding benchmark (dense + SPLADE) | `benchmark.py` |
