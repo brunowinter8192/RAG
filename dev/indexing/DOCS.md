@@ -114,3 +114,26 @@ bash dev/indexing/chunking_eval/setup_test_db.sh
     --input data/documents/RAG_MCP/chunks.json \
     --batch-size 16 --max-batches 5 --skip-db
 ```
+
+---
+
+## splade_truncation/reproduce.py
+
+**Problem:** SPLADE server produces corrupted sparse vectors (14k-30k non-zero elements instead of 100-200) after prolonged uptime. pgvector sparsevec type crashes at >16,000 non-zero elements. Root cause not isolated — correlation with server uptime observed but not causally proven.
+
+**Purpose:** Analyze SPLADE non-zero element distribution across document chunks and test pgvector INSERT behavior.
+**Input:** One or more pre-chunked JSON files (from `data/documents/`). SPLADE server must be running (port 8083).
+**Output:** Distribution stats (min, max, mean, median, p95, p99), histogram, list of chunks exceeding 16,000 nnz. Optionally attempts INSERT into `rag_test` DB.
+
+**Status:** Reproduction script only. Missing: `test_truncation.py` (test top-K truncation impact), monitoring script (track nnz over server uptime).
+
+**Usage:**
+```bash
+# Analyze element distribution (no DB needed)
+./venv/bin/python dev/indexing/splade_truncation/reproduce.py --analyze-only \
+    --input data/documents/searxng/Meta_Search_Engine_Optimization.json
+
+# Full test with DB insert (requires rag_test DB)
+POSTGRES_DB=rag_test ./venv/bin/python dev/indexing/splade_truncation/reproduce.py \
+    --input data/documents/searxng/Meta_Search_Engine_Optimization.json
+```

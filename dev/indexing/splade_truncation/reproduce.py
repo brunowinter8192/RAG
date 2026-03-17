@@ -1,22 +1,39 @@
-"""Reproduce SPLADE truncation bug: format_sparsevec() exceeds pgvector 16,000 non-zero element limit.
+"""SPLADE sparse vector density analysis and pgvector insert test.
 
-Loads chunks from IR-Paper JSONs, generates SPLADE embeddings, analyzes element distribution,
-and attempts INSERT into rag_test to reproduce the ProgramLimitExceeded error.
+Problem: SPLADE server (sentence_transformers SparseEncoder) was observed producing vectors
+with 14k-30k non-zero elements instead of the expected 100-200. pgvector sparsevec type has
+a hard limit of 16,000 non-zero elements — exceeding it crashes indexing with
+psycopg2.errors.ProgramLimitExceeded.
+
+Investigation findings:
+- Prod DB data (33k chunks): 100-370 nnz — all correct
+- Freshly restarted SPLADE server: 100-200 nnz — correct
+- Long-running SPLADE server (8h+): 14k-30k nnz — corrupted
+- 20 stress-test batches after restart: stable at 100-200 nnz
+- Correlation: old server = corrupt, fresh server = OK
+- Causation: UNKNOWN — laufzeit, memory pressure, concurrent requests not isolated
+
+Status quo: server_manager.py provides auto-restart via idle timeout (5min), which may
+prevent the corruption by not allowing long-running server state. Whether this actually
+fixes the root cause is unverified. A monitoring script that periodically checks nnz counts
+on the running server would be needed to confirm.
+
+See also: RAG-bj2 (format_sparsevec safety-net truncation — defensive fix, not yet implemented)
 
 Usage:
-    POSTGRES_DB=rag_test ./venv/bin/python dev/indexing/splade_truncation/reproduce.py \
+    POSTGRES_DB=rag_test ./venv/bin/python dev/indexing/splade_truncation/reproduce.py \\
         --input data/documents/searxng/Meta_Search_Engine_Optimization.json
 
     # All 5 IR-Papers at once
-    POSTGRES_DB=rag_test ./venv/bin/python dev/indexing/splade_truncation/reproduce.py \
-        --input data/documents/searxng/Meta_Search_Engine_Optimization.json \
-                data/documents/searxng/QPP_GenRE_Query_Performance_Prediction.json \
-                data/documents/searxng/IR_Evaluation_Without_Relevance_Judgments.json \
-                data/documents/searxng/Interleaved_Search_Evaluation.json \
+    POSTGRES_DB=rag_test ./venv/bin/python dev/indexing/splade_truncation/reproduce.py \\
+        --input data/documents/searxng/Meta_Search_Engine_Optimization.json \\
+                data/documents/searxng/QPP_GenRE_Query_Performance_Prediction.json \\
+                data/documents/searxng/IR_Evaluation_Without_Relevance_Judgments.json \\
+                data/documents/searxng/Interleaved_Search_Evaluation.json \\
                 data/documents/searxng/Clickthrough_Search_Optimization.json
 
     # Analysis only (no DB insert)
-    ./venv/bin/python dev/indexing/splade_truncation/reproduce.py --analyze-only \
+    ./venv/bin/python dev/indexing/splade_truncation/reproduce.py --analyze-only \\
         --input data/documents/searxng/Meta_Search_Engine_Optimization.json
 """
 import argparse
