@@ -100,8 +100,12 @@ RAG/
 │   └── rag/                        → [DOCS.md](src/rag/DOCS.md)
 ├── dev/                            → [DOCS.md](dev/DOCS.md)
 │   ├── cleanup/
-│   ├── explore/
-│   ├── llama_server/
-│   ├── splade_benchmark/
-│   └── reranker_8b/
+│   ├── indexing/
+│   │   ├── chunking_eval/
+│   │   ├── embedding_benchmark/
+│   │   ├── indexing_benchmark/
+│   │   └── llama_server/
+│   └── retrieval/
+│       ├── eval/
+│       └── reranker_8b/
 ```
