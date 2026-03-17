@@ -16,6 +16,7 @@ src/rag/
 ├── indexer.py
 ├── reranker.py
 ├── retriever.py
+├── server_manager.py
 ├── sparse_embedder.py
 ├── splade_server.py
 └── logs/
@@ -66,17 +67,8 @@ truncate_to_max_tokens(text: str, max: int) -> str  # Truncate using char estima
 |----------|-------|-------------|
 | MAX_TOKENS | 4000 | Max tokens per embedding request |
 | CHARS_PER_TOKEN | 3 | Conservative char/token ratio for truncation |
-| HEALTH_URL | http://localhost:8081/health | Health check endpoint |
 
-**Server Startup Flags** (used by `start_embedding_server()`):
-
-| Flag | Value | Description |
-|------|-------|-------------|
-| `-c` | 2048 | Context size (KV cache) |
-| `-np` | 1 | Number of parallel slots |
-| `-b` | 4096 | Batch size |
-| `-ub` | 4096 | Ubatch size |
-| `-ngl` | 99 | GPU layers (offload all) |
+**Server lifecycle:** Managed by `server_manager.py`. Auto-starts via `ensure_ready("embedding")`, auto-stops after idle timeout.
 
 ---
 
@@ -179,6 +171,35 @@ Model loaded once at module level (not per request). First start downloads model
 
 ---
 
+## server_manager.py
+
+**Purpose:** Centralized lifecycle management for all GPU servers (embedding, SPLADE, reranker). Single source of truth for server configs, ports, and startup commands.
+
+**Key functions:**
+
+| Function | Description |
+|----------|-------------|
+| `status()` | Returns running/stopped state, PID, health for all servers |
+| `start(name)` | Start a server with port-check (no duplicates) |
+| `stop(name)` | Stop all processes on a server's port |
+| `restart(name)` | Stop + start |
+| `ensure_ready(target)` | Auto-start server(s) needed for an operation, touch idle timestamp |
+| `start_all()` / `stop_all()` | Batch operations |
+
+**Idle timeout:** Servers auto-stop after 5 minutes without use. Configurable via `RAG_SERVER_IDLE_TIMEOUT` env var (seconds). Cross-project aware via shared timestamp files (`/tmp/rag-server-{name}-last-used`).
+
+**Server definitions:**
+
+| Server | Port | Model | Required for |
+|--------|------|-------|-------------|
+| embedding | 8081 | Qwen3-Embedding-8B-Q8_0 | search, index |
+| reranker | 8082 | qwen3-reranker-0.6b-q8_0 | rerank |
+| splade | 8083 | naver/splade-cocondenser-ensembledistil | search, index |
+
+**CLI:** `./venv/bin/python workflow.py server status|start|stop|restart [name]`
+
+---
+
 ## sparse_embedder.py
 
 **Purpose:** HTTP client for SPLADE server (port 8083). Mirrors `embedder.py` pattern.
@@ -194,17 +215,12 @@ sparse_vecs = sparse_embed_workflow("Your text here")
 sparse_vecs = sparse_embed_workflow(["Text 1", "Text 2"])
 ```
 
-**Auto-start:** If SPLADE server not running, starts it automatically via uvicorn subprocess (same pattern as embedder.py).
+**Server lifecycle:** Managed by `server_manager.py`. Auto-starts via `ensure_ready("splade")`, auto-stops after idle timeout.
 
 **Environment Variables (.env):**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | SPLADE_URL | http://localhost:8083/v1/sparse-embeddings | SPLADE server endpoint |
-
-**Constants:**
-| Constant | Value | Description |
-|----------|-------|-------------|
-| SPLADE_HEALTH_URL | http://localhost:8083/health | Health check endpoint |
 
 ---
 

@@ -34,9 +34,9 @@ fastmcp run server.py
 
 ## workflow.py
 
-**Purpose:** CLI for pipeline operations — chunking, indexing, search, and SPLADE backfill. Human-triggered, not MCP.
-**Input:** CLI arguments (`index-json`, `search`, `chunk`, `backfill-splade`, `delete` subcommands).
-**Output:** Stdout — progress messages, search results, or deletion counts.
+**Purpose:** CLI for pipeline operations — chunking, indexing, search, SPLADE backfill, and GPU server management. Human-triggered, not MCP.
+**Input:** CLI arguments (subcommands below).
+**Output:** Stdout — progress messages, search results, server status, or deletion counts.
 
 **Subcommands:**
 
@@ -47,6 +47,7 @@ fastmcp run server.py
 | `chunk` | Chunk a markdown file and write a `chunks.json` |
 | `backfill-splade` | Fill NULL sparse embeddings for an existing collection |
 | `delete` | Delete chunks by collection and/or document |
+| `server` | Manage GPU servers — status, start, stop, restart |
 
 **Usage:**
 ```bash
@@ -55,19 +56,19 @@ fastmcp run server.py
 ./venv/bin/python workflow.py chunk --input data/documents/MyCollection/doc.md --chunk-size 1000
 ./venv/bin/python workflow.py backfill-splade --collection RAG_MCP
 ./venv/bin/python workflow.py delete --collection MyCollection
+./venv/bin/python workflow.py server status
+./venv/bin/python workflow.py server start
+./venv/bin/python workflow.py server stop
+./venv/bin/python workflow.py server restart splade
 ```
 
 ---
 
 ## start.sh
 
-**Purpose:** Start all GPU inference servers (embedding + SPLADE) and PostgreSQL for full indexing/retrieval.
+**Purpose:** Start PostgreSQL and all GPU servers via `workflow.py server start`.
 **Input:** None (no arguments). Requires GGUF model files under `models/`.
-**Output:** Running servers on ports 8081 (dense embedding), 8082 (reranker, commented out), 8083 (SPLADE via `scripts/start_splade_server.sh`).
-
-Starts:
-1. PostgreSQL via `docker compose up -d postgres`
-2. `llama-server` for dense embeddings (Qwen3-Embedding-8B-Q8_0, port 8081, Metal GPU)
+**Output:** Running PostgreSQL + all GPU servers (embedding, reranker, SPLADE).
 
 **Usage:**
 ```bash
@@ -85,24 +86,11 @@ Starts:
 Behavior:
 - Creates and installs venv from `requirements.txt` if not present
 - Starts PostgreSQL if not already running (checks port 5433)
-- Exports `POSTGRES_PORT` env var
-- Does NOT start embedding or SPLADE servers (those fail gracefully if absent)
+- GPU servers auto-start on demand when search/index operations are called (via `server_manager.ensure_ready()`)
+- GPU servers auto-stop after 5 minutes idle (configurable via `RAG_SERVER_IDLE_TIMEOUT` env var)
 
 **Usage:**
 ```bash
 ./mcp-start.sh
 # Or configured as MCP server command in Claude Code settings
-```
-
----
-
-## scripts/start_splade_server.sh
-
-**Purpose:** Start the SPLADE sparse embedding server as a standalone process.
-**Input:** None (no arguments). Requires `venv/` and the SPLADE model (downloads from HuggingFace on first run).
-**Output:** Running uvicorn server on port 8083 (`src.rag.splade_server:app`).
-
-**Usage:**
-```bash
-bash scripts/start_splade_server.sh
 ```

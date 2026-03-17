@@ -36,13 +36,17 @@ Consult via RAG search or GitHub plugin before making assumptions. Pipeline step
 
 **MCP Server** starts automatically via `mcp-start.sh` (PostgreSQL + FastMCP). Supports `list_collections`, `list_documents`, `read_document` without GPU servers.
 
-**GPU Servers (manual start required for search/embed/index):**
+**GPU Servers** auto-start on demand via `server_manager.py` when search/index operations are called. Auto-stop after 5 minutes idle. Manual control:
 
 ```bash
-./start.sh   # Starts llama-server (embedding, port 8081), llama-server (reranker, port 8082), SPLADE server (port 8083)
+./venv/bin/python workflow.py server status           # Check all servers
+./venv/bin/python workflow.py server start             # Start all
+./venv/bin/python workflow.py server stop              # Stop all
+./venv/bin/python workflow.py server restart splade    # Restart one
+./start.sh                                            # PostgreSQL + all GPU servers
 ```
 
-Without GPU servers: `search`, `search_hybrid`, `search_keyword` and indexing will fail. `list_*` and `read_document` work without them.
+Server configs (ports, model paths, flags) are defined in `src/rag/server_manager.py` — single source of truth.
 
 ## Pipeline Components
 
@@ -76,7 +80,8 @@ Without GPU servers: `search`, `search_hybrid`, `search_keyword` and indexing wi
 | `src/rag/splade_server.py` | SPLADE FastAPI server |
 | `src/rag/indexer.py` | Storage (pgvector inserts, schema, parallel embed) |
 | `src/rag/retriever.py` | All retrieval (search, fusion, reranking, formatting) |
-| `src/rag/reranker.py` | Reranker llama-server lifecycle |
+| `src/rag/reranker.py` | Reranker HTTP client |
+| `src/rag/server_manager.py` | GPU server lifecycle (start/stop/status/idle-timeout) |
 
 ## Project Structure
 
@@ -87,8 +92,8 @@ RAG/
 ├── start.sh
 ├── mcp-start.sh
 ├── requirements.txt
-├── README.md                       → [Setup & External Docs](README.md)
 ├── DOCS.md                         → [Root Module Docs](DOCS.md)
+├── README.md                       → [Setup & External Docs](README.md)
 ├── decisions/                      → Pipeline decision records (rationale per implementation choice)
 │   ├── index01_chunking.md
 │   ├── index02_dense_embedding.md
@@ -99,6 +104,8 @@ RAG/
 │   └── retrieval04_reranking.md
 ├── data/
 │   └── documents/                  → Document folders per collection (raw.md, cleaned.md, chunks.json)
+├── scripts/                        → Shell scripts
+├── known_limitations/              → Known system limitations (hnsw_4096_dims.md)
 ├── src/
 │   └── rag/                        → [DOCS.md](src/rag/DOCS.md)
 ├── dev/                            → [DOCS.md](dev/DOCS.md)

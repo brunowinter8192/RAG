@@ -48,6 +48,10 @@ def main(command: str, **kwargs) -> None:
         )
         print(f"Deleted {deleted} chunks")
 
+    elif command == "server":
+        from src.rag.server_manager import cli_server
+        cli_server(kwargs.get("server_args", []))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAG System CLI")
@@ -75,5 +79,9 @@ if __name__ == "__main__":
     delete_parser.add_argument("--collection", help="Delete by collection name")
     delete_parser.add_argument("--document", help="Delete by document name")
 
+    server_parser = subparsers.add_parser("server", help="Manage GPU servers (status/start/stop/restart)")
+    server_parser.add_argument("server_args", nargs="*", default=["status"], help="action [server_name]")
+
     args = parser.parse_args()
-    main(args.command, **{k: v for k, v in vars(args).items() if k != "command"})
+    kwargs = {k: v for k, v in vars(args).items() if k != "command"}
+    main(args.command, **kwargs)
