@@ -1,0 +1,120 @@
+{
+  "timestamp": "20260318_181108",
+  "dataset": "dev/indexing/chunking_eval/datasets/rag_mcp_subset.json",
+  "variants": [
+    {
+      "code": "A",
+      "config": {
+        "chunk_size": 500,
+        "overlap": 100,
+        "separators": "default"
+      },
+      "stats": {
+        "total": 421,
+        "avg": 425,
+        "min": 100,
+        "max": 578
+      },
+      "metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "Recall@10": 1.0
+      }
+    },
+    {
+      "code": "B",
+      "config": {
+        "chunk_size": 750,
+        "overlap": 150,
+        "separators": "default"
+      },
+      "stats": {
+        "total": 276,
+        "avg": 647,
+        "min": 236,
+        "max": 895
+      },
+      "metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "Recall@10": 1.0
+      }
+    },
+    {
+      "code": "C",
+      "config": {
+        "chunk_size": 1000,
+        "overlap": 200,
+        "separators": "default"
+      },
+      "stats": {
+        "total": 207,
+        "avg": 862,
+        "min": 72,
+        "max": 1178
+      },
+      "metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "Recall@10": 1.0
+      }
+    },
+    {
+      "code": "D",
+      "config": {
+        "chunk_size": 1500,
+        "overlap": 300,
+        "separators": "default"
+      },
+      "stats": {
+        "total": 136,
+        "avg": 1310,
+        "min": 367,
+        "max": 1648
+      },
+      "metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "Recall@10": 1.0
+      }
+    },
+    {
+      "code": "E",
+      "config": {
+        "chunk_size": 500,
+        "overlap": 100,
+        "separators": "markdown"
+      },
+      "stats": {
+        "total": 422,
+        "avg": 424,
+        "min": 100,
+        "max": 588
+      },
+      "metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "Recall@10": 1.0
+      }
+    },
+    {
+      "code": "F",
+      "config": {
+        "chunk_size": 750,
+        "overlap": 150,
+        "separators": "markdown"
+      },
+      "stats": {
+        "total": 280,
+        "avg": 640,
+        "min": 236,
+        "max": 895
+      },
+      "metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "Recall@10": 1.0
+      }
+    }
+  ]
+}

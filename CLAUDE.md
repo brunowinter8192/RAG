@@ -29,8 +29,11 @@ Hybrid RAG pipeline with dense (Qwen3) + sparse (SPLADE) embeddings, pgvector, a
 | Reranker Docs | docs.voyageai.com | Web | retrieval04 | Indexed |
 | Qwen3-Embedding Model Card + Eval Code | github.com (QwenLM/Qwen3-Embedding) | GitHub | index02, retrieval04 | Via GitHub Plugin |
 | Reranker Threshold Calibration | reddit.com (r/Rag) | Reddit | retrieval04 | Via Reddit Plugin |
-| MRL Sweet Spot Analysis (Qwen3-0.6B) | medium.com (@yashasvimantha) | Web | index02 | To index |
-| Analysis of Fusion Functions for Hybrid Retrieval | dl.acm.org (10.1145/3596512) | Web | retrieval03 | To index |
+| MRL Sweet Spot Analysis (Qwen3-0.6B) | medium.com (@yashasvimantha) | Web | index02 | Indexed |
+| Qwen3 vs BGE-M3 Comparative Analysis | medium.com (@mrAryanKumar) | Web | index01, index02 | Indexed |
+| Rethinking Chunk Size for Long-Document Retrieval | arxiv.org (2505.21700) | Paper | index01 | Indexed |
+| Beyond Chunk-Then-Embed: Chunking Taxonomy | arxiv.org (2602.16974) | Paper | index01 | Indexed |
+| Analysis of Fusion Functions for Hybrid Retrieval | dl.acm.org (10.1145/3596512) | Paper | retrieval03 | Indexed |
 | Semantic Reranking (Cross-Encoder Thresholds) | elastic.co | Web | retrieval04 | Reference |
 
 **Other RAG Collections:** `searxng` (SearXNG project docs), `TradBot` (trading bot docs)

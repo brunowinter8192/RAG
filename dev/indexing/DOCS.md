@@ -46,9 +46,17 @@ Scripts for evaluating and profiling the indexing pipeline (chunking, embedding,
 | `--variants` | `A,B,C,D,E,F` | Comma-separated variant codes |
 | `--dry-run` | off | Chunk + show stats only, skip embed/index/eval |
 
+**Datasets** (`chunking_eval/datasets/`):
+- `rag_mcp_doc_level.json` — Full dataset: 18 queries, 20/23 docs covered
+- `rag_mcp_subset.json` — 5-doc subset: 7 queries (q01, q02, q06, q07, q08, q10, q15)
+
+**Corpus subset** (`chunking_eval/corpus/`): Symlinks to 5 representative RAG_MCP docs for faster sweeps. Created 2026-03-18.
+
+**Sweep result (2026-03-18):** 5-doc subset, all 6 variants → Recall@3/5/10 = 1.000. **Not discriminating** — corpus too small. Needs larger benchmark dataset (MS-MARCO subset or full RAG_MCP with more queries).
+
 **Setup** (one-time test DB):
 ```bash
-bash dev/indexing/chunking_eval/setup_test_db.sh
+bash dev/indexing/chunking_eval/setup_test_db.sh  # or: docker exec rag-postgres psql -U rag -d postgres -c "CREATE DATABASE rag_test;"
 ./start.sh   # GPU servers required for indexing + eval
 ```
 
@@ -60,11 +68,11 @@ bash dev/indexing/chunking_eval/setup_test_db.sh
     --dataset dev/indexing/chunking_eval/datasets/rag_mcp_doc_level.json \
     --db-name rag_test
 
-# Specific variants
+# Subset sweep (faster, 5 docs)
 ./venv/bin/python dev/indexing/chunking_eval/chunking_sweep.py \
-    --source-dir data/documents/RAG_MCP \
-    --dataset dev/indexing/chunking_eval/datasets/rag_mcp_doc_level.json \
-    --db-name rag_test --variants A,C,E
+    --source-dir dev/indexing/chunking_eval/corpus \
+    --dataset dev/indexing/chunking_eval/datasets/rag_mcp_subset.json \
+    --db-name rag_test
 
 # Dry run (chunk stats only)
 ./venv/bin/python dev/indexing/chunking_eval/chunking_sweep.py \

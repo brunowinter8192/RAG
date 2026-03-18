@@ -258,7 +258,7 @@ Hybrid search combining vector similarity AND SPLADE sparse matching with Recipr
 | `query` | string | Yes | Search query (natural language, keywords, or both) |
 | `collection` | string | Yes | Collection to search in |
 | `top_k` | int | No | Number of results (1-20, default: 5) |
-| `document` | string | No | Filter by document |
+| `document` | string | No | Filter by document. Use `%` as wildcard for prefix matching (e.g. `arxiv__%` for all papers) |
 | `neighbors` | int | No | Include N chunks before/after each match (0-2, default: 0) |
 | `rerank` | bool | No | Re-score with cross-encoder for higher precision (default: true, set false for speed) |
 
@@ -319,7 +319,7 @@ Semantic search over indexed documents using vector embeddings.
 | `query` | string | Yes | Search query (natural language) |
 | `collection` | string | Yes | Collection to search in (use list_collections first) |
 | `top_k` | int | No | Number of results (1-20, default: 5) |
-| `document` | string | No | Filter by document (e.g. "chapter1.md") |
+| `document` | string | No | Filter by document. Use `%` as wildcard for prefix matching (e.g. `arxiv__%` for all papers) |
 | `neighbors` | int | No | Include N chunks before/after each match (0-2, default: 0) |
 
 ### Context Expansion (neighbors)
@@ -359,7 +359,7 @@ BM25 keyword search for exact term matches. Complements semantic `search`.
 | `query` | string | Yes | Keywords to search (space = AND) |
 | `collection` | string | Yes | Collection to search in |
 | `top_k` | int | No | Number of results (1-20, default: 5) |
-| `document` | string | No | Filter by document |
+| `document` | string | No | Filter by document. Use `%` as wildcard for prefix matching (e.g. `arxiv__%` for all papers) |
 
 ### When to use instead of `search`
 - Technical terms, column names, function names
@@ -399,18 +399,20 @@ mcp__rag__list_collections()
 
 ## mcp__rag__list_documents
 
-List all documents in a collection with chunk counts.
+List documents in a collection with chunk counts. Supports prefix filtering with `%` wildcard.
 
 ### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `collection` | string | Yes | Collection name |
+| `document` | string | No | Filter by document name. Use `%` as wildcard (e.g. `arxiv__%` for all papers, `docs_together_ai__%` for all Together AI docs) |
 
 ### Examples
 
 ```
 mcp__rag__list_documents(collection="docs")
+mcp__rag__list_documents(collection="RAG_MCP", document="arxiv__%")
 ```
 
 ---

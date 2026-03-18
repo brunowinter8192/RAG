@@ -1,0 +1,1 @@
+../../../../data/documents/RAG_MCP/docs_vectorchord_ai__vectorchord__use-case__colbert-rerank.md

@@ -63,10 +63,10 @@ def list_collections_workflow() -> list[dict]:
     return results
 
 
-def list_documents_workflow(collection: str) -> list[dict]:
+def list_documents_workflow(collection: str, document: str | None = None) -> list[dict]:
     conn = get_connection()
     validate_collection(conn, collection)
-    results = query_documents(conn, collection)
+    results = query_documents(conn, collection, document)
     conn.close()
     return results
 
@@ -480,15 +480,19 @@ def query_collections(conn) -> list[dict]:
 
 
 # Query all documents in a collection with chunk counts
-def query_documents(conn, collection: str) -> list[dict]:
+def query_documents(conn, collection: str, document: str | None = None) -> list[dict]:
+    where_clauses = ["collection = %s"]
+    where_params = [collection]
+    if document:
+        add_document_filter(where_clauses, where_params, document)
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT document, COUNT(*) as chunk_count
             FROM documents
-            WHERE collection = %s
+            WHERE {' AND '.join(where_clauses)}
             GROUP BY document
             ORDER BY document
-        """, (collection,))
+        """, where_params)
         rows = cur.fetchall()
     return [{"document": row[0], "chunks": row[1]} for row in rows]
 
