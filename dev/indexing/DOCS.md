@@ -117,23 +117,62 @@ bash dev/indexing/chunking_eval/setup_test_db.sh
 
 ---
 
-## splade_truncation/reproduce.py
+## splade_truncation/
 
-**Problem:** SPLADE server produces corrupted sparse vectors (14k-30k non-zero elements instead of 100-200) after prolonged uptime. pgvector sparsevec type crashes at >16,000 non-zero elements. Root cause not isolated — correlation with server uptime observed but not causally proven.
+### Problem
 
-**Purpose:** Analyze SPLADE non-zero element distribution across document chunks and test pgvector INSERT behavior.
-**Input:** One or more pre-chunked JSON files (from `data/documents/`). SPLADE server must be running (port 8083).
-**Output:** Distribution stats (min, max, mean, median, p95, p99), histogram, list of chunks exceeding 16,000 nnz. Optionally attempts INSERT into `rag_test` DB.
+SPLADE server (`src/rag/splade_server.py`) produces corrupted sparse vectors after prolonged uptime (8h+): 14,000-30,000 non-zero elements instead of the expected 100-200. pgvector sparsevec type has a hard limit of 16,000 nnz — exceeding it crashes indexing with `ProgramLimitExceeded`. Restarting the server immediately fixes it. Root cause not isolated.
 
-**Status:** Reproduction script only. Missing: `test_truncation.py` (test top-K truncation impact), monitoring script (track nnz over server uptime).
+Production code status quo and safety-net details → `decisions/index03_sparse_embedding.md`
 
-**Usage:**
+### Investigation
+
+#### Code Analysis
+
+- **SparseEncoder.encode()** (`venv/.../SparseEncoder.py:499,595`): Calls `self.eval()` and wraps forward pass in `torch.inference_mode()` — correct, no gradient accumulation possible.
+- **SpladePooling.forward()** (`venv/.../SpladePooling.py:62-133`): In-place ops (`relu_()`, `log1p_()`) operate on new tensors per call, not on model weights. No state accumulation.
+- **MLMTransformer.forward()** (`venv/.../MLMTransformer.py:196-210`): Passes features through `AutoModelForMaskedLM`, extracts logits. Stateless.
+- **Device = MPS (Metal)** via auto-detection (`venv/.../util/environment.py:32`). On Apple Silicon, `torch.backends.mps.is_available()` returns True → SPLADE runs on Metal GPU.
+- **Our implementation is standard-conforming.** `model.encode(texts, convert_to_tensor=False)` is the correct API usage.
+
+#### External Research (2026-03-18)
+
+| Source | Result | Relevance |
+|--------|--------|-----------|
+| sentence-transformers #3431 | nnz explosion during **training** (all 31k dims active) | Medium — same effect, different trigger (training vs inference) |
+| sentence-transformers #3545 | Eval score degradation from corpus handling bug | Low — different symptom |
+| sentence-transformers #1795 | Memory growth in `encode()` during first ~10k predictions, then stabilizes | Medium — different pattern (stabilizes, ours explodes) |
+| sentence-transformers v3.4.0 | Memory leak fix (circular dependency Trainer→Model) | Low — unclear if SparseEncoder affected |
+| Web search (11 queries, 292 results) | 0 matches for nnz explosion in long-running SPLADE servers | — |
+| Reddit (5 subreddits: ML, pytorch, LocalLLaMA, NLP, learnML) | 0 direct matches. PyTorch M1 memory leak (2022, fixed). | Low |
+| GitHub code search (5 reference implementations) | All use global model + encode() — same pattern as ours. None mention long-running degradation. | Confirms our implementation is standard |
+
+**Conclusion:** No publicly documented case of this problem. SPLADE in long-running production servers is extremely niche.
+
+#### Hypotheses
+
+| Hypothesis | Status | Evidence |
+|------------|--------|----------|
+| MPS (Metal) numerical drift over time | **Active — unverified** | Device confirmed as MPS. MPS has known precision issues in PyTorch. Strongest candidate. |
+| PyTorch internal buffer growth | Unverified | Would explain time-correlation. No direct evidence. |
+| Memory pressure → precision loss | Unverified | Plausible but no measurement data yet. |
+| sentence-transformers internal caching | **Excluded** | Code analysis shows no stateful caching in encode/forward chain. |
+| Missing eval()/no_grad() | **Excluded** | Library calls both internally (Z.499, Z.595). |
+| Gradient accumulation | **Excluded** | `torch.inference_mode()` prevents this. |
+
+### Scripts
+
+- **reproduce.py** — Analyze SPLADE nnz distribution across document chunks + pgvector INSERT test.
+- **monitor.py** — Periodically probe running SPLADE server, track nnz/RSS/memory over time to CSV.
+
 ```bash
-# Analyze element distribution (no DB needed)
+# Reproduce: analyze element distribution
 ./venv/bin/python dev/indexing/splade_truncation/reproduce.py --analyze-only \
     --input data/documents/searxng/Meta_Search_Engine_Optimization.json
 
-# Full test with DB insert (requires rag_test DB)
-POSTGRES_DB=rag_test ./venv/bin/python dev/indexing/splade_truncation/reproduce.py \
-    --input data/documents/searxng/Meta_Search_Engine_Optimization.json
+# Monitor: single baseline probe
+./venv/bin/python dev/indexing/splade_truncation/monitor.py --once
+
+# Monitor: continuous (every 2min, CSV output)
+./venv/bin/python dev/indexing/splade_truncation/monitor.py --interval 120
 ```

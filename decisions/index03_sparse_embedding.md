@@ -3,10 +3,11 @@
 ## Status Quo
 
 **Code:** `src/rag/sparse_embedder.py` (client), `src/rag/splade_server.py` (server)
-**Model:** naver/splade-cocondenser-ensembledistil (SPLADE++) via sentence-transformers SparseEncoder
-**Server:** FastAPI/uvicorn on port 8083 (single worker, synchronous)
+**Model:** naver/splade-cocondenser-ensembledistil (SPLADE++) via sentence-transformers SparseEncoder v5.2.0
+**Server:** FastAPI/uvicorn on port 8083 (single worker, synchronous), device auto-detected as MPS (Metal)
 **Dimensions:** 30522 (BERT vocabulary size, sparse)
 **Storage:** pgvector `sparsevec(30522)` column
+**Safety-Net:** `max_active_dims=256` in `splade_server.py:21,55` — caps non-zero elements at 256 (normal output: 100-200 nnz). Uses sentence-transformers' official `select_max_active_dims()` truncation via the `encode()` parameter.
 
 ## Evidenz
 
@@ -46,6 +47,7 @@ SPLADE++ kept as-is for now. Evidence shows it hurts more than it helps on techn
 
 ## Offene Fragen
 
+- **nnz-Corruption Bug (Bead RAG-bj2):** SPLADE server produces 14k-30k nnz after 8h+ uptime (normal: 100-200). Restart fixes immediately. Root cause unknown — MPS numerical drift is strongest hypothesis. `max_active_dims=256` safety-net prevents pgvector crashes but doesn't explain the cause. Investigation: `dev/indexing/splade_truncation/`.
 - SPLADE v3 (naver/splade-v3): Better out-of-domain performance? Requires separate library (`pip install splade`), not sentence-transformers compatible.
 - Should we drop Sparse entirely for technical docs? BM25 (already in pgvector via tsvector) might be sufficient.
 - Domain-specific SPLADE fine-tuning: Is it worth the effort?

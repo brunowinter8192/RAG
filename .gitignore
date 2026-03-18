@@ -48,6 +48,9 @@ models/
 src/rag/logs/
 llama.cpp/
 
+# Monitoring output
+dev/indexing/splade_truncation/monitor_results.csv
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db

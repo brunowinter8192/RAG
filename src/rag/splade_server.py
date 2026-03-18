@@ -18,6 +18,7 @@ logging.basicConfig(
 
 SPLADE_MODEL = "naver/splade-cocondenser-ensembledistil"
 SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
+MAX_ACTIVE_DIMS = 256  # Safety-net: normal output is 100-200 nnz, pgvector limit is 16000
 
 model = SparseEncoder(SPLADE_MODEL)
 
@@ -51,7 +52,7 @@ def sparse_embeddings(req: EmbedRequest):
 
 # Encode texts into sparse vectors with indices and float values
 def encode_sparse(texts: list[str]) -> list[dict]:
-    tensors = model.encode(texts, convert_to_tensor=False)
+    tensors = model.encode(texts, convert_to_tensor=False, max_active_dims=MAX_ACTIVE_DIMS)
     results = []
     for t in tensors:
         t = t.coalesce()
