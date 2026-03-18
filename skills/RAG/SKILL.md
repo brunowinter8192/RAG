@@ -3,6 +3,19 @@ name: RAG
 description: Vector search over indexed documents
 ---
 
+# GPU Server Prerequisite
+
+Search/index operations require GPU servers (llama-server for embeddings/reranking, SPLADE for sparse search). These run separately from the MCP server.
+
+**Before any search/index call:** Check if GPU servers are running.
+- **Check:** `./venv/bin/python workflow.py server status` (from RAG project root)
+- **Start:** `cd <RAG-project-root> && ./start.sh`
+- **If `search_hybrid` fails with "Cannot start ... not found":** GPU servers are not running. Start them first.
+
+The MCP server (list_collections, list_documents, read_document) works without GPU servers.
+
+---
+
 # General Rules
 
 ## Honesty & Precision (CRITICAL)

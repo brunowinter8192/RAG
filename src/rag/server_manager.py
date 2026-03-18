@@ -98,6 +98,13 @@ def start(name: str) -> bool:
         logging.warning(f"{name} port {cfg['port']} occupied by PID {pid} but unhealthy, killing")
         stop(name)
 
+    binary = Path(cfg["cmd"][0])
+    if not binary.exists():
+        raise RuntimeError(
+            f"Cannot start {name}: {binary} not found. "
+            f"Start GPU servers from the RAG project: cd <RAG_ROOT> && ./start.sh"
+        )
+
     logging.info(f"Starting {name} on port {cfg['port']}...")
     cwd = cfg.get("cwd", None)
     subprocess.Popen(
