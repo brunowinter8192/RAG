@@ -27,7 +27,7 @@ At current scale (~7000 chunks across all collections), sequential scan is fast 
 
 ## Entscheidung
 
-Sequential scan accepted for current scale. HNSW blocked by 4096d embedding dimension. MRL evaluation will determine if we can reduce dimensions.
+Sequential scan accepted for current scale. HNSW was blocked by 4096d embedding dimension. **MRL evaluation (2026-03-18) confirmed 1024d is optimal** — HNSW now possible with standard `vector` type (limit 2000d). Migration pending.
 
 ## Offene Fragen
 

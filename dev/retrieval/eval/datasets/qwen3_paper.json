@@ -1,6 +1,6 @@
 {
   "collection": "Qwen3_Embedding_Paper",
-  "source_json": "data/documents/Qwen3_Embedding_Paper/Qwen3_Embedding_Paper.json",
+  "source_json": "data/documents/RAG_MCP/arxiv__2506.05176__qwen3-embedding.json",
   "queries": {
     "q01": "What model sizes are available in the Qwen3 Embedding series?",
     "q02": "What embedding dimensions does each Qwen3 model support?",

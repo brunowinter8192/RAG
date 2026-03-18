@@ -13,12 +13,36 @@ Auto-started on first use (same lifecycle pattern as embedding server).
 
 ## Evidenz
 
-### NOT EVALUATED
+### Reranker Eval (searxng, 30 queries, 26088 chunks — technical docs)
 
-Reranking has never been measured in isolation on our data. We have no numbers for:
-- With reranker vs without on same query set
-- Latency impact per query
-- Quality improvement (NDCG, Recall delta)
+| Retriever | NDCG@3 | NDCG@10 | Recall@10 |
+|---|---|---|---|
+| Dense (full) | **0.4479** | **0.5619** | **0.6833** |
+| Dense+Rerank | 0.3627 | 0.4938 | 0.6333 |
+| Dense(1024d)+Rerank | 0.3961 | 0.5016 | 0.6444 |
+| Hybrid+Rerank | 0.3967 | 0.5052 | 0.6444 |
+
+**Reranker HURTS on technical docs.** Dense without reranking is best across all metrics. Reranker degrades NDCG@3 by -8.5pp and Recall@10 by -5pp. The 0.6B cross-encoder likely lacks domain knowledge for technical docs (YAML configs, Python API refs, code blocks).
+
+### Reranker Eval (qwen3_paper, 15 queries, 66 chunks — academic text)
+
+| Retriever | NDCG@3 | NDCG@10 | Recall@10 |
+|---|---|---|---|
+| Dense (full) | 0.3605 | 0.5102 | 0.7333 |
+| **Dense+Rerank** | **0.5538** | **0.6620** | **0.8556** |
+| Sparse (SPLADE++) | 0.4273 | 0.5273 | 0.7333 |
+| Hybrid (RRF K=60) | 0.4168 | 0.5369 | 0.8000 |
+| **Hybrid+Rerank** | **0.5538** | **0.6620** | **0.8556** |
+
+**Reranker HELPS massively on academic text.** +19.3pp NDCG@3, +12.2pp Recall@10. Dense+Rerank = Hybrid+Rerank (reranker normalizes input quality). This matches the Pipeline Optimization Paper finding (+9.4pp with BGE reranker).
+
+### Domain Dependency Pattern
+
+Reranker effectiveness is **domain-dependent**, not universally beneficial:
+- Academic/natural language text → reranker helps significantly
+- Technical docs (code, configs, API refs) → reranker hurts
+
+**Score threshold 0.3:** Not validated. Cross-encoder scores are probabilities (P(yes)/(P(yes)+P(no))). A global threshold is valid for cross-encoders (confirmed by Elastic Docs), but the optimal value needs empirical calibration per domain.
 
 ### Pipeline Optimization Paper (external)
 
@@ -30,11 +54,11 @@ Reranking bridges ~50% of the gap between 2000-char and 512-char chunking.
 Qwen3-Reranker-0.6B chosen as smallest Qwen3 reranker (fast, low RAM). Default is OFF (`rerank=False`) because:
 1. Adds latency (cross-encoder inference per candidate pair)
 2. Reranker server uses additional GPU memory
-3. Not evaluated on our data — unknown benefit
+3. **Evaluated: hurts on technical docs, helps on academic text** — domain-dependent
 
 ## Offene Fragen
 
-- What is the actual NDCG improvement on our data? Run eval with `rerank=True` vs `False`.
+- ~~What is the actual NDCG improvement on our data?~~ **RESOLVED:** -8.5pp on technical docs, +19.3pp on academic text. Domain-dependent.
 - Latency: How much time does reranking add per query?
 - Is 0.6B sufficient or would 4B/8B reranker improve quality?
 - ColBERT reranking (late interaction) as alternative? VectorChord blog shows ColBERT + pgvector integration with +30% NDCG@10.

@@ -27,6 +27,11 @@ Hybrid RAG pipeline with dense (Qwen3) + sparse (SPLADE) embeddings, pgvector, a
 | Late Chunking | weaviate.io | Web | index02 | Indexed |
 | HNSW Indexes + pgvector Performance + Scaling Vectors (3 articles) | crunchydata.com | Web | retrieval02 | Indexed |
 | Reranker Docs | docs.voyageai.com | Web | retrieval04 | Indexed |
+| Qwen3-Embedding Model Card + Eval Code | github.com (QwenLM/Qwen3-Embedding) | GitHub | index02, retrieval04 | Via GitHub Plugin |
+| Reranker Threshold Calibration | reddit.com (r/Rag) | Reddit | retrieval04 | Via Reddit Plugin |
+| MRL Sweet Spot Analysis (Qwen3-0.6B) | medium.com (@yashasvimantha) | Web | index02 | To index |
+| Analysis of Fusion Functions for Hybrid Retrieval | dl.acm.org (10.1145/3596512) | Web | retrieval03 | To index |
+| Semantic Reranking (Cross-Encoder Thresholds) | elastic.co | Web | retrieval04 | Reference |
 
 **Other RAG Collections:** `searxng` (SearXNG project docs), `TradBot` (trading bot docs)
 
@@ -36,7 +41,7 @@ Consult via RAG search or GitHub plugin before making assumptions. Pipeline step
 
 **MCP Server** starts automatically via `mcp-start.sh` (PostgreSQL + FastMCP). Supports `list_collections`, `list_documents`, `read_document` without GPU servers.
 
-**GPU Servers** auto-start on demand via `server_manager.py` when search/index operations are called. Auto-stop after 5 minutes idle. Manual control:
+**GPU Servers** auto-start on demand via `server_manager.py` when search/index operations are called. Auto-stop after 15 minutes idle (`IDLE_TIMEOUT=900`, env `RAG_SERVER_IDLE_TIMEOUT`). Manual control:
 
 ```bash
 ./venv/bin/python workflow.py server status           # Check all servers

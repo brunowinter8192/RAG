@@ -35,136 +35,136 @@
   },
   "qrels": {
     "q01": {
-      "chunk_3_admin_installation-docker.md": 1,
-      "chunk_4_admin_installation-docker.md": 1
+      "chunk_3_searxng__admin__installation-docker.md": 1,
+      "chunk_4_searxng__admin__installation-docker.md": 1
     },
     "q02": {
-      "chunk_3_admin_installation-nginx.md": 1,
-      "chunk_4_admin_installation-nginx.md": 1,
-      "chunk_5_admin_installation-nginx.md": 1
+      "chunk_3_searxng__admin__installation-nginx.md": 1,
+      "chunk_4_searxng__admin__installation-nginx.md": 1,
+      "chunk_5_searxng__admin__installation-nginx.md": 1
     },
     "q03": {
-      "chunk_0_admin_searx.limiter.md": 1,
-      "chunk_1_admin_searx.limiter.md": 1,
-      "chunk_2_admin_searx.limiter.md": 1
+      "chunk_0_searxng__admin__searx.limiter.md": 1,
+      "chunk_1_searxng__admin__searx.limiter.md": 1,
+      "chunk_2_searxng__admin__searx.limiter.md": 1
     },
     "q04": {
-      "chunk_0_admin_api.md": 1,
-      "chunk_1_admin_api.md": 1
+      "chunk_0_searxng__admin__api.md": 1,
+      "chunk_1_searxng__admin__api.md": 1
     },
     "q05": {
-      "chunk_0_admin_update-searxng.md": 1
+      "chunk_0_searxng__admin__update-searxng.md": 1
     },
     "q06": {
-      "chunk_0_admin_answer-captcha.md": 1,
-      "chunk_1_admin_answer-captcha.md": 1
+      "chunk_0_searxng__admin__answer-captcha.md": 1,
+      "chunk_1_searxng__admin__answer-captcha.md": 1
     },
     "q07": {
-      "chunk_0_admin_settings_settings_search.md": 1,
-      "chunk_3_admin_settings_settings_search.md": 1
+      "chunk_0_searxng__admin__settings__settings_search.md": 1,
+      "chunk_3_searxng__admin__settings__settings_search.md": 1
     },
     "q08": {
-      "chunk_0_admin_settings_settings_engines.md": 1,
-      "chunk_1_admin_settings_settings_engines.md": 1,
-      "chunk_3_admin_settings_settings_engines.md": 1
+      "chunk_0_searxng__admin__settings__settings_engines.md": 1,
+      "chunk_1_searxng__admin__settings__settings_engines.md": 1,
+      "chunk_3_searxng__admin__settings__settings_engines.md": 1
     },
     "q09": {
-      "chunk_0_admin_settings_settings_ui.md": 1,
-      "chunk_1_admin_settings_settings_ui.md": 1,
-      "chunk_2_admin_settings_settings_ui.md": 1
+      "chunk_0_searxng__admin__settings__settings_ui.md": 1,
+      "chunk_1_searxng__admin__settings__settings_ui.md": 1,
+      "chunk_2_searxng__admin__settings__settings_ui.md": 1
     },
     "q10": {
-      "chunk_0_admin_settings_settings_outgoing.md": 1,
-      "chunk_3_admin_settings_settings_outgoing.md": 1,
-      "chunk_4_admin_settings_settings_outgoing.md": 1
+      "chunk_0_searxng__admin__settings__settings_outgoing.md": 1,
+      "chunk_3_searxng__admin__settings__settings_outgoing.md": 1,
+      "chunk_4_searxng__admin__settings__settings_outgoing.md": 1
     },
     "q11": {
-      "chunk_0_admin_settings_settings_valkey.md": 1,
-      "chunk_1_admin_settings_settings_valkey.md": 1
+      "chunk_0_searxng__admin__settings__settings_valkey.md": 1,
+      "chunk_1_searxng__admin__settings__settings_valkey.md": 1
     },
     "q12": {
-      "chunk_0_admin_settings_settings_general.md": 1,
-      "chunk_1_admin_settings_settings_general.md": 1
+      "chunk_0_searxng__admin__settings__settings_general.md": 1,
+      "chunk_1_searxng__admin__settings__settings_general.md": 1
     },
     "q13": {
-      "chunk_0_dev_engines_demo_demo_online.md": 1,
-      "chunk_1_dev_engines_demo_demo_online.md": 1,
-      "chunk_3_dev_engines_demo_demo_online.md": 1
+      "chunk_0_searxng__dev__engines__demo__demo_online.md": 1,
+      "chunk_1_searxng__dev__engines__demo__demo_online.md": 1,
+      "chunk_3_searxng__dev__engines__demo__demo_online.md": 1
     },
     "q14": {
-      "chunk_0_dev_engines_offline_concept.md": 1,
-      "chunk_1_dev_engines_offline_concept.md": 1,
-      "chunk_2_dev_engines_offline_concept.md": 1
+      "chunk_0_searxng__dev__engines__offline_concept.md": 1,
+      "chunk_1_searxng__dev__engines__offline_concept.md": 1,
+      "chunk_2_searxng__dev__engines__offline_concept.md": 1
     },
     "q15": {
-      "chunk_0_dev_engines_xpath.md": 1,
-      "chunk_1_dev_engines_xpath.md": 1,
-      "chunk_2_dev_engines_xpath.md": 1
+      "chunk_0_searxng__dev__engines__xpath.md": 1,
+      "chunk_1_searxng__dev__engines__xpath.md": 1,
+      "chunk_2_searxng__dev__engines__xpath.md": 1
     },
     "q16": {
-      "chunk_0_dev_engines_json_engine.md": 1,
-      "chunk_1_dev_engines_json_engine.md": 1
+      "chunk_0_searxng__dev__engines__json_engine.md": 1,
+      "chunk_1_searxng__dev__engines__json_engine.md": 1
     },
     "q17": {
-      "chunk_0_dev_engines_engine_overview.md": 1,
-      "chunk_2_dev_engines_engine_overview.md": 1
+      "chunk_0_searxng__dev__engines__engine_overview.md": 1,
+      "chunk_2_searxng__dev__engines__engine_overview.md": 1
     },
     "q18": {
-      "chunk_0_dev_engines_enginelib.md": 1,
-      "chunk_1_dev_engines_enginelib.md": 1
+      "chunk_0_searxng__dev__engines__enginelib.md": 1,
+      "chunk_1_searxng__dev__engines__enginelib.md": 1
     },
     "q19": {
-      "chunk_0_admin_plugins.md": 1,
-      "chunk_1_admin_plugins.md": 1,
-      "chunk_0_dev_plugins_builtins.md": 1
+      "chunk_0_searxng__admin__plugins.md": 1,
+      "chunk_1_searxng__admin__plugins.md": 1,
+      "chunk_0_searxng__dev__plugins__builtins.md": 1
     },
     "q20": {
-      "chunk_0_dev_plugins_development.md": 1,
-      "chunk_1_dev_plugins_development.md": 1,
-      "chunk_2_dev_plugins_development.md": 1
+      "chunk_0_searxng__dev__plugins__development.md": 1,
+      "chunk_1_searxng__dev__plugins__development.md": 1,
+      "chunk_2_searxng__dev__plugins__development.md": 1
     },
     "q21": {
-      "chunk_0_dev_plugins_hostnames.md": 1,
-      "chunk_1_dev_plugins_hostnames.md": 1,
-      "chunk_2_dev_plugins_hostnames.md": 1
+      "chunk_0_searxng__dev__plugins__hostnames.md": 1,
+      "chunk_1_searxng__dev__plugins__hostnames.md": 1,
+      "chunk_2_searxng__dev__plugins__hostnames.md": 1
     },
     "q22": {
-      "chunk_0_admin_architecture.md": 1,
-      "chunk_1_admin_architecture.md": 1,
-      "chunk_2_admin_architecture.md": 1
+      "chunk_0_searxng__admin__architecture.md": 1,
+      "chunk_1_searxng__admin__architecture.md": 1,
+      "chunk_2_searxng__admin__architecture.md": 1
     },
     "q23": {
-      "chunk_0_dev_search_api.md": 1,
-      "chunk_1_dev_search_api.md": 1
+      "chunk_0_searxng__dev__search_api.md": 1,
+      "chunk_1_searxng__dev__search_api.md": 1
     },
     "q24": {
-      "chunk_1_dev_search_api.md": 1,
-      "chunk_3_dev_search_api.md": 1
+      "chunk_1_searxng__dev__search_api.md": 1,
+      "chunk_3_searxng__dev__search_api.md": 1
     },
     "q25": {
-      "chunk_0_dev_result_types_index.md": 1,
-      "chunk_1_dev_result_types_index.md": 1,
-      "chunk_2_dev_result_types_index.md": 1
+      "chunk_0_searxng__dev__result_types__index.md": 1,
+      "chunk_1_searxng__dev__result_types__index.md": 1,
+      "chunk_2_searxng__dev__result_types__index.md": 1
     },
     "q26": {
-      "chunk_0_admin_searx.favicons.md": 1,
-      "chunk_1_admin_searx.favicons.md": 1,
-      "chunk_2_admin_searx.favicons.md": 1
+      "chunk_0_searxng__admin__searx.favicons.md": 1,
+      "chunk_1_searxng__admin__searx.favicons.md": 1,
+      "chunk_2_searxng__admin__searx.favicons.md": 1
     },
     "q27": {
-      "chunk_3_admin_searx.favicons.md": 1,
-      "chunk_4_admin_searx.favicons.md": 1
+      "chunk_3_searxng__admin__searx.favicons.md": 1,
+      "chunk_4_searxng__admin__searx.favicons.md": 1
     },
     "q28": {
-      "chunk_3_admin_searx.limiter.md": 1,
-      "chunk_4_admin_searx.limiter.md": 1,
-      "chunk_5_admin_searx.limiter.md": 1
+      "chunk_3_searxng__admin__searx.limiter.md": 1,
+      "chunk_4_searxng__admin__searx.limiter.md": 1,
+      "chunk_5_searxng__admin__searx.limiter.md": 1
     },
     "q29": {
-      "chunk_0_admin_settings_settings_redis.md": 1
+      "chunk_0_searxng__admin__settings__settings_redis.md": 1
     },
     "q30": {
-      "chunk_5_admin_searx.limiter.md": 1
+      "chunk_5_searxng__admin__searx.limiter.md": 1
     }
   }
 }

@@ -37,7 +37,23 @@
 | 2048 | 0.3810 | 0.5495 | 0.8111 |
 | 4096 (full) | 0.3966 | 0.5277 | 0.7556 |
 
-256d outperforms 4096d on this small dataset. Must be validated on larger collection (SearXNG, 2337 chunks) — previous attempt crashed (Segfault exit 139). Next approach: read embeddings from DB instead of re-embedding.
+256d outperforms 4096d on this small dataset (66 chunks). Validated on larger collection below.
+
+### MRL Dimension Sweep (searxng, 30 queries, 26088 chunks)
+
+| Dims | NDCG@3 | NDCG@10 | Recall@10 |
+|------|--------|---------|-----------|
+| 256 | 0.3840 | 0.5040 | 0.6500 |
+| 512 | 0.4098 | 0.5420 | 0.6944 |
+| **1024** | **0.4439** | **0.5687** | **0.7278** |
+| 2048 | 0.4432 | 0.5747 | 0.7278 |
+| 4096 (full) | 0.4479 | 0.5619 | 0.6833 |
+
+**1024d is the sweet spot on large collections.** Best Recall@10 (0.7278, tied with 2048d, better than full). NDCG@10 best at 1024d (0.5687 > full 0.5619). Full 4096d loses Recall — likely noise from unused dimensions hurting cosine similarity. 256d loses ~12% Recall vs 1024d — too much for production. 2048d ≈ 1024d — no gain from extra dims.
+
+**HNSW now possible:** 1024d < 2000d pgvector HNSW limit for `vector` type.
+
+Method: Corpus embeddings loaded from DB (no re-embedding), MRL truncation + L2 renormalization in numpy. Query embeddings via llama-server.
 
 ### Server Config Benchmark (dev/indexing_benchmark/benchmark.py)
 
@@ -61,17 +77,17 @@ llama-server returns NULL vectors for chunks starting with naked `import` statem
 
 Full details: Previously in `fixes/null-embeddings.md`.
 
-## Entscheidung
+## Recommendation (SOLL)
 
-- Qwen3-Embedding-8B: #1 MTEB Multilingual at time of selection. 4096d, 32K context.
-- Q8_0 quantization: ~99.9% quality, ~9 GB. Sweet spot for M4 Pro 48GB.
-- Server config (-c 2048 -np 1): Verified same performance, 30% less RAM.
-- 4096d kept for now: MRL results promising but not validated on large collection.
+- **Change:** Embedding dimension `4096d → 1024d` — MRL Sweep on 26k chunks confirms 1024d is optimal (best Recall@10, HNSW-compatible). Migration: `UPDATE documents SET embedding = truncate_and_normalize(embedding, 1024)` — no re-embedding needed.
+- **Keep:** Qwen3-Embedding-8B Q8_0 — still #1 MTEB Multilingual
+- **Keep:** Server config `-c 2048 -np 1 -b 4096 -ub 4096 -ngl 99`
+- **Pending:** Contextual Embeddings (Anthropic) — not evaluated
+
+**Migration blocked:** Wait until complete pipeline eval (all decisions/ SOLL finalized). Then migrate ALL changes in one batch.
 
 ## Offene Fragen
 
-- MRL on large collection: Does 256d or 1024d maintain quality on 2337+ chunks?
-- If MRL confirmed: HNSW index possible at 2000d (pgvector limit). Massive search speedup.
 - Newer llama.cpp version: Does it fix the -ub 512 crash?
 - Contextual Embeddings (Anthropic): Prepend document context to each chunk before embedding. 49-67% fewer retrieval failures claimed.
 

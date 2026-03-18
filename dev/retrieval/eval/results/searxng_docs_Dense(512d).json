@@ -1,0 +1,15 @@
+{
+  "retriever": "Dense(512d)",
+  "dataset": "searxng_docs",
+  "metrics": {
+    "NDCG@3": 0.4098,
+    "Recall@3": 0.4111,
+    "P@3": 0.3111,
+    "NDCG@5": 0.4683,
+    "Recall@5": 0.5222,
+    "P@5": 0.24,
+    "NDCG@10": 0.542,
+    "Recall@10": 0.6944,
+    "P@10": 0.1633
+  }
+}

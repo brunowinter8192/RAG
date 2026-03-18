@@ -19,7 +19,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "300"))  # 5 minutes default
+IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "900"))  # 15 minutes default
 TIMESTAMP_DIR = Path("/tmp")
 WATCHDOG_INTERVAL = 30  # seconds between idle checks
 
