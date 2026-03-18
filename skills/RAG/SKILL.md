@@ -191,16 +191,16 @@ search_hybrid / search / search_keyword  (SEARCH phase)
 
 **When:** Collection has > 200 chunks OR user needs a comprehensive answer (not just a quick lookup).
 
-**Problem:** Single search with top_k=5, picking the first decent hit = incomplete answers. Large documents contain relevant information at MULTIPLE locations.
+**Problem:** Single search, picking the first decent hit = incomplete answers. Large documents contain relevant information at MULTIPLE locations.
 
 **Strategy A (preferred): Hybrid search handles fusion automatically.**
 
 ```
 # Single hybrid search covers both semantic + keyword
-mcp__rag__search_hybrid(query="original question", collection="...", top_k=10)
+mcp__rag__search_hybrid(query="original question", collection="...", top_k=20)
 
 # Optional: rephrased hybrid search for broader coverage
-mcp__rag__search_hybrid(query="rephrased question with synonyms", collection="...", top_k=10)
+mcp__rag__search_hybrid(query="rephrased question with synonyms", collection="...", top_k=20)
 ```
 
 Hybrid search internally runs 50 vector + 50 BM25 candidates and fuses with RRF. This replaces the manual 3-search pattern for most cases.
@@ -211,13 +211,13 @@ Use when: hybrid search misses exact terms (rare edge cases), or you need maximu
 
 ```
 # 1. Semantic search (natural language)
-mcp__rag__search(query="original question", collection="...", top_k=10)
+mcp__rag__search(query="original question", collection="...", top_k=20)
 
 # 2. Keyword search (exact terms, technical names)
-mcp__rag__search_keyword(query="specific_term exact_phrase", collection="...", top_k=10)
+mcp__rag__search_keyword(query="specific_term exact_phrase", collection="...", top_k=20)
 
 # 3. Semantic search, rephrased (different angle)
-mcp__rag__search(query="rephrased question with synonyms", collection="...", top_k=10)
+mcp__rag__search(query="rephrased question with synonyms", collection="...", top_k=20)
 ```
 
 ### Step 2: Deduplicate + Rank
@@ -238,7 +238,7 @@ User sees ALL relevant locations and decides which to explore further (via `read
 
 | BAD | GOOD |
 |-----|------|
-| 1 search, top_k=5 | 3 searches (semantic + keyword + rephrased), top_k=10 |
+| 1 search, top_k=20 | 3 searches (semantic + keyword + rephrased), top_k=20 |
 | First hit = THE answer | All hits ranked with citations |
 | No transparency | User sees source locations |
 | Misses related sections | Catches different phrasings and cross-references |
@@ -257,7 +257,7 @@ Hybrid search combining vector similarity AND SPLADE sparse matching with Recipr
 |-----------|------|----------|-------------|
 | `query` | string | Yes | Search query (natural language, keywords, or both) |
 | `collection` | string | Yes | Collection to search in |
-| `top_k` | int | No | Number of results (1-20, default: 5) |
+| `top_k` | int | No | Number of results (20-50, default: 20) |
 | `document` | string | No | Filter by document. Use `%` as wildcard for prefix matching (e.g. `arxiv__%` for all papers) |
 | `neighbors` | int | No | Include N chunks before/after each match (0-2, default: 0) |
 | `rerank` | bool | No | Re-score with cross-encoder for higher precision (default: true, set false for speed) |
@@ -268,7 +268,7 @@ Hybrid search combining vector similarity AND SPLADE sparse matching with Recipr
 2. Applies RRF fusion: `score = Σ 1/(60 + rank)` across both result lists
 3. Chunks appearing in both lists get boosted scores (SPLADE expands synonyms, so "revenue" also matches "profit", "earnings")
 4. Returns top_k results sorted by fused score
-5. **If `rerank=True` (default):** Top 10 RRF candidates are re-scored by a cross-encoder model (Qwen3-Reranker-0.6B), then top_k returned. Scores become cross-encoder relevance scores (0-1). Results below 0.3 are filtered out.
+5. **If `rerank=True` (default):** Top 50 RRF candidates are re-scored by a cross-encoder model (Qwen3-Reranker-0.6B), then top_k returned. Scores become cross-encoder relevance scores (0-1). Results below 0.3 are filtered out.
 
 ### When to use
 
@@ -301,9 +301,9 @@ RRF scores are fundamentally different from cosine similarity scores:
 ### Examples
 
 ```
-mcp__rag__search_hybrid(query="rate limiting API requests", collection="Binance", top_k=5)
+mcp__rag__search_hybrid(query="rate limiting API requests", collection="Binance", top_k=20)
 mcp__rag__search_hybrid(query="authentication patterns", collection="docs", neighbors=1)
-mcp__rag__search_hybrid(query="complex multi-concept query", collection="docs", top_k=5, rerank=True)
+mcp__rag__search_hybrid(query="complex multi-concept query", collection="docs", top_k=20, rerank=True)
 ```
 
 ---
@@ -318,7 +318,7 @@ Semantic search over indexed documents using vector embeddings.
 |-----------|------|----------|-------------|
 | `query` | string | Yes | Search query (natural language) |
 | `collection` | string | Yes | Collection to search in (use list_collections first) |
-| `top_k` | int | No | Number of results (1-20, default: 5) |
+| `top_k` | int | No | Number of results (20-50, default: 20) |
 | `document` | string | No | Filter by document. Use `%` as wildcard for prefix matching (e.g. `arxiv__%` for all papers) |
 | `neighbors` | int | No | Include N chunks before/after each match (0-2, default: 0) |
 
@@ -337,7 +337,7 @@ When `neighbors > 0`, each result includes adjacent chunks for better context:
 ### Examples
 
 ```
-mcp__rag__search(query="performance optimization", collection="docs", top_k=3)
+mcp__rag__search(query="performance optimization", collection="docs", top_k=20)
 mcp__rag__search(query="error handling patterns", collection="docs", document="architecture.md")
 mcp__rag__search(query="configuration options", collection="docs", neighbors=1)
 ```
@@ -358,7 +358,7 @@ BM25 keyword search for exact term matches. Complements semantic `search`.
 |-----------|------|----------|-------------|
 | `query` | string | Yes | Keywords to search (space = AND) |
 | `collection` | string | Yes | Collection to search in |
-| `top_k` | int | No | Number of results (1-20, default: 5) |
+| `top_k` | int | No | Number of results (20-50, default: 20) |
 | `document` | string | No | Filter by document. Use `%` as wildcard for prefix matching (e.g. `arxiv__%` for all papers) |
 
 ### When to use instead of `search`
@@ -376,7 +376,7 @@ BM25 keyword search for exact term matches. Complements semantic `search`.
 
 ```
 mcp__rag__search_keyword(query="timeout", collection="docs", document="config.md")
-mcp__rag__search_keyword(query="retry backoff", collection="docs", top_k=10)
+mcp__rag__search_keyword(query="retry backoff", collection="docs", top_k=20)
 ```
 
 ---
