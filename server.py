@@ -23,10 +23,10 @@ def search(
     query: Annotated[str, Field(description="Search query to find relevant documents or code")],
     collection: Annotated[str, Field(description="Collection to search in (use list_collections to see available)")],
     top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
-    document: Annotated[str | None, Field(description="Filter by document name (e.g. 'chapter1.md')")] = None,
+    document: Annotated[str | None, Field(description="Filter by document name. Exact match or use % as wildcard (e.g. 'arxiv__%' for all papers)")] = None,
     neighbors: Annotated[int, Field(description="Include N chunks before/after each match for context (0-2)")] = 0
 ) -> list[TextContent]:
-    """Use when user needs to find relevant documents, code snippets, or information from the indexed knowledge base. Good for answering questions, finding examples, or locating specific content."""
+    """Semantic search over indexed documents. Supports document prefix filtering with % wildcard."""
     results = search_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2))
     return [TextContent(type="text", text=format_results(results))]
 
@@ -36,11 +36,11 @@ def search_hybrid(
     query: Annotated[str, Field(description="Search query (natural language, keywords, or both)")],
     collection: Annotated[str, Field(description="Collection to search in (use list_collections to see available)")],
     top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
-    document: Annotated[str | None, Field(description="Filter by document name (e.g. 'chapter1.md')")] = None,
+    document: Annotated[str | None, Field(description="Filter by document name. Exact match or use % as wildcard (e.g. 'arxiv__%' for all papers)")] = None,
     neighbors: Annotated[int, Field(description="Include N chunks before/after each match for context (0-2)")] = 0,
     rerank: Annotated[bool, Field(description="Re-score results with cross-encoder for higher precision (disable with rerank=False for faster but less precise results)")] = True
 ) -> list[TextContent]:
-    """Hybrid search combining semantic similarity AND keyword matching with Reciprocal Rank Fusion (RRF). Best default choice for large collections. Automatically runs both vector and BM25 search, then fuses rankings so results that score well in both methods are boosted. Set rerank=True to apply cross-encoder reranking for maximum precision."""
+    """Hybrid search combining semantic similarity AND keyword matching with RRF fusion. Best default for large collections. Supports document prefix filtering with % wildcard."""
     results = search_hybrid_workflow(query, min(top_k, 20), collection, document, min(neighbors, 2), rerank)
     return [TextContent(type="text", text=format_results(results))]
 
@@ -50,9 +50,9 @@ def search_keyword(
     query: Annotated[str, Field(description="Exact keywords to search for (e.g. 'l_suppkey', 'TPC-H')")],
     collection: Annotated[str, Field(description="Collection to search in")],
     top_k: Annotated[int, Field(description="Number of results to return (1-20)")] = 5,
-    document: Annotated[str | None, Field(description="Filter by document name")] = None
+    document: Annotated[str | None, Field(description="Filter by document name. Exact match or use % as wildcard (e.g. 'arxiv__%' for all papers)")] = None
 ) -> list[TextContent]:
-    """BM25 keyword search for exact term matches. Use for finding specific definitions, technical terms, column names, or exact phrases. Complements semantic search()."""
+    """BM25 keyword search for exact term matches. Supports document prefix filtering with % wildcard."""
     results = search_keyword_workflow(query, min(top_k, 20), collection, document)
     return [TextContent(type="text", text=format_results(results))]
 
@@ -66,10 +66,11 @@ def list_collections() -> list[TextContent]:
 
 @mcp.tool
 def list_documents(
-    collection: Annotated[str, Field(description="Collection name to list documents from")]
+    collection: Annotated[str, Field(description="Collection name to list documents from")],
+    document: Annotated[str | None, Field(description="Filter by document name. Use % as wildcard for prefix matching (e.g. 'arxiv__%' for all papers, 'docs_together_ai__%' for all Together AI docs)")] = None
 ) -> list[TextContent]:
-    """List all documents in a collection with their chunk counts. Use to see what's inside a specific collection."""
-    results = list_documents_workflow(collection)
+    """List documents in a collection with their chunk counts. Supports prefix filtering with % wildcard."""
+    results = list_documents_workflow(collection, document)
     return [TextContent(type="text", text=format_documents(results))]
 
 

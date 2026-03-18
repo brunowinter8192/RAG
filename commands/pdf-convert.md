@@ -14,15 +14,20 @@ PDF Path: $ARGUMENTS
 ```
 PDF
  ↓ MinerU
- ↓ postprocess.py (generic regex)
-raw/{stem}.md
- ↓ md-cleanup-master (creates debug/clean_{stem}.py)
-{stem}.md
+{stem}.md  ← raw state, directly in collection folder
+ ↓ md-cleanup-master (works in /tmp only, overwrites {stem}.md)
+{stem}.md  ← clean state
  ↓ chunker
 {stem}.json
  ↓ embedder + postgres
 indexed
 ```
+
+**Collection states (EXACTLY TWO):**
+- **Raw:** `{stem}.md` = MinerU output, no cleanup done yet
+- **Clean:** `{stem}.md` = fully cleaned, ready for indexing
+
+No `raw/` subfolder. No `debug/` subfolder. All process artifacts go to `/tmp/`.
 
 ---
 
@@ -97,7 +102,7 @@ If not found, ask for correct path.
 
 ```bash
 STEM="<descriptive_name>"  # NOT $(basename "$PDF_PATH" .pdf) if filename is cryptic
-mkdir -p ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/raw
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM
 ```
 
 ### Step 3: Run MinerU Workflow
@@ -106,10 +111,10 @@ mkdir -p ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/raw
 cd ${MINERU_PATH} && \
 ./venv/bin/python workflow.py convert \
   --input "$PDF_PATH" \
-  --output ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/raw/$STEM.md
+  --output ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/$STEM.md
 ```
 
-Output: `raw/{stem}.md` = MinerU output + generic postprocess.py cleanup
+Output: `{stem}.md` = MinerU output + generic postprocess.py cleanup (raw state, directly in collection folder)
 
 ### Step 4: Verify
 
@@ -123,7 +128,7 @@ ls -la ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/
 PHASE 1: PDF to Markdown
 ========================
 INPUT: [PDF path]
-OUTPUT: data/documents/$STEM/raw/$STEM.md
+OUTPUT: data/documents/$STEM/$STEM.md  (raw state)
 STATUS: [Success/Failed]
 ```
 
@@ -135,24 +140,16 @@ STATUS: [Success/Failed]
 
 ## Phase 2: LLM Cleanup
 
-Agent analyzes raw/{stem}.md, creates cleanup script, outputs {stem}.md in parent folder.
-
-### Step 0: Activate agent-dispatch Skill (if not active)
-
-**BEFORE running the subagent, you MUST activate the agent-dispatch skill:**
-```
-Skill('agent-dispatch')
-```
-Skip this step if agent-dispatch is already active in this session.
+Agent reads `{stem}.md` (raw state), fixes artifacts via scripts in `/tmp/`, overwrites `{stem}.md` with the clean version.
 
 ### Step 1: Run md-cleanup-master
 
-Use the Task tool with subagent_type='md-cleanup-master'.
+Use the Agent tool with subagent_type='rag:md-cleanup-master'.
 
 Agent will:
 1. Sample file structure
-2. Create `debug/clean_$STEM.py`
-3. Run script → `$STEM.md` (in parent folder)
+2. Create cleanup scripts in `/tmp/fix_{issue}_{stem}.py` (NEVER in collection folder)
+3. Overwrite `{stem}.md` with clean version (same path — raw → clean in place)
 4. Report issues fixed
 
 ### Step 2: Verify Cleanup (you, not the agent)

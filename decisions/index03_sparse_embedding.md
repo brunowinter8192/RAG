@@ -41,9 +41,12 @@ Sparse is 45% weaker than Dense. Hybrid is WORSE than Dense alone because SPLADE
 
 Sparse performed better on the small academic paper dataset — in-domain for MS-MARCO style text.
 
-## Entscheidung
+## Recommendation (SOLL)
 
-SPLADE++ kept as-is for now. Evidence shows it hurts more than it helps on technical docs. Decision deferred pending SPLADE v3 evaluation.
+- **Keep:** SPLADE++ as sparse component — no better alternative evaluated yet
+- **Keep:** `max_active_dims=256` safety-net in splade_server.py
+- **Pending:** SPLADE v3 evaluation (requires separate `pip install splade` library, not sentence-transformers compatible)
+- **Pending:** Decision whether to drop Sparse entirely for technical docs (BM25 via tsvector as lightweight alternative)
 
 ## Offene Fragen
 

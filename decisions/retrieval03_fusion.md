@@ -35,9 +35,12 @@ RRF is used only in `search_hybrid_workflow()`. The `search_workflow()` (pure de
 
 On academic text, Hybrid outperforms Dense on Recall@10 (0.80 vs 0.73). Hybrid+Rerank is best overall. SPLADE contributes meaningfully on in-domain text.
 
-## Entscheidung
+## Recommendation (SOLL)
 
-RRF K=60 is the standard value from the original RRF paper. No tuning done. Hybrid search exists as separate MCP tool (`search_hybrid`) — not the default search path.
+- **Keep:** RRF K=60 (standard value, no evidence for tuning)
+- **Keep:** Hybrid as separate MCP tool (`search_hybrid`), not default search path — Dense-only outperforms Hybrid on technical docs
+- **Pending:** RRF K tuning (eval_runner supports `--rrf-k` flag, not yet swept)
+- **Pending:** Convex Combination (CC) as RRF alternative
 
 ## Offene Fragen
 

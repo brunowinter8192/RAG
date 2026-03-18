@@ -49,12 +49,13 @@ Reranker effectiveness is **domain-dependent**, not universally beneficial:
 Adding BGE cross-encoder to GTE-large pipeline: Acc@3 from 0.412 to 0.506 (+9.4pp).
 Reranking bridges ~50% of the gap between 2000-char and 512-char chunking.
 
-## Entscheidung
+## Recommendation (SOLL)
 
-Qwen3-Reranker-0.6B chosen as smallest Qwen3 reranker (fast, low RAM). Default is OFF (`rerank=False`) because:
-1. Adds latency (cross-encoder inference per candidate pair)
-2. Reranker server uses additional GPU memory
-3. **Evaluated: hurts on technical docs, helps on academic text** — domain-dependent
+- **Keep:** `rerank=False` as default — reranker hurts on technical docs (-8.5pp NDCG@3), which is the dominant collection type
+- **Keep:** Qwen3-Reranker-0.6B model — adequate for academic text (+19.3pp NDCG@3)
+- **Pending:** Domain-dependent rerank config (auto-enable for academic collections, disable for technical docs)
+- **Pending:** Score threshold calibration (0.3 is unvalidated)
+- **Pending:** Larger reranker model (4B/8B) evaluation
 
 ## Offene Fragen
 

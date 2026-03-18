@@ -37,9 +37,9 @@ No markdown-awareness (headers not treated as boundaries). No content-adaptive s
 - E: Markdown-header-aware (split at ## boundaries)
 - F: Semantic sentence-level (nltk)
 
-## Entscheidung
+## Recommendation (SOLL)
 
-1000 chars was chosen as initial default without benchmarking. No formal evaluation against alternatives on our data.
+Pending — chunking_sweep.py ready, GPU sweep not yet executed (Bead RAG-sfd).
 
 ## Offene Fragen
 

@@ -13,9 +13,9 @@ Query embedding is asymmetric: documents are embedded without prefix, queries wi
 
 No isolated evaluation of query embedding quality. Query embedding is tested implicitly through all retrieval evaluations.
 
-## Entscheidung
+## Recommendation (SOLL)
 
-Using Qwen3's recommended instruct prefix for queries. No query expansion or HyDE (Hypothetical Document Embeddings) implemented.
+Pending — no isolated query embedding evaluation.
 
 ## Offene Fragen
 
