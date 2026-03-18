@@ -43,6 +43,8 @@ def search_workflow(
     document: str | None = None,
     neighbors: int = 0
 ) -> list[dict]:
+    top_k = max(top_k, 20)  # Floor: agent can go higher, never lower
+    top_k = min(top_k, 50)  # Cap
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
@@ -72,6 +74,7 @@ def list_documents_workflow(collection: str, document: str | None = None) -> lis
 
 
 def read_document_workflow(collection: str, document: str, start_chunk: int, num_chunks: int = 5) -> dict:
+    num_chunks = max(num_chunks, 10)  # Floor: agent can go higher, never lower
     conn = get_connection()
     validate_collection(conn, collection)
     chunks = fetch_chunk_range(conn, collection, document, start_chunk, start_chunk + num_chunks - 1)
@@ -93,6 +96,8 @@ def search_hybrid_workflow(
     neighbors: int = 0,
     rerank: bool = False
 ) -> list[dict]:
+    top_k = max(top_k, 20)  # Floor: agent can go higher, never lower
+    top_k = min(top_k, 50)  # Cap
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
@@ -104,6 +109,8 @@ def search_hybrid_workflow(
     if rerank:
         results = rerank_workflow(query, results, top_k)
         results = filter_by_score(results, 0.3)
+    else:
+        results = filter_by_score(results, 0.01)
     if neighbors > 0:
         results = expand_results(conn, results, neighbors)
     conn.close()
@@ -117,6 +124,8 @@ def search_keyword_workflow(
     collection: str | None = None,
     document: str | None = None
 ) -> list[dict]:
+    top_k = max(top_k, 20)  # Floor: agent can go higher, never lower
+    top_k = min(top_k, 50)  # Cap
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
