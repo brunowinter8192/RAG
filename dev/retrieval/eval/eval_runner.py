@@ -123,12 +123,15 @@ def main():
     parser.add_argument("--rrf-k", type=int, default=60, help="RRF k parameter for hybrid fusion")
     parser.add_argument("--mrl-sweep", action="store_true", help="Run MRL sweep over multiple dims")
     parser.add_argument("--hybrid-sweep", action="store_true", help="Run Dense, Sparse, Hybrid side by side")
+    parser.add_argument("--rerank", action="store_true", help="Wrap retriever with RerankerRetriever")
+    parser.add_argument("--rerank-sweep", action="store_true", help="Run Dense, Dense+Rerank, Sparse, Hybrid, Hybrid+Rerank side by side")
     args = parser.parse_args()
 
     dataset = load_dataset(args.dataset)
     corpus = dataset["corpus"]
     queries = dataset["queries"]
     qrels = dataset["qrels"]
+    collection = dataset.get("collection") if dataset.get("corpus_from_db") else None
 
     if args.mrl_sweep:
         from retrievers.dense import DenseRetriever
@@ -137,7 +140,7 @@ def main():
         print(f"Dataset: {args.dataset} ({len(queries)} queries, {len(corpus)} docs)")
 
         for dims in dims_to_test:
-            retriever = DenseRetriever(truncate_dims=dims)
+            retriever = DenseRetriever(truncate_dims=dims, collection=collection)
             results = retriever.search(corpus, queries, args.top_k)
             metrics = evaluate(qrels, results)
             print_results(retriever.name(), metrics)
@@ -151,8 +154,8 @@ def main():
         print(f"\nHybrid Sweep: Dense vs Sparse vs Hybrid")
         print(f"Dataset: {args.dataset} ({len(queries)} queries, {len(corpus)} docs)")
 
-        dense = DenseRetriever(truncate_dims=args.truncate_dims)
-        sparse = SparseRetriever()
+        dense = DenseRetriever(truncate_dims=args.truncate_dims, collection=collection)
+        sparse = SparseRetriever(collection=collection)
         hybrid = HybridRetriever(dense, sparse, rrf_k=args.rrf_k)
 
         all_metrics = []
@@ -165,19 +168,55 @@ def main():
         print_comparison_table(all_metrics)
         return
 
+    if args.rerank_sweep:
+        from retrievers.dense import DenseRetriever
+        from retrievers.sparse import SparseRetriever
+        from retrievers.hybrid import HybridRetriever
+        from retrievers.reranker import RerankerRetriever
+        print(f"\nRerank Sweep: Dense, Dense+Rerank, Sparse, Hybrid, Hybrid+Rerank")
+        print(f"Dataset: {args.dataset} ({len(queries)} queries, {len(corpus)} docs)")
+
+        dense = DenseRetriever(truncate_dims=args.truncate_dims, collection=collection)
+        sparse = SparseRetriever(collection=collection)
+        hybrid = HybridRetriever(
+            DenseRetriever(truncate_dims=args.truncate_dims, collection=collection),
+            SparseRetriever(collection=collection),
+            rrf_k=args.rrf_k,
+        )
+        dense_rerank = RerankerRetriever(DenseRetriever(truncate_dims=args.truncate_dims, collection=collection))
+        hybrid_rerank = RerankerRetriever(HybridRetriever(
+            DenseRetriever(truncate_dims=args.truncate_dims, collection=collection),
+            SparseRetriever(collection=collection),
+            rrf_k=args.rrf_k,
+        ))
+
+        all_metrics = []
+        for retriever in [dense, dense_rerank, sparse, hybrid, hybrid_rerank]:
+            results = retriever.search(corpus, queries, args.top_k)
+            metrics = evaluate(qrels, results)
+            all_metrics.append((retriever.name(), metrics))
+            save_results(retriever.name(), args.dataset, metrics)
+
+        print_comparison_table(all_metrics)
+        return
+
     if args.retriever == "dense":
         from retrievers.dense import DenseRetriever
-        retriever = DenseRetriever(truncate_dims=args.truncate_dims)
+        retriever = DenseRetriever(truncate_dims=args.truncate_dims, collection=collection)
     elif args.retriever == "sparse":
         from retrievers.sparse import SparseRetriever
-        retriever = SparseRetriever()
+        retriever = SparseRetriever(collection=collection)
     elif args.retriever == "hybrid":
         from retrievers.dense import DenseRetriever
         from retrievers.sparse import SparseRetriever
         from retrievers.hybrid import HybridRetriever
-        dense = DenseRetriever(truncate_dims=args.truncate_dims)
-        sparse = SparseRetriever()
+        dense = DenseRetriever(truncate_dims=args.truncate_dims, collection=collection)
+        sparse = SparseRetriever(collection=collection)
         retriever = HybridRetriever(dense, sparse, rrf_k=args.rrf_k)
+
+    if args.rerank:
+        from retrievers.reranker import RerankerRetriever
+        retriever = RerankerRetriever(retriever)
 
     print(f"Dataset: {args.dataset} ({len(queries)} queries, {len(corpus)} docs)")
     print(f"Retriever: {retriever.name()}")

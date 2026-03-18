@@ -12,9 +12,10 @@ from .base import BaseRetriever
 class DenseRetriever(BaseRetriever):
     """Dense retriever with optional MRL dimension truncation."""
 
-    def __init__(self, truncate_dims: int | None = None, query_prefix: str | None = None):
+    def __init__(self, truncate_dims: int | None = None, query_prefix: str | None = None, collection: str | None = None):
         self.truncate_dims = truncate_dims
         self.query_prefix = query_prefix or "Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "
+        self.collection = collection
 
     def name(self) -> str:
         dims = self.truncate_dims or "full"
@@ -22,11 +23,15 @@ class DenseRetriever(BaseRetriever):
 
     def search(self, corpus: dict, queries: dict, top_k: int) -> dict[str, dict[str, float]]:
         corpus_ids = list(corpus.keys())
-        corpus_texts = [corpus[cid]["text"] for cid in corpus_ids]
         query_ids = list(queries.keys())
         query_texts = [queries[qid] for qid in query_ids]
 
-        corpus_embeddings = self._embed_and_truncate(corpus_texts)
+        if self.collection:
+            corpus_embeddings, corpus_ids = _load_dense_from_db(self.collection, corpus_ids, self.truncate_dims)
+        else:
+            corpus_texts = [corpus[cid]["text"] for cid in corpus_ids]
+            corpus_embeddings = self._embed_and_truncate(corpus_texts)
+
         query_embeddings = self._embed_and_truncate(query_texts, is_query=True)
 
         results = {}
@@ -56,6 +61,38 @@ class DenseRetriever(BaseRetriever):
             arr = arr / norms
 
         return arr
+
+
+# Load dense embeddings from DB, return (array, ordered_corpus_ids) matching corpus keys
+def _load_dense_from_db(collection: str, corpus_ids: list[str], truncate_dims: int | None) -> tuple[np.ndarray, list[str]]:
+    from src.rag.retriever import get_connection
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT embedding, document, chunk_index FROM documents WHERE collection = %s ORDER BY document, chunk_index",
+        (collection,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    corpus_id_set = set(corpus_ids)
+    ordered_ids = []
+    embeddings = []
+    for embedding, document, chunk_index in rows:
+        key = f"chunk_{chunk_index}_{document}"
+        if key in corpus_id_set:
+            ordered_ids.append(key)
+            embeddings.append(np.array(embedding, dtype=np.float32))
+
+    arr = np.stack(embeddings)
+    if truncate_dims and truncate_dims < arr.shape[1]:
+        arr = arr[:, :truncate_dims]
+        norms = np.linalg.norm(arr, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1, norms)
+        arr = arr / norms
+
+    return arr, ordered_ids
 
 
 # Cosine similarity between a single query vector and matrix of corpus vectors

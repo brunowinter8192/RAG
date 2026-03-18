@@ -1,5 +1,5 @@
 {
-  "collection": "SearXNG_Docs",
+  "collection": "searxng",
   "corpus_from_db": true,
   "queries": {
     "q01": "How to install SearXNG with Docker?",
