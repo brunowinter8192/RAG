@@ -36,6 +36,8 @@ def rerank_workflow(query: str, documents: list[dict], top_k: int) -> list[dict]
     return results
 
 
+# FUNCTIONS
+
 # Rerank documents against query via llama-server API
 def rerank_documents(query: str, contents: list[str]) -> list[dict]:
     response = httpx.post(

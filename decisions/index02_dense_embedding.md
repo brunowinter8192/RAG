@@ -1,6 +1,6 @@
 # Indexing Step 2: Dense Embedding
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/embedder.py`
 **Model:** Qwen3-Embedding-8B Q8_0 (~9 GB GGUF)
@@ -24,6 +24,8 @@
 | `-ngl` | 99 | Full GPU offload. |
 
 **Indexing Throughput:** ~20s per 32-chunk batch, ~1.2 chunks/sec.
+
+**Known Issue — NULL Embeddings:** llama-server returns NULL vectors for chunks starting with naked `import` statements (no preceding context). Root cause: tokenizer issue with Qwen3-Embedding-8B. Affected: ~2% of code-heavy chunks. Fix: Prefix every chunk with `search_document: ` before embedding. Validated: all NULL chunks produce valid embeddings with prefix. Safety net: `store_chunks()` in indexer.py skips NULL embeddings with warning. Full details: Previously in `fixes/null-embeddings.md`.
 
 ## Evidenz
 
@@ -66,16 +68,6 @@ Method: Corpus embeddings loaded from DB (no re-embedding), MRL truncation + L2 
 ### -ub 512 Bug
 
 llama.cpp v638 crashes on Metal/M4 Pro when `-ub 512` with Qwen3-Embedding-8B. Segfault without error log, server dies after ~30 tasks. Workaround: keep `-ub 4096`.
-
-## Known Issue: NULL Embeddings
-
-llama-server returns NULL vectors for chunks starting with naked `import` statements (no preceding context). Root cause: tokenizer issue with Qwen3-Embedding-8B.
-
-**Affected:** ~2% of code-heavy chunks.
-**Fix:** Prefix every chunk with `search_document: ` before embedding. Validated: all NULL chunks produce valid embeddings with prefix.
-**Safety net:** `store_chunks()` in indexer.py skips NULL embeddings with warning.
-
-Full details: Previously in `fixes/null-embeddings.md`.
 
 ## Recommendation (SOLL)
 

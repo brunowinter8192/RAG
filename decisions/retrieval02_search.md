@@ -1,6 +1,6 @@
 # Retrieval Step 2: Vector Search
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/retriever.py:search_vectors()`, `splade_search()`, `bm25_search()`
 **Dense Search:** pgvector cosine distance (`embedding <=> query::vector`)

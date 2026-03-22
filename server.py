@@ -14,7 +14,7 @@ from src.rag.retriever import (
 mcp = FastMCP("RAG")
 
 
-# TOOLS
+# FUNCTIONS
 
 @mcp.tool
 def search(
@@ -80,8 +80,8 @@ def read_document(
     num_chunks: int = 10
 ) -> list[TextContent]:
     """Read document chunks."""
-    num_chunks = max(num_chunks, 10)  # Floor
-    num_chunks = min(num_chunks, 20)  # Cap
+    num_chunks = max(num_chunks, 10)
+    num_chunks = min(num_chunks, 20)
     result = read_document_workflow(collection, document, start_chunk, num_chunks)
     text = f"Document: {result['document']} | Chunks {result['start_chunk']}-{result['start_chunk'] + result['num_chunks'] - 1}\n\n{result['content']}"
     return [TextContent(type="text", text=text)]

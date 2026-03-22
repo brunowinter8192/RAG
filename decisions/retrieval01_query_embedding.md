@@ -1,6 +1,6 @@
 # Retrieval Step 1: Query Embedding
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/retriever.py:embed_query()`
 **Dense:** Same model as indexing (Qwen3-Embedding-8B), with instruct prefix

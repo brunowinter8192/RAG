@@ -37,6 +37,8 @@ def embed_workflow(texts: Union[str, list[str]], prefix: str | None = None) -> l
     return embeddings
 
 
+# FUNCTIONS
+
 # Truncate text to approximate max tokens
 def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
     max_chars = max_tokens * CHARS_PER_TOKEN

@@ -29,11 +29,10 @@ POSTGRES_USER = os.getenv("POSTGRES_USER", "rag")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rag")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
-
-
-# ORCHESTRATORS
-
 BATCH_SIZE = 32
+
+
+# ORCHESTRATOR
 
 
 # Index from chunks.json (pre-chunked, LLM-cleaned)
@@ -167,8 +166,6 @@ def ensure_schema(conn) -> None:
                 embedding vector({VECTOR_DIMENSION})
             )
         """)
-        # HNSW index skipped: pgvector limits HNSW to 2000 dims, Qwen3 embeddings have 4096
-        # Sequential scan is sufficient for <100k vectors
         cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS sparse_embedding sparsevec(30522)")
         cur.execute("""
             DO $$ BEGIN

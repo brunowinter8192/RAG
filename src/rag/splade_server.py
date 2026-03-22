@@ -18,7 +18,7 @@ logging.basicConfig(
 
 SPLADE_MODEL = "naver/splade-cocondenser-ensembledistil"
 SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
-MAX_ACTIVE_DIMS = 256  # Safety-net: normal output is 100-200 nnz, pgvector limit is 16000
+MAX_ACTIVE_DIMS = 256
 
 model = SparseEncoder(SPLADE_MODEL)
 

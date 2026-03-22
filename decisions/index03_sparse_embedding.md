@@ -1,6 +1,6 @@
 # Indexing Step 3: Sparse Embedding
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/sparse_embedder.py` (client), `src/rag/splade_server.py` (server)
 **Model:** naver/splade-cocondenser-ensembledistil (SPLADE++) via sentence-transformers SparseEncoder v5.2.0

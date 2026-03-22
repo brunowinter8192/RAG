@@ -8,11 +8,11 @@ Scripts for evaluating and profiling the indexing pipeline (chunking, embedding,
 
 ---
 
-## chunking_eval/chunking_sweep.py
+## chunking_eval/01_chunking_sweep.py
 
 **Purpose:** Evaluate chunking strategy variants (chunk size, overlap, separator set) using Document-Level Recall@K. Because chunk IDs change when chunk size changes, ground truth links queries to documents (not individual chunks).
 **Input:** Directory of `.md` source files, a document-level dataset JSON, a test DB name, and variant codes.
-**Output:** Comparison table (stdout) + JSON results in `chunking_eval/results/sweep_<timestamp>.json`.
+**Output:** Comparison table (stdout) + JSON results in `chunking_eval/01_reports/sweep_<timestamp>.json`.
 
 **Variants:**
 
@@ -63,19 +63,19 @@ bash dev/indexing/chunking_eval/setup_test_db.sh  # or: docker exec rag-postgres
 **Usage:**
 ```bash
 # Full sweep
-./venv/bin/python dev/indexing/chunking_eval/chunking_sweep.py \
+./venv/bin/python dev/indexing/chunking_eval/01_chunking_sweep.py \
     --source-dir data/documents/RAG_MCP \
     --dataset dev/indexing/chunking_eval/datasets/rag_mcp_doc_level.json \
     --db-name rag_test
 
 # Subset sweep (faster, 5 docs)
-./venv/bin/python dev/indexing/chunking_eval/chunking_sweep.py \
+./venv/bin/python dev/indexing/chunking_eval/01_chunking_sweep.py \
     --source-dir dev/indexing/chunking_eval/corpus \
     --dataset dev/indexing/chunking_eval/datasets/rag_mcp_subset.json \
     --db-name rag_test
 
 # Dry run (chunk stats only)
-./venv/bin/python dev/indexing/chunking_eval/chunking_sweep.py \
+./venv/bin/python dev/indexing/chunking_eval/01_chunking_sweep.py \
     --source-dir data/documents/RAG_MCP \
     --dataset dev/indexing/chunking_eval/datasets/rag_mcp_doc_level.json \
     --dry-run
@@ -83,7 +83,7 @@ bash dev/indexing/chunking_eval/setup_test_db.sh  # or: docker exec rag-postgres
 
 ---
 
-## embedding_benchmark/benchmark.py
+## embedding_benchmark/01_benchmark.py
 
 **Purpose:** Measure wall time for sequential vs parallel execution of dense (port 8081) and sparse/SPLADE (port 8083) embedding servers across batch sizes.
 **Input:** None (no arguments). Both embedding servers must be running.
@@ -93,12 +93,12 @@ bash dev/indexing/chunking_eval/setup_test_db.sh  # or: docker exec rag-postgres
 
 **Usage:**
 ```bash
-./venv/bin/python dev/indexing/embedding_benchmark/benchmark.py
+./venv/bin/python dev/indexing/embedding_benchmark/01_benchmark.py
 ```
 
 ---
 
-## indexing_benchmark/benchmark.py
+## indexing_benchmark/01_benchmark.py
 
 **Purpose:** Profile the full indexing pipeline (dense embed + sparse embed + DB write) per batch, with per-component timing.
 **Input:** Path to a `chunks.json` file. Optional `--batch-size`, `--max-batches`, `--skip-db` flags.
@@ -115,10 +115,10 @@ bash dev/indexing/chunking_eval/setup_test_db.sh  # or: docker exec rag-postgres
 
 **Usage:**
 ```bash
-./venv/bin/python dev/indexing/indexing_benchmark/benchmark.py \
+./venv/bin/python dev/indexing/indexing_benchmark/01_benchmark.py \
     --input data/documents/RAG_MCP/chunks.json
 
-./venv/bin/python dev/indexing/indexing_benchmark/benchmark.py \
+./venv/bin/python dev/indexing/indexing_benchmark/01_benchmark.py \
     --input data/documents/RAG_MCP/chunks.json \
     --batch-size 16 --max-batches 5 --skip-db
 ```

@@ -1,6 +1,6 @@
 # Retrieval Step 4: Reranking
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/reranker.py`
 **Model:** Qwen3-Reranker-0.6B Q8_0 via llama-server

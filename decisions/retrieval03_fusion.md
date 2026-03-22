@@ -1,6 +1,6 @@
 # Retrieval Step 3: Ranking & Fusion
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/retriever.py:rrf_fusion()`
 **Method:** Reciprocal Rank Fusion (RRF)

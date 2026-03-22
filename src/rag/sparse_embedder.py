@@ -33,6 +33,8 @@ def sparse_embed_workflow(texts: Union[str, list[str]]) -> list[dict]:
     return sparse_embeddings
 
 
+# FUNCTIONS
+
 # Generate sparse embeddings via SPLADE server API
 def generate_sparse_embeddings(texts: list[str]) -> list[dict]:
     response = httpx.post(

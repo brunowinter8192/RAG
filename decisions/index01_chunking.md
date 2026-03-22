@@ -1,6 +1,6 @@
 # Indexing Step 1: Chunking
 
-## Status Quo
+## Status Quo (IST)
 
 **Code:** `src/rag/chunker.py` (Plugin: `workflow.py chunk`)
 **Method:** Recursive character split with hierarchical separators

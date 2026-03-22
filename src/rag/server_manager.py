@@ -19,15 +19,13 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "900"))  # 15 minutes default
+IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "900"))
 TIMESTAMP_DIR = Path("/tmp")
-WATCHDOG_INTERVAL = 30  # seconds between idle checks
+WATCHDOG_INTERVAL = 30
 
 _watchdog_started = False
 _watchdog_lock = threading.Lock()
 
-
-# SERVER DEFINITIONS — Single Source of Truth
 SERVERS = {
     "embedding": {
         "port": 8081,
@@ -67,10 +65,10 @@ SERVERS = {
 }
 
 
-# PUBLIC API
+# ORCHESTRATOR
 
+# Return status of all servers: running, pid, port, healthy per server name
 def status() -> dict[str, dict]:
-    """Return status of all servers: {name: {running, pid, port}}."""
     result = {}
     for name, cfg in SERVERS.items():
         pid = find_pid_on_port(cfg["port"])
@@ -83,8 +81,8 @@ def status() -> dict[str, dict]:
     return result
 
 
+# Start a server; returns True if started, False if already running
 def start(name: str) -> bool:
-    """Start a server. Returns True if started, False if already running."""
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
@@ -94,7 +92,6 @@ def start(name: str) -> bool:
         if check_health(name):
             logging.info(f"{name} already running on port {cfg['port']} (PID {pid})")
             return False
-        # Port occupied but unhealthy — kill stale process
         logging.warning(f"{name} port {cfg['port']} occupied by PID {pid} but unhealthy, killing")
         stop(name)
 
@@ -114,7 +111,6 @@ def start(name: str) -> bool:
         cwd=cwd,
     )
 
-    # Wait for health
     timeout = cfg["timeout"]
     for i in range(timeout):
         time.sleep(1)
@@ -126,8 +122,8 @@ def start(name: str) -> bool:
     raise RuntimeError(f"Failed to start {name} after {timeout}s")
 
 
+# Stop a server; kills ALL processes on the port; returns True if stopped, False if not running
 def stop(name: str) -> bool:
-    """Stop a server. Kills ALL processes on the port. Returns True if stopped, False if not running."""
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
@@ -144,7 +140,6 @@ def stop(name: str) -> bool:
         except ProcessLookupError:
             pass
 
-    # Wait for all processes to exit
     for _ in range(10):
         time.sleep(0.5)
         remaining = find_all_pids_on_port(cfg["port"])
@@ -152,7 +147,6 @@ def stop(name: str) -> bool:
             logging.info(f"{name} stopped")
             return True
 
-    # Force kill remaining
     for pid in find_all_pids_on_port(cfg["port"]):
         try:
             os.kill(pid, signal.SIGKILL)
@@ -162,14 +156,14 @@ def stop(name: str) -> bool:
     return True
 
 
+# Restart a server
 def restart(name: str) -> bool:
-    """Restart a server."""
     stop(name)
     return start(name)
 
 
+# Start all servers; returns name → 'started'|'already_running'|'error: ...'
 def start_all() -> dict[str, str]:
-    """Start all servers. Returns {name: 'started'|'already_running'|'error: ...'}."""
     results = {}
     for name in SERVERS:
         try:
@@ -180,8 +174,8 @@ def start_all() -> dict[str, str]:
     return results
 
 
+# Stop all servers; returns name → 'stopped'|'not_running'
 def stop_all() -> dict[str, str]:
-    """Stop all servers. Returns {name: 'stopped'|'not_running'}."""
     results = {}
     for name in SERVERS:
         stopped = stop(name)
@@ -189,13 +183,8 @@ def stop_all() -> dict[str, str]:
     return results
 
 
+# Ensure server(s) for a name or operation are running, starting if needed
 def ensure_ready(target: str) -> None:
-    """Ensure server(s) are running. Accepts server name or operation.
-
-    Server names: 'embedding', 'reranker', 'splade' — starts that specific server.
-    Operations: 'search' (embedding + splade), 'index' (embedding + splade),
-                'rerank' (reranker), 'search_rerank' (embedding + splade + reranker)
-    """
     # Direct server name
     if target in SERVERS:
         if not check_health(target):
@@ -224,26 +213,27 @@ def ensure_ready(target: str) -> None:
     _ensure_watchdog()
 
 
-# INTERNAL FUNCTIONS
+# FUNCTIONS
 
+# Check if a server responds to its health endpoint
 def check_health(name: str) -> bool:
-    """Check if a server responds to health check."""
     cfg = SERVERS[name]
     try:
         resp = httpx.get(cfg["health_url"], timeout=2.0)
         return resp.status_code == 200
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Health check failed: {e}")
         return False
 
 
+# Find the first PID listening on a port; returns None if port is free
 def find_pid_on_port(port: int) -> int | None:
-    """Find the PID of the process listening on a port. Returns None if port is free."""
     pids = find_all_pids_on_port(port)
     return pids[0] if pids else None
 
 
+# Find all PIDs listening on a port
 def find_all_pids_on_port(port: int) -> list[int]:
-    """Find all PIDs listening on a port."""
     try:
         result = subprocess.run(
             ["lsof", "-ti", f":{port}"],
@@ -251,19 +241,19 @@ def find_all_pids_on_port(port: int) -> list[int]:
         )
         if result.returncode == 0 and result.stdout.strip():
             return [int(p) for p in result.stdout.strip().split("\n") if p.strip()]
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning(f"PID lookup failed: {e}")
     return []
 
 
+# Write last-used timestamp for a server to a temp file
 def touch_timestamp(name: str) -> None:
-    """Update the last-used timestamp file for a server."""
     ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
     ts_file.write_text(str(time.time()))
 
 
+# Read last-used timestamp for a server; returns 0.0 if never used
 def get_last_used(name: str) -> float:
-    """Get the last-used timestamp for a server. Returns 0 if never used."""
     ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
     try:
         return float(ts_file.read_text().strip())
@@ -271,8 +261,8 @@ def get_last_used(name: str) -> float:
         return 0
 
 
+# Start the idle-timeout watchdog thread if not already running
 def _ensure_watchdog() -> None:
-    """Start the idle-timeout watchdog thread if not already running."""
     global _watchdog_started
     with _watchdog_lock:
         if _watchdog_started:
@@ -284,8 +274,8 @@ def _ensure_watchdog() -> None:
     logging.info(f"Watchdog started (idle timeout: {IDLE_TIMEOUT}s)")
 
 
+# Background loop that stops servers idle beyond IDLE_TIMEOUT
 def _watchdog_loop() -> None:
-    """Background loop that stops idle servers."""
     while True:
         time.sleep(WATCHDOG_INTERVAL)
         now = time.time()
@@ -301,10 +291,8 @@ def _watchdog_loop() -> None:
                 stop(name)
 
 
-# CLI ENTRY POINT (called from workflow.py)
-
+# Handle 'workflow.py server' subcommand
 def cli_server(args: list[str]) -> None:
-    """Handle 'workflow.py server' subcommand."""
     if not args:
         args = ["status"]
 

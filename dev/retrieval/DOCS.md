@@ -8,7 +8,7 @@ Scripts for evaluating and validating the retrieval pipeline (reranker models, r
 
 ---
 
-## reranker_8b/test_8b_reranker.py
+## reranker_8b/01_test_8b_reranker.py
 
 **Purpose:** Validate that `Qwen3-Reranker-8B-Q8_0.gguf` produces sane relevance scores. Background: mradermacher GGUF conversions of Qwen3-Reranker are known defective (Issue #16407) and produce 0.0 scores for all documents.
 **Input:** None (no arguments). Starts the 8B server on port 8084 and uses the running 0.6B production server on port 8082 for comparison.
@@ -30,5 +30,5 @@ Scripts for evaluating and validating the retrieval pipeline (reranker models, r
 
 **Usage:**
 ```bash
-./venv/bin/python dev/retrieval/reranker_8b/test_8b_reranker.py
+./venv/bin/python dev/retrieval/reranker_8b/01_test_8b_reranker.py
 ```

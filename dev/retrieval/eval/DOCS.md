@@ -4,11 +4,11 @@ BEIR-format evaluation suite measuring retrieval quality with `pytrec_eval` metr
 
 ---
 
-## eval_runner.py
+## 01_eval_runner.py
 
 **Purpose:** Run retrieval evaluation on a named dataset using one of three retriever types (dense, sparse, hybrid). Supports MRL dimension sweeps, reranker evaluation, and side-by-side comparisons.
 **Input:** Dataset name (looks up `datasets/<name>.json`), retriever type, and optional sweep flags.
-**Output:** Metric table (stdout) + JSON result file in `results/<dataset>_<retriever>.json`.
+**Output:** Metric table (stdout) + JSON result file in `01_reports/<dataset>_<retriever>.json`.
 
 **DB-backed embeddings:** When a dataset has `corpus_from_db: true`, corpus embeddings are loaded directly from PostgreSQL instead of re-embedding via GPU servers. This enables sweeps on large collections (26k+ chunks) without Segfault crashes. Query embeddings are always computed on-the-fly.
 
@@ -31,23 +31,23 @@ BEIR-format evaluation suite measuring retrieval quality with `pytrec_eval` metr
 **Usage:**
 ```bash
 # Single retriever
-./venv/bin/python dev/retrieval/eval/eval_runner.py \
+./venv/bin/python dev/retrieval/eval/01_eval_runner.py \
     --dataset searxng_docs --retriever dense --top-k 10
 
 # MRL dimension sweep (dense only, DB-backed)
-./venv/bin/python dev/retrieval/eval/eval_runner.py \
+./venv/bin/python dev/retrieval/eval/01_eval_runner.py \
     --dataset searxng_docs --mrl-sweep
 
 # Dense vs Sparse vs Hybrid side-by-side
-./venv/bin/python dev/retrieval/eval/eval_runner.py \
+./venv/bin/python dev/retrieval/eval/01_eval_runner.py \
     --dataset searxng_docs --hybrid-sweep --rrf-k 60
 
 # Dense with reranking
-./venv/bin/python dev/retrieval/eval/eval_runner.py \
+./venv/bin/python dev/retrieval/eval/01_eval_runner.py \
     --dataset qwen3_paper --retriever dense --rerank
 
 # Full rerank sweep (Dense, Dense+Rerank, Sparse, Hybrid, Hybrid+Rerank)
-./venv/bin/python dev/retrieval/eval/eval_runner.py \
+./venv/bin/python dev/retrieval/eval/01_eval_runner.py \
     --dataset searxng_docs --rerank-sweep
 ```
 

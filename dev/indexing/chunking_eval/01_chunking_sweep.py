@@ -218,7 +218,7 @@ def print_dry_run_table(all_results: list):
 
 # Save sweep results to JSON
 def save_results(all_results: list, dataset_path: str):
-    results_dir = Path(__file__).parent / "results"
+    results_dir = Path(__file__).parent / "01_reports"
     results_dir.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = results_dir / f"sweep_{timestamp}.json"

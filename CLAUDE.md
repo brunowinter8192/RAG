@@ -15,7 +15,7 @@ See [sources/sources.md](sources/sources.md).
 | **Chunking** | Recursive character split (paragraph → sentence → word) | 1000 chars, 200 overlap |
 | **Dense Embedding** | Qwen3-Embedding-8B Q8_0 via llama-server | 4096d, port 8081, -c 2048 -np 1 |
 | **Sparse Embedding** | SPLADE++ (cocondenser-ensembledistil) via FastAPI | 30522d sparse, port 8083 |
-| **Storage** | pgvector (PostgreSQL 18, vector + sparsevec) | Sequential scan (kein HNSW bei 4096d) |
+| **Storage** | pgvector (PostgreSQL 18, vector + sparsevec) | Sequential scan |
 
 ### Retrieval Pipeline (online, per query)
 
@@ -58,14 +58,15 @@ RAG/
 │   ├── index01_chunking.md
 │   ├── index02_dense_embedding.md
 │   ├── index03_sparse_embedding.md
+│   ├── index04_storage.md
 │   ├── retrieval01_query_embedding.md
 │   ├── retrieval02_search.md
 │   ├── retrieval03_fusion.md
-│   └── retrieval04_reranking.md
+│   ├── retrieval04_reranking.md
+│   └── delivery01_mcp_tools.md
 ├── data/
 │   └── documents/                  → Document folders per collection (raw.md, cleaned.md, chunks.json)
 ├── scripts/                        → Shell scripts
-├── known_limitations/              → Known system limitations (hnsw_4096_dims.md)
 ├── src/
 │   └── rag/                        → [DOCS.md](src/rag/DOCS.md)
 ├── dev/                            → [DOCS.md](dev/DOCS.md)

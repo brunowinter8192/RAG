@@ -49,7 +49,6 @@ def recursive_split(text: str, separators: list[str], chunk_size: int) -> list[s
         return [text] if text.strip() else []
 
     if not separators:
-        # Hard-split at chunk_size boundaries when no separators left
         return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size) if text[i:i+chunk_size].strip()]
 
     sep = separators[0]

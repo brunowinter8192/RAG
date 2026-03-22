@@ -2,7 +2,7 @@
 
 ## Documentation Tree
 
-- [src/rag/DOCS.md](src/rag/DOCS.md) — Pipeline modules (chunking, embedding, indexing, retrieval)
+- [src/DOCS.md](src/DOCS.md) — Source code packages (RAG pipeline modules, spawn utilities)
 - [dev/DOCS.md](dev/DOCS.md) — Development & evaluation scripts
 
 ---

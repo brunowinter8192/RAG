@@ -1,0 +1,15 @@
+{
+  "retriever": "Hybrid(rrf_k=60, fulld)",
+  "dataset": "qwen3_paper",
+  "metrics": {
+    "NDCG@3": 0.4168,
+    "Recall@3": 0.4889,
+    "P@3": 0.2667,
+    "NDCG@5": 0.4344,
+    "Recall@5": 0.5222,
+    "P@5": 0.1733,
+    "NDCG@10": 0.5369,
+    "Recall@10": 0.8,
+    "P@10": 0.1333
+  }
+}
