@@ -48,6 +48,52 @@ def main(command: str, **kwargs) -> None:
         )
         print(f"Deleted {deleted} chunks")
 
+    elif command == "index-dir":
+        from src.rag.server_manager import ensure_ready
+        dir_path = Path(kwargs["input"])
+        md_files = sorted(dir_path.glob("*.md"))
+        if not md_files:
+            print(f"No .md files found in {dir_path}")
+            return
+
+        collection = kwargs.get("collection")
+        print(f"Found {len(md_files)} markdown files in {dir_path}")
+        if collection:
+            print(f"Collection override: {collection}")
+        chunk_size = kwargs.get("chunk_size", 1000)
+        overlap = kwargs.get("overlap", 200)
+
+        # Ensure GPU servers are running
+        print("Checking servers...")
+        ensure_ready("index")
+        print("Servers ready.")
+
+        # Chunk all files
+        total_chunks = 0
+        for md_file in md_files:
+            chunks = chunk_workflow(str(md_file), chunk_size, overlap)
+            output = {
+                "document": md_file.name,
+                "chunks": [{"index": i, "content": c["content"]} for i, c in enumerate(chunks)]
+            }
+            if collection:
+                output["collection"] = collection
+            json_path = md_file.with_suffix(".json")
+            with open(json_path, "w") as f:
+                json.dump(output, f, indent=2, ensure_ascii=False)
+            total_chunks += len(chunks)
+            print(f"  Chunked {md_file.name} -> {len(chunks)} chunks")
+
+        # Index all JSON files
+        indexed = 0
+        json_files = sorted(dir_path.glob("*.json"))
+        for json_file in json_files:
+            count = index_json_workflow(str(json_file))
+            indexed += count
+            print(f"  Indexed {json_file.name} -> {count} chunks")
+
+        print(f"\nDone: {len(md_files)} files, {total_chunks} chunks chunked, {indexed} chunks indexed")
+
     elif command == "server":
         from src.rag.server_manager import cli_server
         cli_server(kwargs.get("server_args", []))
@@ -78,6 +124,12 @@ if __name__ == "__main__":
     delete_parser = subparsers.add_parser("delete", help="Delete indexed documents")
     delete_parser.add_argument("--collection", help="Delete by collection name")
     delete_parser.add_argument("--document", help="Delete by document name")
+
+    index_dir_parser = subparsers.add_parser("index-dir", help="Chunk + index all .md files in a directory")
+    index_dir_parser.add_argument("--input", required=True, help="Path to directory with .md files")
+    index_dir_parser.add_argument("--collection", help="Override collection name (default: parent folder name)")
+    index_dir_parser.add_argument("--chunk-size", type=int, default=1000, help="Target chunk size in chars")
+    index_dir_parser.add_argument("--overlap", type=int, default=200, help="Overlap between chunks in chars")
 
     server_parser = subparsers.add_parser("server", help="Manage GPU servers (status/start/stop/restart)")
     server_parser.add_argument("server_args", nargs="*", default=["status"], help="action [server_name]")

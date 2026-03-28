@@ -15,9 +15,7 @@ MD Directory: $ARGUMENTS
 directory/*.md (raw crawl4ai output)
  ↓ web-md-cleanup agent (remove nav, footer, UI chrome)
 directory/*.md (cleaned)
- ↓ workflow.py chunk (per file)
-directory/*.json (chunks)
- ↓ workflow.py index-json (per file)
+ ↓ workflow.py index-dir (ensures servers, chunks, indexes — one call)
 indexed in RAG
 ```
 
@@ -37,26 +35,6 @@ indexed in RAG
 - Wait for user to say "weiter", "proceed", "phase X", etc.
 - "weiter" = proceed to NEXT phase only, not "run all remaining phases"
 - NEVER batch multiple phases in one response
-
----
-
-## Phase 0: Server Lifecycle (Start)
-
-### Step 1: Check Embedding Server
-
-```bash
-curl -s localhost:8081/health
-```
-
-If `{"status":"ok"}` -> server running, proceed to Step 2.
-
-### Step 2: Start Server (if not running)
-
-```bash
-${CLAUDE_PLUGIN_ROOT}/start.sh
-```
-
-Wait 5 seconds, verify with health check again.
 
 ---
 
@@ -115,102 +93,56 @@ STATUS:   [Success/Failed]
 
 ---
 
-**STOP** - Ask: "Proceed to Phase 2 (Chunk)?"
+**STOP** - Ask: "Proceed to Phase 2 (Index)?"
 
 ---
 
-## Phase 2: Chunk
+## Phase 2: Chunk + Index
 
-### Data Model
+### Step 1: Run index-dir
 
-```
-collection = parent folder name (e.g. "SearXNG_Docs")
-document   = file name (e.g. "index.md", "settings_engines.md")
-```
-
-All files in one directory = 1 collection with N documents.
-
-### Step 1: Chunk All Files
-
-For each `.md` file in the directory:
+**Single command** — ensures servers are running, chunks all .md files, indexes all chunks:
 
 ```bash
-cd ${CLAUDE_PLUGIN_ROOT} && \
-./venv/bin/python workflow.py chunk --input "$MD_DIR/{filename}"
+cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
+./venv/bin/python workflow.py index-dir --input "$MD_DIR"
 ```
 
-This produces a `.json` file next to each `.md` file.
+This handles everything: server health check → start if needed → chunk → index → summary.
 
 ### Step 2: Verify
 
 ```bash
-ls "$MD_DIR"/*.json | wc -l
+cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
+./venv/bin/python workflow.py search --query "[topic from crawled site]" --top-k 3
 ```
-
-JSON count should equal MD count.
 
 ### PHASE 2 REPORT
 
 ```
-PHASE 2: Chunk
-==============
-FILES CHUNKED: [N]
-TOTAL CHUNKS:  [N]
-OUTPUT:        [directory]/*.json
-STATUS:        [Success/Failed]
-```
-
----
-
-**STOP** - Ask: "Proceed to Phase 3 (Index)?"
-
----
-
-## Phase 3: Index
-
-**Note:** `index-json` deletes only chunks for documents contained in the JSON file, not the entire collection. Safe for adding new documents to existing collections.
-
-### Step 1: Index All JSON Files
-
-For each `.json` file in the directory:
-
-```bash
-cd ${CLAUDE_PLUGIN_ROOT} && \
-./venv/bin/python workflow.py index-json --input "$MD_DIR/{filename}.json"
-```
-
-### Step 2: Verify
-
-```bash
-cd ${CLAUDE_PLUGIN_ROOT} && \
-./venv/bin/python workflow.py search --query "[topic from crawled site]" --top-k 3
-```
-
-### PHASE 3 REPORT
-
-```
-PHASE 3: Index
-==============
+PHASE 2: Chunk + Index
+=======================
 CHUNKS INDEXED: [N]
 VERIFIED:       [Yes/No]
 ```
 
 ---
 
-## Phase 4: Server Lifecycle (End)
+## Phase 3: Server Lifecycle (End)
 
-**STOP** - Ask: "Stop llama-server or keep running for MCP?"
+**STOP** - Ask: "Stop GPU servers or keep running for MCP?"
 
 ### If Stop:
 
 ```bash
-pkill -f llama-server
+cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
+./venv/bin/python workflow.py server stop
 ```
 
-### PHASE 4 REPORT
+### PHASE 3 REPORT
 
 ```
-PHASE 4: Server Lifecycle
+PHASE 3: Server Lifecycle
 =========================
-llama-server: [stopped / kept running for MCP]
+GPU servers: [stopped / kept running for MCP]
 ```

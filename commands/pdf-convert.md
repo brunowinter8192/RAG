@@ -48,40 +48,6 @@ No `raw/` subfolder. No `debug/` subfolder. All process artifacts go to `/tmp/`.
 
 ---
 
-## Phase 0: Server Lifecycle (Start)
-
-### Step 1: Check Embedding Server
-
-```bash
-curl -s localhost:8081/health
-```
-
-If `{"status":"ok"}` → server running, proceed to Step 2.
-
-### Step 2: Start Server (if not running)
-
-```bash
-${CLAUDE_PLUGIN_ROOT}/start.sh
-```
-
-Wait 5 seconds, verify with health check again.
-
-### Step 3: Check for Existing Collection (Optional)
-
-If re-indexing a document, check and delete existing collection:
-
-```bash
-# List collections via MCP tool
-mcp__rag__list_collections
-
-# Delete existing collection (if needed)
-docker exec rag-postgres psql -U rag -d rag -c "DELETE FROM documents WHERE collection = '$STEM';"
-```
-
-**Note:** Always use `docker exec` for database operations. Direct psycopg2 connections from host may fail.
-
----
-
 ## Phase 1: PDF to Markdown
 
 ### Step 1: Validate Input
@@ -176,7 +142,7 @@ If any FAIL → STOP and inform user.
 
 ---
 
-## Phase 3: Chunk
+## Phase 3: Chunk + Index
 
 ### Data Model
 
@@ -187,101 +153,58 @@ document   = file name (e.g. "1.Einleitung.md", "2.Grundlagen.md")
 
 **Multiple MD files in one folder:**
 - 1 collection with N documents
-- All files are combined into one JSON
 - Filterable in search: `search(collection="Thesis", document="A_Setup.md")`
 
-### Step 1: Chunk the Document
+**Incremental Indexing:** When adding a new document to an existing collection, `index-dir` handles it — existing chunks for that document are replaced, other documents in the collection are untouched.
 
-```python
-import sys
-sys.path.insert(0, '${CLAUDE_PLUGIN_ROOT}')
-from src.rag.chunker import chunk_workflow
+### Step 1: Run index-dir
 
-chunks = chunk_workflow("data/documents/$STEM/$STEM.md")
-print(f"Created {len(chunks)} chunks")
-```
-
-### Step 2: Save as JSON
-
-```python
-import json
-from datetime import datetime
-
-output = {
-    "source_pdf": "$PDF_PATH",
-    "created": datetime.now().isoformat(),
-    "chunks": [
-        {"index": i, "content": c['content'], "source": c['source']}
-        for i, c in enumerate(chunks)
-    ]
-}
-
-with open("data/documents/$STEM/$STEM.json", "w") as f:
-    json.dump(output, f, indent=2, ensure_ascii=False)
-```
-
-### PHASE 3 REPORT
-
-```
-PHASE 3: Chunk
-==============
-CHUNKS: [N]
-OUTPUT: data/documents/$STEM/$STEM.json
-STATUS: [Success/Failed]
-```
-
----
-
-**STOP** - Ask: "Proceed to Phase 4 (Index)?"
-
----
-
-## Phase 4: Index
-
-**Note:** `index-json` deletes only chunks for documents contained in the JSON file, not the entire collection. Safe for adding new documents to existing collections.
-
-**Incremental Indexing:** When adding a new document to an existing collection, chunk and index it as a **separate JSON** file. Do NOT re-chunk all existing documents into one combined JSON. Each document gets its own `chunk_workflow` + `index-json` call. The collection is determined by the folder name, not by bundling files together.
-
-### Step 1: Index from JSON
+**Single command** — ensures servers are running, chunks all .md files, indexes all chunks:
 
 ```bash
-cd ${CLAUDE_PLUGIN_ROOT} && \
-./venv/bin/python workflow.py index-json \
-  --input data/documents/$STEM/$STEM.json
+cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
+./venv/bin/python workflow.py index-dir --input data/documents/$STEM/
+```
+
+If the document lives in a subdirectory of an existing collection, use `--collection` to override:
+
+```bash
+./venv/bin/python workflow.py index-dir --input data/documents/linkedin/papers/ --collection linkedin
 ```
 
 ### Step 2: Verify
 
 ```bash
-cd ${CLAUDE_PLUGIN_ROOT} && \
+cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
 ./venv/bin/python workflow.py search --query "[topic from PDF]" --top-k 3
 ```
 
-### PHASE 4 REPORT
+### PHASE 3 REPORT
 
 ```
-PHASE 4: Index
-==============
+PHASE 3: Chunk + Index
+=======================
 CHUNKS INDEXED: [N]
 VERIFIED: [Yes/No]
 ```
 
 ---
 
-## Phase 5: Server Lifecycle (End)
+## Phase 4: Server Lifecycle (End)
 
-**STOP** - Ask: "Stop llama-server or keep running for MCP?"
+**STOP** - Ask: "Stop GPU servers or keep running for MCP?"
 
 ### If Stop:
 
 ```bash
-pkill -f llama-server
+cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
+./venv/bin/python workflow.py server stop
 ```
 
-### PHASE 5 REPORT
+### PHASE 4 REPORT
 
 ```
-PHASE 5: Server Lifecycle
+PHASE 4: Server Lifecycle
 =========================
-llama-server: [stopped / kept running for MCP]
+GPU servers: [stopped / kept running for MCP]
 ```

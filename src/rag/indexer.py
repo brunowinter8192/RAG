@@ -121,7 +121,7 @@ def load_chunks_json(json_path: str) -> list[dict]:
     with open(path) as f:
         data = json.load(f)
 
-    collection = path.parent.name
+    collection = data.get("collection", path.parent.name)
     document = data.get("document", path.stem + ".md")
     raw_chunks = data.get("chunks", [])
     total = len(raw_chunks)
