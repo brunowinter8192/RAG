@@ -25,9 +25,11 @@ Local RAG pipeline for Claude Code — index PDFs and websites, search with hybr
 
 ## Prerequisites
 
-- Docker (for PostgreSQL 18 + pgvector)
+- Docker (for PostgreSQL + pgvector)
 - [llama.cpp](https://github.com/ggml-org/llama.cpp) built with GPU support (Metal/CUDA)
 - Python 3.11+
+
+You choose your own models — any llama-server-compatible GGUF works for embedding and reranking. SPLADE uses a fixed HuggingFace model that auto-downloads. All model paths and ports are configured in `.env`.
 
 `mcp-start.sh` auto-starts PostgreSQL and GPU servers on each session. Manual setup is only needed for first-time installation.
 
@@ -43,31 +45,47 @@ python -m venv venv
 cp .env.example .env
 ```
 
-Defaults in `.env.example` work out of the box (PostgreSQL on port 5433, embedding server on 8081).
+**2. Configure `.env`**
 
-**2. Start PostgreSQL**
+Edit `.env` to set your model paths and ports. See `.env.example` for all available options. Key settings:
+
+| Variable | What it does |
+|----------|-------------|
+| `EMBEDDING_MODEL_PATH` | Path to your embedding GGUF model |
+| `RERANKER_MODEL_PATH` | Path to your reranker GGUF model |
+| `LLAMA_SERVER_PATH` | Path to your llama-server binary |
+| `VECTOR_DIMENSION` | Must match your embedding model's output dimension |
+
+Defaults point to `./models/` and `./llama.cpp/build/bin/llama-server`. Ports default to 8081 (embedding), 8082 (reranker), 8083 (SPLADE).
+
+**3. Start PostgreSQL**
 
 ```bash
 docker compose up -d postgres
 ```
 
-**3. Build llama.cpp (macOS Metal)**
+**4. Build llama.cpp**
 
 ```bash
 cd llama.cpp
-cmake -B build -DGGML_METAL=ON
+cmake -B build -DGGML_METAL=ON    # or -DGGML_CUDA=ON for NVIDIA
 cmake --build build --config Release -j --target llama-server
 cd ..
 ```
 
-**4. Download embedding model**
+**5. Download models**
+
+Choose any llama-server-compatible GGUF models. Example (our setup):
 
 ```bash
+# Embedding (4096 dimensions)
 huggingface-cli download Qwen/Qwen3-Embedding-8B-GGUF \
   Qwen3-Embedding-8B-Q8_0.gguf --local-dir ./models/
+
+# Reranker (auto-downloads on first use if using Qwen3-Reranker-0.6B)
 ```
 
-**5. Reranker model** — downloads automatically on first use (~600MB).
+Update `EMBEDDING_MODEL_PATH` and `RERANKER_MODEL_PATH` in `.env` to match your downloaded files.
 
 ## Usage
 

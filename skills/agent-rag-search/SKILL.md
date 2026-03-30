@@ -7,7 +7,14 @@ description: RAG MCP tool reference for search agents
 
 ## GPU Server Prerequisite
 
-GPU servers (llama-server, SPLADE) are required for search/index operations. Startup sequence is defined in the agent definition. The MCP server (list_collections, list_documents, read_document) works without GPU servers.
+GPU servers (llama-server, SPLADE) must be running BEFORE search/index operations. The agent checks health on startup but cannot start servers itself (no access to binaries in plugin context).
+
+**For orchestrators (Opus):** Check health before dispatching. Start if needed:
+`cd <RAG-project-path> && ./venv/bin/python workflow.py server start`
+
+**For direct users:** If the agent reports "GPU servers not running", start them manually from your RAG project directory.
+
+The MCP server (list_collections, list_documents, read_document) works without GPU servers.
 
 ## Tools
 

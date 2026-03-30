@@ -23,40 +23,47 @@ IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "900"))
 TIMESTAMP_DIR = Path("/tmp")
 WATCHDOG_INTERVAL = 30
 
+LLAMA_SERVER_PATH = os.getenv("LLAMA_SERVER_PATH", str(RAG_ROOT / "llama.cpp/build/bin/llama-server"))
+EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-8B-Q8_0.gguf"))
+EMBEDDING_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
+RERANKER_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
+RERANKER_PORT = int(os.getenv("RERANKER_PORT", "8082"))
+SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
+
 _watchdog_started = False
 _watchdog_lock = threading.Lock()
 
 SERVERS = {
     "embedding": {
-        "port": 8081,
-        "health_url": "http://localhost:8081/health",
+        "port": EMBEDDING_PORT,
+        "health_url": f"http://localhost:{EMBEDDING_PORT}/health",
         "cmd": [
-            str(RAG_ROOT / "llama.cpp/build/bin/llama-server"),
-            "-m", str(RAG_ROOT / "models/Qwen3-Embedding-8B-Q8_0.gguf"),
-            "--embedding", "--host", "0.0.0.0", "--port", "8081",
+            LLAMA_SERVER_PATH,
+            "-m", EMBEDDING_MODEL_PATH,
+            "--embedding", "--host", "0.0.0.0", "--port", str(EMBEDDING_PORT),
             "-ngl", "99", "-c", "2048", "-np", "1", "-b", "4096", "-ub", "4096",
         ],
         "timeout": 90,
         "required_for": ["search", "index"],
     },
     "reranker": {
-        "port": 8082,
-        "health_url": "http://localhost:8082/health",
+        "port": RERANKER_PORT,
+        "health_url": f"http://localhost:{RERANKER_PORT}/health",
         "cmd": [
-            str(RAG_ROOT / "llama.cpp/build/bin/llama-server"),
-            "-m", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"),
-            "--rerank", "--host", "0.0.0.0", "--port", "8082",
+            LLAMA_SERVER_PATH,
+            "-m", RERANKER_MODEL_PATH,
+            "--rerank", "--host", "0.0.0.0", "--port", str(RERANKER_PORT),
             "-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096",
         ],
         "timeout": 90,
         "required_for": ["rerank"],
     },
     "splade": {
-        "port": 8083,
-        "health_url": "http://localhost:8083/health",
+        "port": SPLADE_PORT,
+        "health_url": f"http://localhost:{SPLADE_PORT}/health",
         "cmd": [
             str(RAG_ROOT / "venv/bin/python"), "-m", "uvicorn",
-            "src.rag.splade_server:app", "--host", "0.0.0.0", "--port", "8083",
+            "src.rag.splade_server:app", "--host", "0.0.0.0", "--port", str(SPLADE_PORT),
         ],
         "cwd": str(RAG_ROOT),
         "timeout": 60,
