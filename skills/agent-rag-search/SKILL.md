@@ -5,16 +5,9 @@ description: RAG MCP tool reference for search agents
 
 # RAG MCP Tools — Reference
 
-## GPU Server Prerequisite (CRITICAL)
+## GPU Server Prerequisite
 
-Search/index operations require GPU servers (llama-server for embeddings/reranking, SPLADE for sparse search). These run separately from the MCP server.
-
-**Before any search/index call:** Check if GPU servers are running. If not, start them immediately.
-- **Check:** `curl -s localhost:8081/health` — expect `{"status":"ok"}`
-- **Start:** `${CLAUDE_PLUGIN_ROOT}/start.sh`
-- **If `search_hybrid` fails with "Cannot start ... not found":** GPU servers are not running. Start them, wait for readiness, then retry.
-
-The MCP server (list_collections, list_documents, read_document) works without GPU servers.
+GPU servers (llama-server, SPLADE) are required for search/index operations. Startup sequence is defined in the agent definition. The MCP server (list_collections, list_documents, read_document) works without GPU servers.
 
 ## Tools
 
