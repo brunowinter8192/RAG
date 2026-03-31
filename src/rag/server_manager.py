@@ -11,7 +11,7 @@ import httpx
 
 LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
-RAG_ROOT = Path(__file__).parent.parent.parent
+RAG_ROOT = Path(os.getenv("RAG_PROJECT_ROOT", str(Path(__file__).parent.parent.parent)))
 
 logging.basicConfig(
     filename=LOG_DIR / "server_manager.log",

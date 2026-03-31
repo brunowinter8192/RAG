@@ -16,7 +16,21 @@ Local RAG pipeline for Claude Code — index PDFs and websites, search with hybr
 /plugin marketplace add brunowinter8192/claude-plugins
 /plugin install rag
 # Restart session
+```
 
+**After install: configure plugin `.env`**
+
+The plugin cache contains only code. GPU binaries, models, and indexed data live in your local RAG clone. Tell the plugin where to find them:
+
+```bash
+# Point the plugin to your RAG project directory
+echo "RAG_PROJECT_ROOT=/path/to/your/RAG/clone" \
+  >> ~/.claude/plugins/cache/brunowinter-plugins/rag/1.0.0/.env
+```
+
+Replace `/path/to/your/RAG/clone` with the absolute path where you cloned this repo, built `llama.cpp`, and downloaded your models. This file survives plugin updates.
+
+```
 # Index a PDF:
 /rag:pdf-convert /path/to/document.pdf
 
@@ -51,6 +65,7 @@ Edit `.env` to set your model paths and ports. See `.env.example` for all availa
 
 | Variable | What it does |
 |----------|-------------|
+| `RAG_PROJECT_ROOT` | Absolute path to this repo (required for GPU server auto-start) |
 | `EMBEDDING_MODEL_PATH` | Path to your embedding GGUF model |
 | `RERANKER_MODEL_PATH` | Path to your reranker GGUF model |
 | `LLAMA_SERVER_PATH` | Path to your llama-server binary |

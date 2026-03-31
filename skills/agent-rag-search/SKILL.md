@@ -7,12 +7,30 @@ description: RAG MCP tool reference for search agents
 
 ## GPU Server Prerequisite
 
-GPU servers (llama-server, SPLADE) must be running BEFORE search/index operations. The agent checks health on startup but cannot start servers itself (no access to binaries in plugin context).
+GPU servers (llama-server, SPLADE) are required for search/index operations. The agent starts them automatically via the RAG project `start.sh` if not running.
 
-**For orchestrators (Opus):** Check health before dispatching. Start if needed:
-`cd <RAG-project-path> && ./venv/bin/python workflow.py server start`
+**RAG_PROJECT_ROOT Resolution (run BEFORE health check):**
 
-**For direct users:** If the agent reports "GPU servers not running", start them manually from your RAG project directory.
+The plugin cache contains only code — `data/`, `llama.cpp/`, and `models/` live in the user's RAG project directory. Resolve the path in this order:
+
+```bash
+# 1. Read from plugin .env (fastest — set once by user)
+RAG_ROOT=$(grep "^RAG_PROJECT_ROOT=" "${CLAUDE_PLUGIN_ROOT}/.env" 2>/dev/null | cut -d'=' -f2)
+
+# 2. Fallback: locate via llama.cpp marker
+if [ -z "$RAG_ROOT" ]; then
+  RAG_ROOT=$(find ~/Documents -maxdepth 4 -type d -name "llama.cpp" 2>/dev/null | head -1 | xargs -I{} dirname {})
+fi
+
+# 3. Still empty → STOP
+if [ -z "$RAG_ROOT" ]; then
+  echo "RAG_PROJECT_ROOT not found. Add it to ${CLAUDE_PLUGIN_ROOT}/.env"
+  exit 1
+fi
+```
+
+Use `$RAG_ROOT/start.sh` (not `${CLAUDE_PLUGIN_ROOT}/start.sh`) to start GPU servers.
+Document fallback path: `$RAG_ROOT/data/documents/<collection>/` when collection not indexed.
 
 The MCP server (list_collections, list_documents, read_document) works without GPU servers.
 

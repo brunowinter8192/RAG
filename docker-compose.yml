@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: rag
       POSTGRES_DB: rag
     volumes:
-      - rag_postgres_data:/var/lib/postgresql
+      - ./data/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
       interval: 5s
@@ -17,6 +17,3 @@ services:
       retries: 5
 
   # llama-embed removed - using native llama.cpp instead (see start.sh)
-
-volumes:
-  rag_postgres_data:
