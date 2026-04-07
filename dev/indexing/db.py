@@ -25,6 +25,9 @@ def get_connection(db_name: str = "rag_test"):
         password=DB_PASSWORD,
         dbname=db_name,
     )
+    with conn.cursor() as cur:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    conn.commit()
     register_vector(conn)
     return conn
 
