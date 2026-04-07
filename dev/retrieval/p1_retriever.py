@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "indexing"))
 
 import httpx
 
-from p2_embedder import embed, truncate_mrl
+from p2_embedder import embed
 from p3_sparse_embedder import embed_sparse
 from p4_db import get_connection, search_dense, search_sparse, search_hybrid
 
@@ -23,7 +23,7 @@ CANDIDATES = 50
 # Retrieve top results using dense embedding search
 def retrieve_dense(query: str, collection: str, top_k: int = 10) -> list[dict]:
     conn = get_connection()
-    emb = truncate_mrl(embed([query], prefix=INSTRUCT_PREFIX))[0]
+    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
     results = search_dense(conn, emb, collection, CANDIDATES)
     conn.close()
     return results[:top_k]
@@ -41,7 +41,7 @@ def retrieve_sparse(query: str, collection: str, top_k: int = 10) -> list[dict]:
 # Retrieve top results using hybrid RRF fusion of dense + sparse
 def retrieve_hybrid(query: str, collection: str, top_k: int = 10, rrf_k: int = 60) -> list[dict]:
     conn = get_connection()
-    emb = truncate_mrl(embed([query], prefix=INSTRUCT_PREFIX))[0]
+    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
     sparse = embed_sparse([query])[0]
     dense_results = search_dense(conn, emb, collection, CANDIDATES)
     sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)

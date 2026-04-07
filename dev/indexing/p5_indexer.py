@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from p1_chunker import chunk_file
-from p2_embedder import embed, truncate_mrl
+from p2_embedder import embed
 from p3_sparse_embedder import embed_sparse
 from p4_db import store_chunks
 
@@ -29,8 +29,7 @@ def index_file(md_path: str, collection: str, db_conn) -> int:
         batch = chunks[i:i + BATCH_SIZE]
         texts = [c["content"] for c in batch]
         embeddings, sparse_embeddings = _parallel_embed(texts)
-        truncated = truncate_mrl(embeddings)
-        store_chunks(db_conn, batch, truncated, sparse_embeddings)
+        store_chunks(db_conn, batch, embeddings, sparse_embeddings)
 
     logger.info(f"Indexed {total} chunks from {md_path} into {collection}")
     return total
@@ -60,8 +59,7 @@ def index_directory(dir_path: str, collection: str, db_conn) -> dict:
                 batch = chunks[i:i + BATCH_SIZE]
                 texts = [c["content"] for c in batch]
                 embeddings, sparse_embeddings = _parallel_embed(texts)
-                truncated = truncate_mrl(embeddings)
-                store_chunks(db_conn, batch, truncated, sparse_embeddings)
+                store_chunks(db_conn, batch, embeddings, sparse_embeddings)
 
             stats["files"] += 1
             stats["chunks"] += file_chunks

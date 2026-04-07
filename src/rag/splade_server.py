@@ -16,7 +16,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-SPLADE_MODEL = "naver/splade-cocondenser-ensembledistil"
+SPLADE_MODEL = "naver/splade-v3"
 SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
 MAX_ACTIVE_DIMS = 256
 

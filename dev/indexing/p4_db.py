@@ -33,7 +33,7 @@ def get_connection(db_name: str = "rag_test"):
 
 
 # Ensure pgvector extension and documents table exist with given vector dimension
-def ensure_schema(conn, vector_dim: int = 1024) -> None:
+def ensure_schema(conn, vector_dim: int = 4096) -> None:
     with conn.cursor() as cur:
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         cur.execute(f"""
