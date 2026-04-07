@@ -4,10 +4,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from chunker import chunk_file
-from embedder import embed, truncate_mrl
-from sparse_embedder import embed_sparse
-from db import store_chunks
+from p1_chunker import chunk_file
+from p2_embedder import embed, truncate_mrl
+from p3_sparse_embedder import embed_sparse
+from p4_db import store_chunks
 
 logger = logging.getLogger(__name__)
 

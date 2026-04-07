@@ -1,11 +1,15 @@
 # INFRASTRUCTURE
 import logging
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "indexing"))
 
 import httpx
 
-from embedder import embed, truncate_mrl
-from sparse_embedder import embed_sparse
-from db import get_connection, search_dense, search_sparse, search_hybrid
+from p2_embedder import embed, truncate_mrl
+from p3_sparse_embedder import embed_sparse
+from p4_db import get_connection, search_dense, search_sparse, search_hybrid
 
 logger = logging.getLogger(__name__)
 

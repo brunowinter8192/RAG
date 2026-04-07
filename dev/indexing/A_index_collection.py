@@ -9,9 +9,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 import httpx
 
-import chunker as _chunker
-import indexer as _indexer
-import db as _db
+import p1_chunker as _chunker
+import p5_indexer as _indexer
+import p4_db as _db
 
 EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
@@ -60,10 +60,10 @@ def _check_servers() -> None:
             sys.exit(1)
 
 
-# Write MD report to 02_reports/
+# Write MD report to A_index_collection_reports/
 def _write_report(stats: dict, collection: str, chunk_size: int, overlap: int) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_dir = Path(__file__).parent / "02_reports"
+    report_dir = Path(__file__).parent / "A_index_collection_reports"
     report_path = report_dir / f"index_{collection}_{timestamp}.md"
     report_dir.mkdir(parents=True, exist_ok=True)
 

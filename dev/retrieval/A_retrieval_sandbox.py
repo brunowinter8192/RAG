@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 import httpx
 
-import retriever as _retriever
+import p1_retriever as _retriever
 
 EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
@@ -91,10 +91,10 @@ def _run_query(query: str, collection: str, top_k: int, modes: list[str]) -> dic
     return results
 
 
-# Write MD report to 03_reports/
+# Write MD report to A_retrieval_sandbox_reports/
 def _write_report(results_by_query: dict, collection: str, top_k: int, modes: list[str]) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_dir = Path(__file__).parent / "03_reports"
+    report_dir = Path(__file__).parent / "A_retrieval_sandbox_reports"
     report_path = report_dir / f"retrieval_{collection}_{timestamp}.md"
     report_dir.mkdir(parents=True, exist_ok=True)
 
