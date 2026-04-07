@@ -96,6 +96,7 @@ def _write_report(results_by_query: dict, collection: str, top_k: int, modes: li
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_dir = Path(__file__).parent / "03_reports"
     report_path = report_dir / f"retrieval_{collection}_{timestamp}.md"
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     lines = [
         f"# Retrieval Sandbox: {collection}",

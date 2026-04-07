@@ -65,6 +65,7 @@ def _write_report(stats: dict, collection: str, chunk_size: int, overlap: int) -
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_dir = Path(__file__).parent / "02_reports"
     report_path = report_dir / f"index_{collection}_{timestamp}.md"
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     elapsed = stats.get("elapsed", 0)
     total_chunks = stats["chunks"]
