@@ -8,6 +8,107 @@ Scripts for evaluating and profiling the indexing pipeline (chunking, embedding,
 
 ---
 
+## Self-Contained Dev Suite (no src/rag imports)
+
+Standalone modules and scripts for indexing and retrieval experiments. All modules live in `dev/indexing/` and are imported via `sys.path.insert(0, Path(__file__).parent)`. DB: `rag_test` (never `rag`). Vector dim: 1024 (MRL-truncated from 4096).
+
+**Note:** If `rag_test` already has a `documents` table with `vector(4096)` (created by chunking_eval), drop it before using this suite:
+```bash
+docker exec rag-postgres psql -U rag -d rag_test -c "DROP TABLE IF EXISTS documents;"
+```
+
+### Module Files
+
+| File | Purpose |
+|------|---------|
+| `chunker.py` | Recursive char split — `chunk_file(path)`, `chunk_text(text, size, overlap)` |
+| `embedder.py` | Dense embedding client — `embed(texts, prefix)`, `truncate_mrl(embeddings, dims=1024)` |
+| `sparse_embedder.py` | SPLADE client — `embed_sparse(texts)` |
+| `db.py` | DB operations — `get_connection()`, `ensure_schema()`, `store_chunks()`, `search_dense/sparse/hybrid()` |
+| `indexer.py` | Orchestrator — `index_file(path, collection, conn)`, `index_directory(dir, collection, conn)` |
+| `retriever.py` | Retrieval — `retrieve_dense/sparse/hybrid(query, collection, top_k)`, `rerank(query, results, top_k)` |
+
+### Config Defaults
+
+| Parameter | Value |
+|-----------|-------|
+| CHUNK_SIZE | 2000 chars |
+| OVERLAP | 400 chars |
+| MRL dims | 1024 (from 4096) |
+| Batch size | 32 |
+| DB | rag_test, port 5433, user rag |
+
+---
+
+## 02_index_collection.py
+
+**Purpose:** Index a directory of `.md` files into `rag_test` DB with configurable chunking.
+
+**Prerequisites:** Embedding server (port 8081) + SPLADE server (port 8083) must be running.
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--source-dir` | required | Directory with `.md` files |
+| `--collection` | source-dir basename | Collection name in DB |
+| `--chunk-size` | 2000 | Chunk size in chars |
+| `--overlap` | 400 | Overlap in chars |
+
+**Output:** `02_reports/index_<collection>_<timestamp>.md` — config, per-doc stats, totals, errors.
+
+**Usage:**
+```bash
+./venv/bin/python dev/indexing/02_index_collection.py \
+    --source-dir data/documents/RAG_MCP \
+    --collection RAG_MCP
+
+./venv/bin/python dev/indexing/02_index_collection.py \
+    --source-dir data/documents/RAG_MCP \
+    --collection RAG_MCP_500 \
+    --chunk-size 500 --overlap 100
+```
+
+---
+
+## 03_retrieval_sandbox.py
+
+**Purpose:** Test retrieval quality across dense/sparse/hybrid/rerank modes for a set of queries.
+
+**Prerequisites:** Embedding (8081) + SPLADE (8083) for all modes. Reranker (8082) for `hybrid+rerank`.
+
+**Queries JSON format:**
+```json
+["What embedding dimensions does Qwen3 support?", "How does SPLADE work?"]
+```
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--collection` | required | Collection name to query |
+| `--queries` | required | Path to JSON file with query list |
+| `--top-k` | 5 | Results per query per mode |
+| `--modes` | `dense,sparse,hybrid,hybrid+rerank` | Comma-separated modes |
+
+**Output:** `03_reports/retrieval_<collection>_<timestamp>.md` — per query, per mode: rank/score/doc/snippet table.
+
+**Usage:**
+```bash
+./venv/bin/python dev/indexing/03_retrieval_sandbox.py \
+    --collection RAG_MCP \
+    --queries dev/indexing/chunking_eval/datasets/rag_mcp_doc_level.json \
+    --top-k 5 \
+    --modes dense,sparse,hybrid
+
+./venv/bin/python dev/indexing/03_retrieval_sandbox.py \
+    --collection RAG_MCP \
+    --queries dev/indexing/chunking_eval/datasets/rag_mcp_doc_level.json \
+    --modes hybrid+rerank
+```
+
+---
+
 ## chunking_eval/01_chunking_sweep.py
 
 **Purpose:** Evaluate chunking strategy variants (chunk size, overlap, separator set) using Document-Level Recall@K. Because chunk IDs change when chunk size changes, ground truth links queries to documents (not individual chunks).
