@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "indexing"))
 import p2_embedder
 
 COLLECTION = "RAG_MCP"
-DIMENSIONS = [256, 512, 768, 1024]
+DIMENSIONS = [256, 512, 768, 1024, 2048, 4096]
 TOP_K = 10
 QUERIES_PATH = Path(__file__).parent / "queries_rag_mcp.json"
 REPORTS_DIR = Path(__file__).parent / "A_mrl_sweep_reports"
