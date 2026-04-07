@@ -27,6 +27,10 @@
 | Beyond Chunk-Then-Embed: Chunking Taxonomy | arxiv.org (2602.16974) | Paper | index01 | Indexed |
 | Analysis of Fusion Functions for Hybrid Retrieval | dl.acm.org (10.1145/3596512) | Paper | retrieval03 | Indexed |
 | Semantic Reranking (Cross-Encoder Thresholds) | elastic.co | Web | retrieval04 | Reference |
+| Reddit: pgvector SOTA Discussion (14 threads, r/Rag, r/LocalLLaMA, r/MachineLearning, r/LangChain) | reddit.com | Forum | index04 | Referenced |
+| Reddit: Embedding Model SOTA (15 threads, r/Rag, r/LocalLLaMA, r/MachineLearning, r/LangChain) | reddit.com | Forum | index02 | Referenced |
+| Reddit: Chunking for Decoder Models (10 threads, r/Rag, r/LocalLLaMA, r/LangChain) | reddit.com | Forum | index01 | Referenced |
+| pgvector GitHub Releases (v0.8.2 latest, 2026-02-25) | github.com (pgvector/pgvector) | Repo | index04 | Referenced |
 
 **Other RAG Collections:** `searxng` (SearXNG project docs), `TradBot` (trading bot docs)
 
