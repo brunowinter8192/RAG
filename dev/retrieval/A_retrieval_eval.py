@@ -14,12 +14,13 @@ import httpx
 import p1_retriever as _retriever
 
 EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
+SPLADE_HEALTH_URL = "http://localhost:8083/health"
 
 
 # ORCHESTRATOR
 
 def run_eval(collection: str, queries_path: str, top_k: int, modes: list[str]) -> None:
-    _check_embedding_server()
+    _check_servers(modes)
 
     queries = _load_queries(queries_path)
     print(f"Running eval: {len(queries)} queries x {len(modes)} modes on '{collection}' top_k={top_k}")
@@ -42,16 +43,20 @@ def run_eval(collection: str, queries_path: str, top_k: int, modes: list[str]) -
 
 # FUNCTIONS
 
-# Check embedding server is healthy before running
-def _check_embedding_server() -> None:
-    try:
-        resp = httpx.get(EMBEDDING_HEALTH_URL, timeout=3.0)
-        if resp.status_code != 200:
-            print(f"ERROR: embedding server unhealthy (HTTP {resp.status_code}). Start servers: ./start.sh")
+# Check required servers are healthy based on modes
+def _check_servers(modes: list[str]) -> None:
+    checks = [("embedding (8081)", EMBEDDING_HEALTH_URL)]
+    if any(m in modes for m in ["sparse", "hybrid"]):
+        checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
+    for name, url in checks:
+        try:
+            resp = httpx.get(url, timeout=3.0)
+            if resp.status_code != 200:
+                print(f"ERROR: {name} server unhealthy (HTTP {resp.status_code}). Start servers: ./start.sh")
+                sys.exit(1)
+        except Exception as e:
+            print(f"ERROR: {name} server not reachable ({e}). Start servers: ./start.sh")
             sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: embedding server not reachable ({e}). Start servers: ./start.sh")
-        sys.exit(1)
 
 
 # Load query objects from JSON file
@@ -75,6 +80,10 @@ def _run_query(query: str, collection: str, top_k: int, mode: str) -> list[dict]
     try:
         if mode == "dense":
             return _retriever.retrieve_dense(query, collection, top_k)
+        elif mode == "sparse":
+            return _retriever.retrieve_sparse(query, collection, top_k)
+        elif mode == "hybrid":
+            return _retriever.retrieve_hybrid(query, collection, top_k)
         return []
     except Exception as e:
         print(f"WARNING: query failed ({e}): {query[:60]}")
