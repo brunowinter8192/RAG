@@ -72,11 +72,5 @@ RAG/
 ├── dev/                            → [DOCS.md](dev/DOCS.md)
 │   ├── cleanup/                    → [DOCS.md](dev/cleanup/DOCS.md)
 │   ├── indexing/                   → [DOCS.md](dev/indexing/DOCS.md)
-│   │   ├── chunking_eval/
-│   │   ├── embedding_benchmark/
-│   │   ├── indexing_benchmark/
-│   │   └── llama_server/           → [DOCS.md](dev/indexing/llama_server/DOCS.md)
 │   └── retrieval/                  → [DOCS.md](dev/retrieval/DOCS.md)
-│       ├── eval/                   → [DOCS.md](dev/retrieval/eval/DOCS.md)
-│       └── reranker_8b/
 ```

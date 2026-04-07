@@ -1,34 +1,73 @@
-# dev/retrieval/ — Retrieval Pipeline Evaluation
+# dev/retrieval/ — Retrieval Pipeline Dev Suite
 
-Scripts for evaluating and validating the retrieval pipeline (reranker models, retrieval quality).
+Self-contained modules and scripts for retrieval experiments. Imports pipeline modules from `dev/indexing/` (added to `sys.path` automatically).
 
-## Documentation Tree
-
-- [eval/DOCS.md](eval/DOCS.md) — BEIR-format retrieval evaluation suite (pytrec_eval)
+All scripts run from project root:
+```bash
+./venv/bin/python dev/retrieval/<script>.py [args]
+```
 
 ---
 
-## reranker_8b/01_test_8b_reranker.py
+## Pipeline Modules
 
-**Purpose:** Validate that `Qwen3-Reranker-8B-Q8_0.gguf` produces sane relevance scores. Background: mradermacher GGUF conversions of Qwen3-Reranker are known defective (Issue #16407) and produce 0.0 scores for all documents.
-**Input:** None (no arguments). Starts the 8B server on port 8084 and uses the running 0.6B production server on port 8082 for comparison.
-**Output:** Side-by-side score table and validation result (PASS/FAIL) to stdout.
+### p1_retriever.py
 
-**Validation checks:**
-1. Scores are not all 0.0 (defective model indicator)
-2. `score(relevant) > score(irrelevant)` for each test case
-3. Scores in `[0.0, 1.0]` range (warning if outside)
+Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `sys.path` insert.
 
-**Prerequisites:**
-- 0.6B reranker server running on port 8082 (production server — do not stop it)
-- `httpx` installed in venv
-- `models/Qwen3-Reranker-8B-Q8_0.gguf` present
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `retrieve_dense` | `(query, collection, top_k=10) -> list[dict]` | Embed query (instruct prefix + MRL 1024d), cosine search |
+| `retrieve_sparse` | `(query, collection, top_k=10) -> list[dict]` | SPLADE-embed query, sparse cosine search |
+| `retrieve_hybrid` | `(query, collection, top_k=10, rrf_k=60) -> list[dict]` | Dense + sparse search, RRF fusion |
+| `rerank` | `(query, results, top_k=10) -> list[dict]` | Cross-encoder rerank via llama-server port 8082 |
 
-**Interpretation:**
-- `RESULT: 8B model produces valid scores` — model is good, safe to use in production
-- `RESULT: 8B model validation FAILED` — model is defective (likely mradermacher source); keep using 0.6B
+**Dense query prefix:** `Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: `
+
+**Candidates fetched before top_k cutoff:** 50
+
+---
+
+## A_retrieval_sandbox.py
+
+**Purpose:** Test retrieval quality across modes for a set of queries.
+
+**Prerequisites:** Embedding (8081) + SPLADE (8083) for all modes. Reranker (8082) for `hybrid+rerank` only.
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--collection` | required | Collection name to query |
+| `--queries` | required | Path to JSON file with queries list |
+| `--top-k` | 5 | Results per query per mode |
+| `--modes` | `dense,sparse,hybrid,hybrid+rerank` | Comma-separated modes |
+
+**Valid modes:** `dense`, `sparse`, `hybrid`, `hybrid+rerank`
+
+**Queries JSON format:**
+```json
+["What embedding dimensions does Qwen3 support?", "How does SPLADE work?"]
+```
+
+**Output:** `A_retrieval_sandbox_reports/retrieval_<collection>_<timestamp>.md`
+- Per query, per mode: rank/score/document/snippet table (300 char snippets)
 
 **Usage:**
 ```bash
-./venv/bin/python dev/retrieval/reranker_8b/01_test_8b_reranker.py
+./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
+    --collection RAG_MCP \
+    --queries dev/retrieval/queries.json \
+    --top-k 5
+
+./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
+    --collection RAG_MCP \
+    --queries dev/retrieval/queries.json \
+    --modes dense,hybrid
+
+./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
+    --collection RAG_MCP \
+    --queries dev/retrieval/queries.json \
+    --modes hybrid+rerank \
+    --top-k 10
 ```
