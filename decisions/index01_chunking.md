@@ -54,15 +54,14 @@ Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwe
 
 ## Recommendation (SOLL)
 
-Pending — external evidence suggests current 1000 chars (~250 tokens) may be suboptimal for Decoder-based Qwen3-8B. Stella (same Qwen2 architecture family) optimal at 512-1024 tokens (~2000-4000 chars). Own benchmark on Qwen3-8B with realistic corpus needed before setting concrete SOLL (Bead RAG-sfd).
+**Change:** `1000 chars / 200 overlap → 2000 chars / 400 overlap` — Reddit-Research (2026-04-07) confirms decoder-based models (Qwen3/Qwen2 family) benefit from larger chunks. Community consensus: 500-1000 tokens for decoder models. 2000 chars (~500 tokens) with 400 overlap is the pragmatic middle ground. Validated via A_chunking_stats: 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket. Recursive character split with default separators sufficient — semantic chunking not worth the complexity (multiple Reddit threads confirm).
+
+**Keep:** Recursive character split with hierarchical separators (`\n\n` → `\n` → `. ` → `! ` → `? ` → ` `)
 
 ## Offene Fragen
 
-- Optimal chunk size for Qwen3-Embedding-8B specifically — no published benchmark exists
-- Benchmark dataset needed: own RAG_MCP too small, MS-MARCO subset or synthetic dataset?
 - Chunk size × MRL dimension interaction — does 1024d change the optimal chunk size vs 4096d?
-- Henne-Ei: Chunk-size optimal for current config, but config may change after full pipeline eval
-- Structure-based (paragraph) vs fixed-size: "Beyond" paper shows paragraph slightly better — worth testing?
+- Retrieval quality with 2000 chars vs 1000 chars — needs A/B comparison on same queries (pending retrieval eval)
 
 ## Quellen
 
