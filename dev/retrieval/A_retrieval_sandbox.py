@@ -123,13 +123,16 @@ def _write_report(results_by_query: dict, collection: str, top_k: int, modes: li
                 lines.append("_No results._")
                 continue
 
-            lines.append(f"| Rank | Score | Document | Snippet |")
-            lines.append(f"|------|-------|----------|---------|")
             for rank, hit in enumerate(hits, start=1):
                 doc = hit.get("document", "")
                 score = hit.get("score", 0)
-                snippet = hit.get("content", "")[:300].replace("\n", " ").replace("|", "\\|")
-                lines.append(f"| {rank} | {score} | {doc} | {snippet} |")
+                chunk_index = hit.get("chunk_index", "?")
+                content = hit.get("content", "")
+                display_content = content if len(content) <= 400 else content[:-400]
+                lines.append(f"#### Rank {rank} | Score: {score} | Chunk: {chunk_index} | Document: {doc}")
+                lines.append(f"")
+                lines.append(display_content)
+                lines.append(f"")
 
     report_path.write_text("\n".join(lines) + "\n")
     print(f"Report: {report_path}")
