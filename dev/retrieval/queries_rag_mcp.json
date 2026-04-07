@@ -7,7 +7,10 @@
         "www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md",
         "www_thenile_dev__blog__pgvector-080.md"
       ],
-      "rationale": "The CrunchyData HNSW blog explicitly states ef_search defaults to 40 and explains it limits both the number of rows returned and accuracy. The thenile pgvector 0.8.0 post also references SET hnsw.ef_search = 3 in demo queries, showing awareness of the default. This is a precise numerical fact that should uniquely identify the HNSW-focused documents."
+      "expected_snippets": [
+        "_ef_search_ value is set to 40 (which is the default)",
+        "the default hnsw.ef_search of 40, only 4 rows will match on average"
+      ]
     },
     {
       "query": "By how much does Contextual Retrieval combined with reranking reduce the top-20-chunk retrieval failure rate?",
@@ -16,7 +19,10 @@
         "www_anthropic_com__engineering__contextual-retrieval.md",
         "www_anthropic_com__news__contextual-retrieval.md"
       ],
-      "rationale": "Anthropic's Contextual Retrieval post reports the exact figure of 67% reduction (5.7% to 1.9%) when combining Contextual Embeddings, Contextual BM25, and reranking. Both the engineering and news URLs contain identical content and should both be retrieved. This is a highly specific quantitative claim found only in these two documents."
+      "expected_snippets": [
+        "when combined with reranking, by 67%",
+        "top-20-chunk retrieval failure rate by 67% (5.7% → 1.9%)"
+      ]
     },
     {
       "query": "What MRR@10 does SPLADE-v3 achieve on the MS MARCO dev set?",
@@ -24,7 +30,10 @@
       "expected_documents": [
         "arxiv__2403.06789__splade-v3.md"
       ],
-      "rationale": "The SPLADE-v3 paper reports MRR@10 of 40.2 on MS MARCO dev set in Table 1. This is a specific benchmark result from a single paper not replicated elsewhere in the collection. Tests that the retriever correctly identifies the SPLADE paper when queried for this numeric benchmark result."
+      "expected_snippets": [
+        "gets more than 40 MRR @ 10 on the MS MARCO dev set",
+        "SPLADE-v3 | 40.2 | 72.3 | 75.4"
+      ]
     },
     {
       "query": "What embedding dimension does Qwen3-Embedding-8B produce by default?",
@@ -34,7 +43,10 @@
         "arxiv__2511.22240__pipeline-optimization.md",
         "medium.com__mrAryanKumar_comparative-analysis-of-qwen-3-and-bge-m3-embedding-models-for-multilingual-information-retriev.md"
       ],
-      "rationale": "The Qwen3 Embedding paper specifies 4096 dimensions for the 8B model. The pipeline-optimization paper from Cisco also evaluates Qwen3-Embed-8B with 4096 dimensions. The Aryan Kumar medium post lists 4096 as the dimension for the 8B model. All three independently state the same fact, making this a good test of which documents contain this specific technical detail."
+      "expected_snippets": [
+        "Qwen3-Embedding-8B/4096 achieves Top-3 accuracy",
+        "Qwen-3-Embedding-8B: 8B parameters, 4096 dimensions"
+      ]
     },
     {
       "query": "What new index scan feature was introduced in pgvector 0.8.0 to fix partial results when combining HNSW with WHERE clause filters?",
@@ -42,7 +54,10 @@
       "expected_documents": [
         "www_thenile_dev__blog__pgvector-080.md"
       ],
-      "rationale": "The Nile pgvector 0.8.0 release post is the only document focused on this release. It describes iterative index scans: scan the vector index, apply filter, if not enough results repeat the scan. This addresses the well-known problem where filtered HNSW queries returned fewer rows than expected. Unique content to this single document."
+      "expected_snippets": [
+        "Added support for iterative index scans",
+        "Check if enough results are returned. If not, repeat the scan."
+      ]
     },
     {
       "query": "How does Hypothetical Document Embedding (HyDE) work and what is the averaging step?",
@@ -50,7 +65,10 @@
       "expected_documents": [
         "docs_haystack_deepset_ai__docs__hypothetical-document-embeddings-hyde.md"
       ],
-      "rationale": "The Haystack HyDE documentation specifically describes: zero-shot prompt an LLM 5 times to generate hypothetical documents, embed each one, then average the embeddings into a single vector for retrieval. This averaging mechanism is unique to this document in the collection."
+      "expected_snippets": [
+        "this is done five times",
+        "encodes each hypothetical document into an embedding vector and averages them"
+      ]
     },
     {
       "query": "What is the required minimum value of ef_construction relative to m when building an HNSW index?",
@@ -58,7 +76,9 @@
       "expected_documents": [
         "www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md"
       ],
-      "rationale": "The CrunchyData HNSW blog explicitly states ef_construction must be at least 2x the value of m (the relationship is stated directly: 'ef_construction is required to be 2x the value of m'). This implementation constraint is covered in detail only in this document."
+      "expected_snippets": [
+        "_ef_construction_ is required to be 2x the value of _m_"
+      ]
     },
     {
       "query": "Around what embedding dimension does Matryoshka Representation Learning hit a sweet spot for Qwen3-Embedding-0.6B on retrieval quality vs storage cost?",
@@ -66,7 +86,10 @@
       "expected_documents": [
         "medium.com__yashasvimantha_matryoshka-embeddings-finding-the-sweet-spot-between-embedding-size-and-retrieval-quality-for.md"
       ],
-      "rationale": "The Yashasvi Mantha blog post specifically evaluates Matryoshka truncation for Qwen3-Embedding-0.6B on NFCorpus (BEIR), finding the sweet spot around 400-512 dimensions where halving storage causes minimal quality drop, and gains above 650 are negligible. This is the only document in the collection dedicated to this tradeoff analysis."
+      "expected_snippets": [
+        "around the early 400 range is a good trade off",
+        "I will be using a 512 (for some reason I like this number)"
+      ]
     },
     {
       "query": "What are the tradeoffs between cross-encoder rerankers and bi-encoder retrievers in a two-stage retrieval pipeline?",
@@ -77,7 +100,10 @@
         "arxiv__2511.22240__pipeline-optimization.md",
         "docs_vectorchord_ai__vectorchord__use-case__colbert-rerank.md"
       ],
-      "rationale": "Voyage AI's reranker docs explain cross-encoders jointly process query-document pairs for accuracy. The Together AI reranker tutorial demonstrates retrieving top-25 candidates then reranking to top-5. The Cisco pipeline paper shows +9.4pp accuracy gain from reranking. The VectorChord post covers ColBERT token-level late interaction as an alternative. All four address the efficiency-accuracy tradeoff from different angles."
+      "expected_snippets": [
+        "cross-encoders that jointly process a pair of query and document",
+        "fast bi-encoder retrieval followed by accurate cross-encoder reranking"
+      ]
     },
     {
       "query": "How does hybrid search combining dense and sparse retrieval improve retrieval quality compared to using either alone, especially for out-of-domain queries?",
@@ -88,7 +114,11 @@
         "docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md",
         "arxiv__2403.06789__splade-v3.md"
       ],
-      "rationale": "The Fusion Functions paper analyzes why hybrid search works (lexical and semantic are complementary) especially out-of-domain. Anthropic's Contextual Retrieval explains combining BM25 with semantic embeddings. The Together AI contextual RAG tutorial implements RRF fusion. SPLADE-v3 shows how learned sparse models outperform BM25 while complementing dense retrieval. These four together cover the full picture of hybrid retrieval."
+      "expected_snippets": [
+        "the two are complementary in how they model relevance",
+        "especially when applied to out-of-domain datasets",
+        "combining the embeddings and BM25 techniques"
+      ]
     },
     {
       "query": "What is late chunking and how does it preserve contextual information across chunk boundaries compared to traditional chunk-then-embed approaches?",
@@ -97,7 +127,10 @@
         "weaviate_io__blog__late-chunking.md",
         "Beyond_Chunk_Then_Embed_Taxonomy.md"
       ],
-      "rationale": "The Weaviate late chunking blog explains the inversion: embed the full document first to get contextually-aware token embeddings, then pool into chunk embeddings. The Beyond-Chunk-Then-Embed taxonomy paper classifies this as 'contextualized chunking' and compares it systematically against pre-embedding approaches across retrieval tasks. Both documents address the same concept from different depths."
+      "expected_snippets": [
+        "only afterwards dividing these contextually-rich embeddings into chunks",
+        "Segmentation boundaries are then applied to these context-aware representations"
+      ]
     },
     {
       "query": "What is Contextual Retrieval and what two sub-techniques does it combine to reduce retrieval failures?",
@@ -107,7 +140,10 @@
         "www_anthropic_com__news__contextual-retrieval.md",
         "docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md"
       ],
-      "rationale": "Both Anthropic documents define Contextual Retrieval as combining Contextual Embeddings (prepend chunk-specific context before embedding) and Contextual BM25. The Together AI implementation tutorial applies the same technique end-to-end with open-source models. All three address what Contextual Retrieval is and how it works."
+      "expected_snippets": [
+        "uses two sub-techniques: Contextual Embeddings and Contextual BM25",
+        "prepending chunk-specific explanatory context to each chunk before embedding"
+      ]
     },
     {
       "query": "How does SPLADE represent text as sparse embeddings and what makes it more effective than BM25 for neural information retrieval?",
@@ -116,7 +152,10 @@
         "arxiv__2403.06789__splade-v3.md",
         "medium.com__mrAryanKumar_comparative-analysis-of-qwen-3-and-bge-m3-embedding-models-for-multilingual-information-retriev.md"
       ],
-      "rationale": "The SPLADE-v3 paper explains the model produces sparse representations in BERT vocabulary space (~30K dimensions) using learned importance weights, enables query expansion, and outperforms BM25. The Qwen vs BGE-M3 comparison describes BGE-M3's integrated sparse retrieval capability and contrasts it with SPLADE-style approaches. Both cover sparse neural IR at different levels of detail."
+      "expected_snippets": [
+        "SPLADE-v3 vastly outperforms BM25",
+        "Sparse embedding: Lexical weights for each token in the vocabulary"
+      ]
     },
     {
       "query": "What HNSW parameters control the tradeoff between index build speed, index quality, and query accuracy?",
@@ -125,7 +164,10 @@
         "www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md",
         "www_pinecone_io__learn__series__faiss__hnsw.md"
       ],
-      "rationale": "The CrunchyData HNSW blog discusses m, ef_construction, and ef_search parameters with practical advice for pgvector. Pinecone's HNSW guide explains the same parameters from an algorithmic perspective: M controls graph connections, efConstruction the candidate list size during build, and how M_max/M_max0 work in Faiss. Together they cover both the theory and the practical tuning."
+      "expected_snippets": [
+        "index quality tradeoff is controlled via the efConstruction parameter",
+        "modifying three parameters: `M`, `efSearch`, and `efConstruction`"
+      ]
     },
     {
       "query": "How does LLM performance degrade with increasing context length and what factors influence the rate of degradation?",
@@ -133,7 +175,10 @@
       "expected_documents": [
         "research_trychroma_com__context-rot.md"
       ],
-      "rationale": "Chroma's context-rot research is the only document in the collection specifically studying LLM performance degradation with context length. It identifies key factors: needle-question similarity (lower similarity = faster degradation), presence of distractors (non-uniform effect), haystack content type, and haystack structure. Relevant for RAG developers deciding between long-context LLM vs retrieval."
+      "expected_snippets": [
+        "model performance degrades more significantly with increasing input length",
+        "needle-question pairs increases the rate of performance degradation"
+      ]
     },
     {
       "query": "What are the tradeoffs between fixed-size, semantic, and LLM-guided chunking strategies for RAG retrieval quality?",
@@ -145,7 +190,11 @@
         "zilliz_com__learn__guide-to-chunking-strategies-for-rag.md",
         "weaviate_io__blog__late-chunking.md"
       ],
-      "rationale": "This question spans the entire chunking literature. The taxonomy paper provides systematic comparison of all strategies across in-corpus and in-document retrieval. The Chroma evaluating-chunking paper introduces IoU metric and tests ClusterSemanticChunker and LLMChunker. The Fraunhofer chunk-size paper shows optimal sizes vary by dataset (64 tokens for SQuAD, 512-1024 for TechQA). Zilliz covers fixed/semantic/hybrid tradeoffs conceptually. Weaviate covers late chunking as an alternative paradigm. All five are needed for a complete answer."
+      "expected_snippets": [
+        "(64-128 tokens) are optimal for datasets with concise, fact-based answers",
+        "ClusterSemanticChunker , which uses any given embedding model",
+        "Lumber Chunker performs best for in-document retrieval"
+      ]
     },
     {
       "query": "How do Reciprocal Rank Fusion and convex combination score fusion differ in their behavior and which is more suitable for hybrid retrieval?",
@@ -155,7 +204,11 @@
         "docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md",
         "www_anthropic_com__engineering__contextual-retrieval.md"
       ],
-      "rationale": "The Fusion Functions paper (Bruch et al.) is the primary source: it shows RRF is sensitive to its parameters contrary to common belief, and convex combination outperforms RRF in both in-domain and out-of-domain settings. The Together AI contextual RAG tutorial implements RRF with K=60 as the practical choice. Anthropic's Contextual Retrieval mentions rank fusion as part of the pipeline. Together they present both the theoretical analysis and practical implementation."
+      "expected_snippets": [
+        "we find RRF to be sensitive to its parameters",
+        "convex combination outperforms RRF in in-domain and out-of-domain settings",
+        "tuned RRF generalizes poorly to out-of-domain datasets"
+      ]
     },
     {
       "query": "How do Qwen3 embedding models compare to BGE-M3 and GTE models across standard retrieval benchmarks like MTEB?",
@@ -165,7 +218,10 @@
         "medium.com__mrAryanKumar_comparative-analysis-of-qwen-3-and-bge-m3-embedding-models-for-multilingual-information-retriev.md",
         "arxiv__2511.22240__pipeline-optimization.md"
       ],
-      "rationale": "The Qwen3 Embedding paper is the primary source reporting MTEB Multilingual 70.58 and MTEB Code 80.68. The Aryan Kumar comparison explicitly benchmarks Qwen-3 vs BGE-M3 (18.7% advantage on MTEB English, 70.70 vs 59.56). The Cisco pipeline paper evaluates Qwen3-Embed models against GTE and BGE families on a practical retrieval task. All three contribute complementary benchmark results."
+      "expected_snippets": [
+        "70.58 on the MTEB Multilingual benchmark",
+        "Qwen-3 models consistently outperform BGE-M3 across all evaluated dimensions"
+      ]
     },
     {
       "query": "What are the scaling strategies and performance tuning considerations for vector search using pgvector at production scale?",
@@ -176,7 +232,11 @@
         "www_crunchydata_com__blog__scaling-vector-data-with-postgres.md",
         "www_thenile_dev__blog__pgvector-080.md"
       ],
-      "rationale": "This question requires the entire pgvector series. The performance blog covers IVF-FLAT index list sizing and query structure for index utilization. The HNSW blog covers graph-based indexing parameters. The scaling blog covers physical database separation, partial indexes, and partitioning strategies. The pgvector 0.8.0 blog covers the latest iterative scan feature for filtered queries. All four together describe the full production performance picture."
+      "expected_snippets": [
+        "reduce the number of rows in index and reduce the concurrent queries",
+        "Are you setting your `list` size appropriately for your data set?",
+        "pgvector 0.8.0 and iterative scans work as expected"
+      ]
     },
     {
       "query": "What techniques exist for enriching document chunks with surrounding context before indexing to improve RAG retrieval accuracy?",
@@ -189,7 +249,11 @@
         "Beyond_Chunk_Then_Embed_Taxonomy.md",
         "docs_haystack_deepset_ai__docs__hypothetical-document-embeddings-hyde.md"
       ],
-      "rationale": "Multiple documents address context enrichment from different angles. Anthropic's Contextual Retrieval (both URLs) proposes prepending LLM-generated context summaries. The Together AI implementation applies this approach with open-source models. Weaviate's late chunking preserves context by embedding before splitting. The taxonomy paper discusses contextualized chunking as a systematic paradigm. HyDE generates hypothetical documents as a query-side context enrichment. Together they cover the full space of context-enrichment techniques."
+      "expected_snippets": [
+        "prepending chunk-specific explanatory context to each chunk before embedding",
+        "only afterwards dividing these contextually-rich embeddings into chunks",
+        "encodes each hypothetical document into an embedding vector and averages them"
+      ]
     }
   ]
 }
