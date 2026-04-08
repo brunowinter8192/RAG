@@ -12,7 +12,7 @@ See [sources/sources.md](sources/sources.md).
 
 | Component | Implementation | Config |
 |-----------|---------------|--------|
-| **Chunking** | Recursive character split (paragraph → sentence → word) | 1000 chars, 200 overlap |
+| **Chunking** | Recursive character split (paragraph → sentence → word) | 2000 chars, 400 overlap |
 | **Dense Embedding** | Qwen3-Embedding-8B Q8_0 via llama-server | 4096d, port 8081, -c 2048 -np 1 |
 | **Sparse Embedding** | SPLADE++ (cocondenser-ensembledistil) via FastAPI | 30522d sparse, port 8083 |
 | **Storage** | pgvector (PostgreSQL 18, vector + sparsevec) | Sequential scan |

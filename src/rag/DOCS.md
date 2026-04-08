@@ -91,8 +91,8 @@ chunks = chunk_workflow("docs/readme.md", chunk_size=1500, overlap=200)
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | file_path | str | required | Path to file to chunk |
-| chunk_size | int | 1000 | Max characters per chunk |
-| overlap | int | 200 | Overlap between chunks (word-aligned) |
+| chunk_size | int | 2000 | Max characters per chunk |
+| overlap | int | 400 | Overlap between chunks (word-aligned) |
 
 **Chunking (Recursive Split — semantic boundaries):**
 
@@ -114,12 +114,12 @@ get_word_aligned_overlap(text, overlap) -> str  # Returns overlap starting at wo
 **Constants:**
 | Constant | Value | Description |
 |----------|-------|-------------|
-| DEFAULT_CHUNK_SIZE | 1000 | Max characters per chunk |
-| DEFAULT_OVERLAP | 200 | Overlap between chunks (word-aligned) |
+| DEFAULT_CHUNK_SIZE | 2000 | Max characters per chunk |
+| DEFAULT_OVERLAP | 400 | Overlap between chunks (word-aligned) |
 
 **CLI Usage (via workflow.py):**
 ```bash
-./venv/bin/python workflow.py chunk --input docs/readme.md --chunk-size 1500 --overlap 200
+./venv/bin/python workflow.py chunk --input docs/readme.md --chunk-size 1500 --overlap 300
 ```
 
 Produces a JSON file at the same path with `.json` extension, compatible with `index-json`:
@@ -130,8 +130,8 @@ Produces a JSON file at the same path with `.json` extension, compatible with `i
 | Flag | Default | Description |
 |------|---------|-------------|
 | --input | required | Path to markdown file |
-| --chunk-size | 1000 | Target chunk size in chars |
-| --overlap | 200 | Overlap between chunks |
+| --chunk-size | 2000 | Target chunk size in chars |
+| --overlap | 400 | Overlap between chunks |
 | --document | input filename | Document name in JSON output |
 
 ---
