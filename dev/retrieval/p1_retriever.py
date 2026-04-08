@@ -62,6 +62,18 @@ def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7
     return results[:top_k]
 
 
+# Retrieve top results using CC fusion then rerank with cross-encoder
+def retrieve_cc_rerank(query: str, collection: str, top_k: int = 10, alpha: float = 0.7, rerank_candidates: int = 50) -> list[dict]:
+    conn = get_connection()
+    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
+    sparse = embed_sparse([query])[0]
+    dense_results = search_dense(conn, emb, collection, CANDIDATES)
+    sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)
+    results = search_cc(conn, dense_results, sparse_results, alpha)
+    conn.close()
+    return rerank(query, results[:rerank_candidates], top_k)
+
+
 # Rerank results using cross-encoder on port 8082
 def rerank(query: str, results: list[dict], top_k: int = 10) -> list[dict]:
     contents = [r["content"] for r in results]

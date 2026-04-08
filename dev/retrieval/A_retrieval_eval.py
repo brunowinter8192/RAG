@@ -15,6 +15,7 @@ import p1_retriever as _retriever
 
 EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
+RERANKER_HEALTH_URL = "http://localhost:8082/health"
 
 
 # ORCHESTRATOR
@@ -52,6 +53,8 @@ def run_sweep(collection: str, queries_path: str, top_k: int) -> None:
         ("cc", {"alpha": 0.7}),
         ("cc", {"alpha": 0.8}),
         ("cc", {"alpha": 0.9}),
+        ("cc+rerank", {"alpha": 0.8}),
+        ("hybrid+rerank", {"rrf_k": 60}),
     ]
     all_modes = list({cfg[0] for cfg in sweep_configs})
     _check_servers(all_modes)
@@ -77,7 +80,7 @@ def run_sweep(collection: str, queries_path: str, top_k: int) -> None:
                 "snippet_match": snippet_match,
             })
 
-        param_label = f"α={alpha}" if mode == "cc" else (f"K={rrf_k}" if mode == "hybrid" else "-")
+        param_label = f"α={alpha}" if mode.startswith("cc") else (f"K={rrf_k}" if mode.startswith("hybrid") else "-")
         _write_report(query_results, collection, top_k, f"{mode}_{param_label.replace('=', '')}")
 
         avg_doc, avg_snip = _compute_avg_recalls(query_results)
@@ -91,8 +94,10 @@ def run_sweep(collection: str, queries_path: str, top_k: int) -> None:
 # Check required servers are healthy based on modes
 def _check_servers(modes: list[str]) -> None:
     checks = [("embedding (8081)", EMBEDDING_HEALTH_URL)]
-    if any(m in modes for m in ["sparse", "hybrid", "cc"]):
+    if any(m in modes for m in ["sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank"]):
         checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
+    if any("rerank" in m for m in modes):
+        checks.append(("reranker (8082)", RERANKER_HEALTH_URL))
     for name, url in checks:
         try:
             resp = httpx.get(url, timeout=3.0)
@@ -131,6 +136,11 @@ def _run_query(query: str, collection: str, top_k: int, mode: str, alpha: float 
             return _retriever.retrieve_hybrid(query, collection, top_k, rrf_k=rrf_k)
         elif mode == "cc":
             return _retriever.retrieve_cc(query, collection, top_k, alpha=alpha)
+        elif mode == "cc+rerank":
+            return _retriever.retrieve_cc_rerank(query, collection, top_k, alpha=alpha)
+        elif mode == "hybrid+rerank":
+            results = _retriever.retrieve_hybrid(query, collection, top_k * 5, rrf_k=rrf_k)
+            return _retriever.rerank(query, results, top_k)
         return []
     except Exception as e:
         print(f"WARNING: query failed ({e}): {query[:60]}")
