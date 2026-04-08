@@ -35,21 +35,38 @@ RRF is used only in `search_hybrid_workflow()`. The `search_workflow()` (pure de
 
 On academic text, Hybrid outperforms Dense on Recall@10 (0.80 vs 0.73). Hybrid+Rerank is best overall. SPLADE contributes meaningfully on in-domain text.
 
+### RAG_MCP Fusion Sweep (20 queries, 483 chunks — mixed academic+technical, 2026-04-08)
+
+| Mode | Params | Doc Recall @10 | Snippet Recall @10 |
+|---|---|---|---|
+| Dense | - | 77% | 72% |
+| Hybrid (RRF) | K=30 | 80% | 75% |
+| Hybrid (RRF) | K=60 | 80% | 75% |
+| Hybrid (RRF) | K=90 | 80% | 75% |
+| CC | α=0.5 | 80% | 73% |
+| CC | α=0.6 | 80% | 73% |
+| CC | α=0.7 | 80% | 75% |
+| **CC** | **α=0.8** | **80%** | **78%** |
+| CC | α=0.9 | 80% | 72% |
+| CC+Rerank | α=0.8 | 84% | 77% |
+| Hybrid+Rerank | K=60 | 84% | 77% |
+
+**CC α=0.8 is best without reranking** (highest Snippet Recall). RRF is K-insensitive on this collection. CC+Rerank and Hybrid+Rerank converge to same result (reranker normalizes input). Reranker adds +4pp Doc Recall but costs -1pp Snippet Recall and adds ~2s latency per query.
+
 ## Recommendation (SOLL)
 
-- **Keep:** RRF K=60 (standard value, no evidence for tuning)
-- **Keep:** Hybrid as separate MCP tool (`search_hybrid`), not default search path — Dense-only outperforms Hybrid on technical docs
-- **Pending:** RRF K tuning (eval_runner supports `--rrf-k` flag, not yet swept)
-- **Pending:** Convex Combination (CC) as RRF alternative
+- **Change:** RRF K=60 → CC α=0.8 (Convex Combination with min-max normalization). CC outperforms RRF on Snippet Recall (+3pp) while matching Doc Recall. Based on Bruch et al. 2023 ("An Analysis of Fusion Functions for Hybrid Retrieval") and confirmed on RAG_MCP collection.
+- **Keep:** Hybrid as separate MCP tool (`search_hybrid`), not default search path
+- **Keep:** Rerank=False as default — reranker costs 1pp Snippet Recall and adds latency. Only +4pp Doc Recall does not justify the trade-off for MCP tool responses where snippet quality matters more.
 
 ## Offene Fragen
 
-- RRF K tuning: Would K=30 or K=80 change results significantly? Eval suite supports `--rrf-k` flag.
 - Should hybrid be the default search? Currently only via explicit `search_hybrid` tool call. Evidence says: only if Sparse component is fixed.
-- Convex Combination (CC) as alternative to RRF? AutoRAG supports both.
 - Weighted RRF: Give Dense higher weight than Sparse? Not standard RRF but could compensate for weak Sparse.
 
 ## Quellen
 
 - Anthropic contextual-retrieval (RRF for hybrid retrieval)
 - RAG Collection: Pipeline_Optimization_Paper (two-stage retrieval findings)
+- Bruch et al. 2023 "An Analysis of Fusion Functions for Hybrid Retrieval" (ACM TOIS, arXiv:2210.11934)
+- RAG_MCP Fusion Sweep (dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448.md)

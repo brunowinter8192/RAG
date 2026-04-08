@@ -16,7 +16,7 @@ EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
 RERANKER_HEALTH_URL = "http://localhost:8082/health"
 
-ALL_MODES = ["dense", "sparse", "hybrid", "hybrid+rerank"]
+ALL_MODES = ["dense", "sparse", "hybrid", "hybrid+rerank", "cc", "cc+rerank"]
 
 
 # ORCHESTRATOR
@@ -39,9 +39,9 @@ def run_sandbox(collection: str, queries_path: str, top_k: int, modes: list[str]
 # Check required servers are healthy based on modes
 def _check_servers(modes: list[str]) -> None:
     checks = [("embedding (8081)", EMBEDDING_HEALTH_URL)]
-    if any(m in modes for m in ["sparse", "hybrid", "hybrid+rerank"]):
+    if any(m in modes for m in ["sparse", "hybrid", "hybrid+rerank", "cc", "cc+rerank"]):
         checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
-    if "hybrid+rerank" in modes:
+    if any("rerank" in m for m in modes):
         checks.append(("reranker (8082)", RERANKER_HEALTH_URL))
 
     for name, url in checks:
@@ -83,6 +83,10 @@ def _run_query(query: str, collection: str, top_k: int, modes: list[str]) -> dic
             elif mode == "hybrid+rerank":
                 candidates = _retriever.retrieve_hybrid(query, collection, top_k * 5)
                 hits = _retriever.rerank(query, candidates, top_k)
+            elif mode == "cc":
+                hits = _retriever.retrieve_cc(query, collection, top_k)
+            elif mode == "cc+rerank":
+                hits = _retriever.retrieve_cc_rerank(query, collection, top_k)
             else:
                 hits = []
             results[mode] = hits
@@ -143,8 +147,8 @@ if __name__ == "__main__":
     parser.add_argument("--collection", required=True, help="Collection name to query")
     parser.add_argument("--queries", required=True, help="Path to JSON file with queries list")
     parser.add_argument("--top-k", type=int, default=5, help="Results per query per mode (default: 5)")
-    parser.add_argument("--modes", default="dense,sparse,hybrid,hybrid+rerank",
-                        help="Comma-separated modes (default: dense,sparse,hybrid,hybrid+rerank)")
+    parser.add_argument("--modes", default="dense,sparse,hybrid,cc",
+                        help="Comma-separated modes (default: dense,sparse,hybrid,cc)")
     args = parser.parse_args()
 
     modes = [m.strip() for m in args.modes.split(",")]
