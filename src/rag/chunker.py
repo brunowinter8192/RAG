@@ -11,8 +11,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-DEFAULT_CHUNK_SIZE = 1000
-DEFAULT_OVERLAP = 200
+DEFAULT_CHUNK_SIZE = 2000
+DEFAULT_OVERLAP = 400
 
 
 # ORCHESTRATOR

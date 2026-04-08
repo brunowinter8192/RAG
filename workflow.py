@@ -27,7 +27,7 @@ def main(command: str, **kwargs) -> None:
             print(r['content'][:500])
 
     elif command == "chunk":
-        chunks = chunk_workflow(kwargs["input"], kwargs.get("chunk_size", 1000), kwargs.get("overlap", 200))
+        chunks = chunk_workflow(kwargs["input"], kwargs.get("chunk_size", 2000), kwargs.get("overlap", 400))
         output = {
             "document": kwargs.get("document") or Path(kwargs["input"]).name,
             "chunks": [{"index": i, "content": c["content"]} for i, c in enumerate(chunks)]
@@ -60,8 +60,8 @@ def main(command: str, **kwargs) -> None:
         print(f"Found {len(md_files)} markdown files in {dir_path}")
         if collection:
             print(f"Collection override: {collection}")
-        chunk_size = kwargs.get("chunk_size", 1000)
-        overlap = kwargs.get("overlap", 200)
+        chunk_size = kwargs.get("chunk_size", 2000)
+        overlap = kwargs.get("overlap", 400)
 
         # Ensure GPU servers are running
         print("Checking servers...")
@@ -114,8 +114,8 @@ if __name__ == "__main__":
 
     chunk_parser = subparsers.add_parser("chunk", help="Chunk markdown into JSON")
     chunk_parser.add_argument("--input", required=True, help="Path to markdown file")
-    chunk_parser.add_argument("--chunk-size", type=int, default=1000, help="Target chunk size in chars")
-    chunk_parser.add_argument("--overlap", type=int, default=200, help="Overlap between chunks in chars")
+    chunk_parser.add_argument("--chunk-size", type=int, default=2000, help="Target chunk size in chars")
+    chunk_parser.add_argument("--overlap", type=int, default=400, help="Overlap between chunks in chars")
     chunk_parser.add_argument("--document", help="Document name (default: input filename)")
 
     backfill_parser = subparsers.add_parser("backfill-splade", help="Backfill SPLADE sparse embeddings")
@@ -128,8 +128,8 @@ if __name__ == "__main__":
     index_dir_parser = subparsers.add_parser("index-dir", help="Chunk + index all .md files in a directory")
     index_dir_parser.add_argument("--input", required=True, help="Path to directory with .md files")
     index_dir_parser.add_argument("--collection", help="Override collection name (default: parent folder name)")
-    index_dir_parser.add_argument("--chunk-size", type=int, default=1000, help="Target chunk size in chars")
-    index_dir_parser.add_argument("--overlap", type=int, default=200, help="Overlap between chunks in chars")
+    index_dir_parser.add_argument("--chunk-size", type=int, default=2000, help="Target chunk size in chars")
+    index_dir_parser.add_argument("--overlap", type=int, default=400, help="Overlap between chunks in chars")
 
     server_parser = subparsers.add_parser("server", help="Manage GPU servers (status/start/stop/restart)")
     server_parser.add_argument("server_args", nargs="*", default=["status"], help="action [server_name]")
