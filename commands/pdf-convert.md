@@ -106,23 +106,69 @@ STATUS: [Success/Failed]
 
 ## Phase 2: LLM Cleanup
 
-Agent reads `{stem}.md` (raw state), fixes artifacts via scripts in `/tmp/`, overwrites `{stem}.md` with the clean version.
+Read `{stem}.md` (raw state), fix artifacts via scripts in `/tmp/`, overwrite `{stem}.md` with the clean version.
 
-### Step 1: Run md-cleanup-master
+### Step 1: PDF Cleanup Protocol
 
-Use the Agent tool with subagent_type='rag:md-cleanup-master'.
+You are doing the cleanup directly. Follow this protocol:
 
-Agent will:
-1. Sample file structure
-2. Create cleanup scripts in `/tmp/fix_{issue}_{stem}.py` (NEVER in collection folder)
-3. Overwrite `{stem}.md` with clean version (same path — raw → clean in place)
-4. Report issues fixed
+#### CRITICAL EXECUTION PROTOCOL
 
-### Step 2: Verify Cleanup (you, not the agent)
+1. **FRESH SCRIPTS ONLY:** Always create NEW scripts in `/tmp/` named `/tmp/fix_{issue}_{stem}.py` where `stem = Path(input_file).stem`. Example: for `modulhandbuch_bwl.md` → `/tmp/fix_umlauts_modulhandbuch_bwl.py`. Never write scripts into the collection folder.
+2. **PYTHON FOR METRICS:** Do NOT use Bash variables for word counting. Use simple `wc -w "file"` or a Python script.
+3. **LANGUAGE AWARENESS:** Check document language first (German/English). Apply language-specific OCR fixes.
+4. **DUPLICATE DETECTION:** Check for OCR duplicate headers:
+   - Pattern: Line N is garbage run-on, Line N+1 is correct
+   - Action: DELETE the garbage line completely
+5. **DIAGNOSE FIRST:** Use regex that tolerates spaces (fuzzy matching for OCR artifacts)
+6. **ONE SCRIPT PER ISSUE:** Separate scripts for each issue type
+7. **ITERATE:** Fix one category at a time, verify word count after EACH
+8. **NO COLLECTION POLLUTION:** NEVER create subfolders (`debug/`, `raw/`, `tmp/`) inside the collection folder. All process artifacts go to `/tmp/`.
 
-**CRITICAL:** Never trust subagent output. Verify independently.
+#### Spaced Artifacts to Detect
 
-1. **Grep for claimed fixes** - For each pattern the agent claims to have fixed, grep BOTH raw and clean file:
+- LaTeX: `\ f r a c`, `\ s u m`, `\ m a t h r m`
+- Images: `! [ ] ( ... )` with spaces between chars
+- Split words: "mod els", "alg orithm"
+
+#### Task Requirements
+
+1. Fix safe artifacts (LaTeX unwrap, broken images, encoding, HTML entities)
+2. Conservative paragraph merge: Only merge hyphenated line-end splits
+3. Dictionary-based word healing: Load `/usr/share/dict/words` OR build vocabulary from document
+
+#### Validation Requirements (MANDATORY)
+
+1. Capture word count BEFORE and AFTER
+2. Word count must be stable (+/- 1%)
+3. Check for run-on words (iscentral, tothe, ofthe)
+4. If word count drops >2% or run-on words found: ABORT and report
+
+#### Workflow
+
+1. **Diagnose:** Scan for all issue types (broken_images, encoding, split_words, etc.)
+2. **Backup:** `cp "{input_file}" "/tmp/backup_{stem}.md"` — do this BEFORE any modification. If a fix goes wrong, restore via `cp /tmp/backup_{stem}.md "{input_file}"`.
+3. **Fix Loop:** For each issue type, create `/tmp/fix_{issue_type}_{stem}.py`, run, verify count reaches 0
+4. **Report:** Per-issue counts (before -> after), scripts created, final status
+
+#### Output Format
+
+```
+ISSUES FOUND:
+- [issue_type]: [count] occurrences
+
+FIXES APPLIED:
+- [issue_type]: [before] -> [after] ([script_name])
+
+WORD COUNT: [before] -> [after] ([+/- %])
+STATUS: [CLEAN / ISSUES_REMAINING / ABORTED]
+```
+
+### Step 2: Verify Cleanup
+
+**CRITICAL:** Verify your own cleanup independently before proceeding.
+
+1. **Grep for claimed fixes** - For each pattern you claim to have fixed, grep BOTH raw and clean file:
    - Raw file must show matches (confirms pattern existed)
    - Clean file must show 0 matches (confirms fix applied)
 2. **Stichprobe Content** - Read 10-15 lines from the middle of both files side-by-side, confirm no content loss beyond the fixes

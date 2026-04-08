@@ -13,7 +13,7 @@ MD Directory: $ARGUMENTS
 
 ```
 directory/*.md (raw crawl4ai output)
- ↓ web-md-cleanup agent (remove nav, footer, UI chrome)
+ ↓ web-md-cleanup (remove nav, footer, UI chrome)
 directory/*.md (cleaned)
  ↓ workflow.py index-dir (ensures servers, chunks, indexes — one call)
 indexed in RAG
@@ -48,30 +48,125 @@ ls "$MD_DIR"/*.md | wc -l
 
 If no MD files found, ask for correct path.
 
-### Step 2: Run web-md-cleanup agent
+### Step 2: Web MD Cleanup Protocol
 
-Use the Task tool with subagent_type='web-md-cleanup'.
+You are doing the cleanup directly. Follow this protocol:
 
-Prompt the agent with:
+#### Key Difference from PDF Cleanup
+
+Website markdown has BLOCK-level noise (navigation at top, footer at bottom, repeated across all pages) rather than INLINE noise (OCR artifacts, split words). Cleanup is primarily about identifying and removing entire sections, not fixing individual characters.
+
+#### Website Artifacts to Detect and Remove
+
+**Header/Navigation (top of file)**
+- "Skip to content" / "Zum Inhalt springen" links
+- Main menu / sidebar navigation lists
+- Breadcrumb trails (index | modules | next | previous)
+- Search bars and search input fields
+- Site logos as markdown images
+
+**UI Chrome (anywhere)**
+- Appearance/theme settings (Text size, Width, Color mode)
+- Authentication prompts ("Sign in", "Create account", "Anmelden")
+- Call-to-action elements ("Donate", "Jetzt spenden")
+- "My tools" / "Meine Werkzeuge" sections
+- Language selectors
+
+**Duplicate Table of Contents**
+- Full TOC with URLs appearing BEFORE the actual content heading
+- Same TOC duplicated at END of file
+- Pattern: list of `[ N Title ](full-url#anchor)` entries
+
+**Footer (end of file)**
+- License text (Creative Commons, copyright notices)
+- Privacy policy, Terms of use, Impressum links
+- "Last edited" / "Zuletzt bearbeitet" timestamps
+- Category lists
+- Normdaten / authority control data
+- Platform branding (Wikimedia Foundation, Powered by MediaWiki)
+- Statistics, cookie statements
+- Trailing duplicated title + metadata
+
+**Sphinx Documentation Sites (e.g. SearXNG, ReadTheDocs)**
+
+Sphinx-generated docs have a distinctive pattern. Content is sandwiched between header navigation and a massive footer block. Verified on 278 files: header avg 10.7 lines, footer avg 52.6 lines, total noise ~37% of chars.
+
+Header (top of file, before first `#` heading):
+- `### Navigation` block with index/modules/next/previous links
+- Breadcrumb trail with `»` separators (e.g. `[SearXNG Documentation] » [Admin] » [Page]`)
+- Regex: everything between `<!-- source:` line and first `# ` heading
+
+Footer (after last content line):
+- Logo image line: `[ ![Logo of ...](...) ](...)`
+- `### [Table of Contents]` — biggest noise source, 5-120 lines of nested site-wide navigation links
+- `### Project Links` — 3-5 external links (Source, Wiki, Issues)
+- Second `### Navigation` block with Overview/Previous/Next chapter links
+- `### Quick search` — empty section
+- `### This Page` — "Show Source" link (optional, not in all files)
+- `© Copyright ...` line
+
+Detection strategy: Logo image line (`[ ![Logo`) is the reliable content-end marker. Everything from `[ ![Logo` to EOF is footer noise. Regex: `^\[ !\[Logo of `
+
+Inline noise (`_modules_*` source code files only):
+- `[docs][](URL)` markers before class/function definitions
+- Pattern: `[docs][](https://docs.searxng.org/...)`
+- Regex: `\[docs\]\[]\(https://[^)]*\)`
+
+Edge cases:
+- Some files have NO `# ` heading (e.g. auto-generated redirect pages) — keep content between source comment and logo line
+- Some files are nearly empty after cleanup (<5 lines content) — still output them, don't delete
+- `user_None.md` / `user_{}.md` type files = crawled error pages ("Page not found") — minimal content is expected
+
+#### CRITICAL EXECUTION PROTOCOL
+
+1. **SAMPLE FIRST:** Read 3-5 files to identify common patterns across the crawled site
+2. **ONE SCRIPT FOR ALL:** Create a single `/tmp/clean_web_{dirname}.py` that processes ALL files in the input directory
+3. **PRESERVE `<!-- source: URL -->` COMMENTS:** These are metadata from the crawler, keep them
+4. **FIND THE CONTENT START:** Look for the first real heading (`# Title`) that is NOT navigation
+5. **FIND THE CONTENT END:** Look for patterns like "Normdaten", "Kategorie:", license text, or repeated footer links
+6. **CROSS-FILE PATTERNS:** Navigation that appears identically in multiple files = definitely removable
+7. **OVERWRITE ORIGINALS IN-PLACE:** Write cleaned files back to the input directory (git preserves history for rollback)
+
+#### Script Safety Rules
+
+**CRITICAL — previous runs failed here:**
+- Every `while` loop MUST increment `i` in ALL code paths (including skip/continue paths)
+- Test script on 1 file first, then run on all
+- If a pattern match fails, skip the line and continue — never loop infinitely
+- Use index-based iteration with explicit `i += 1` — never rely on implicit advancement
+- ALWAYS use `python3` (not `python`) to run scripts
+- Use `Path(__file__).parent` for script-relative paths — NEVER hardcode absolute paths like `/Users/...`
+
+#### Workflow
+
+1. **Sample:** Read 3-5 files, identify header/footer boundaries
+2. **Pattern catalog:** List all detected noise patterns with example lines
+3. **Build script:** Create `/tmp/clean_web_{dirname}.py`
+4. **Test:** Run on 1 file first, verify output
+5. **Run:** Process all files in-place (overwrite originals)
+6. **Verify:** Compare file sizes before/after, spot-check 2-3 files
+
+#### Output Format
+
 ```
-Clean up the website-crawled markdown files in this directory.
+FILES PROCESSED: [N]
 
-INPUT DIRECTORY: $MD_DIR
-All .md files in this directory are raw crawl4ai output with website chrome.
+PATTERNS DETECTED:
+- [pattern_name]: found in [N]/[total] files
 
-Sample 3-5 files first to identify common navigation/footer patterns,
-then build a single cleanup script that processes all files.
+CLEANUP RESULTS:
+- Total chars before: [N]
+- Total chars after: [N]
+- Reduction: [X%]
+
+SCRIPT: /tmp/clean_web_{dirname}.py
+OUTPUT: in-place (originals overwritten)
+STATUS: [CLEAN / ISSUES_REMAINING]
 ```
 
-Agent will:
-1. Sample files to identify patterns
-2. Create `debug/clean_web_{dirname}.py`
-3. Run script on all files
-4. Report patterns found and char reduction
+### Step 3: Verify Cleanup
 
-### Step 3: Verify Cleanup (you, not the agent)
-
-**CRITICAL:** Never trust subagent output. Verify independently.
+**CRITICAL:** Verify your own cleanup independently before proceeding.
 
 1. **Spot-check:** Read first 20 lines of 2-3 cleaned files. Should start with content, not navigation.
 2. **Source comments preserved:** `grep -l "<!-- source:" "$MD_DIR"/*.md | wc -l` should equal total file count.
