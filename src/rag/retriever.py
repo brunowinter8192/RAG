@@ -31,6 +31,7 @@ DEFAULT_TOP_K = 5
 HYBRID_CANDIDATES = 50
 RERANK_CANDIDATES = 50
 RRF_K = 60
+CC_ALPHA = 0.8
 DEFAULT_QUERY_PREFIX = "Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "
 
 
@@ -105,7 +106,7 @@ def search_hybrid_workflow(
     vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
     keyword_results = splade_search(conn, query, HYBRID_CANDIDATES, collection, document)
     rrf_top = RERANK_CANDIDATES if rerank else top_k
-    results = rrf_fusion(vector_results, keyword_results, rrf_top)
+    results = cc_fusion(vector_results, keyword_results, rrf_top)
     if rerank:
         results = rerank_workflow(query, results, top_k)
         results = filter_by_score(results, 0.3)
@@ -351,6 +352,32 @@ def rrf_fusion(vector_results: list[dict], keyword_results: list[dict], top_k: i
         scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
         if key not in chunks:
             chunks[key] = r
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    return [{**chunks[key], 'score': round(score, 6)} for key, score in ranked]
+
+
+# Fuse two ranked result lists using Convex Combination with min-max normalization
+def cc_fusion(vector_results: list[dict], keyword_results: list[dict], top_k: int, alpha: float = CC_ALPHA) -> list[dict]:
+    max_vec = max((r['score'] for r in vector_results), default=0.0)
+    max_kw = max((r['score'] for r in keyword_results), default=0.0)
+
+    scores = {}
+    chunks = {}
+
+    if max_vec > 0:
+        for r in vector_results:
+            key = (r['collection'], r['document'], r['chunk_index'])
+            scores[key] = alpha * (r['score'] / max_vec)
+            chunks[key] = r
+
+    if max_kw > 0:
+        for r in keyword_results:
+            key = (r['collection'], r['document'], r['chunk_index'])
+            sparse_contrib = (1 - alpha) * (r['score'] / max_kw)
+            scores[key] = scores.get(key, 0.0) + sparse_contrib
+            if key not in chunks:
+                chunks[key] = r
 
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
     return [{**chunks[key], 'score': round(score, 6)} for key, score in ranked]
