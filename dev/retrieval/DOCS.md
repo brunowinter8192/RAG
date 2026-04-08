@@ -17,9 +17,11 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `retrieve_dense` | `(query, collection, top_k=10) -> list[dict]` | Embed query (instruct prefix + MRL 1024d), cosine search |
+| `retrieve_dense` | `(query, collection, top_k=10) -> list[dict]` | Embed query (instruct prefix), cosine search |
 | `retrieve_sparse` | `(query, collection, top_k=10) -> list[dict]` | SPLADE-embed query, sparse cosine search |
 | `retrieve_hybrid` | `(query, collection, top_k=10, rrf_k=60) -> list[dict]` | Dense + sparse search, RRF fusion |
+| `retrieve_cc` | `(query, collection, top_k=10, alpha=0.7) -> list[dict]` | Dense + sparse search, Convex Combination fusion |
+| `retrieve_cc_rerank` | `(query, collection, top_k=10, alpha=0.7, rerank_candidates=50) -> list[dict]` | CC fusion then cross-encoder rerank |
 | `rerank` | `(query, results, top_k=10) -> list[dict]` | Cross-encoder rerank via llama-server port 8082 |
 
 **Dense query prefix:** `Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: `
@@ -28,11 +30,66 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 
 ---
 
-## A_retrieval_sandbox.py
+## Analysis Scripts
 
-**Purpose:** Test retrieval quality across modes for a set of queries.
+### A_retrieval_eval.py
 
-**Prerequisites:** Embedding (8081) + SPLADE (8083) for all modes. Reranker (8082) for `hybrid+rerank` only.
+**Purpose:** Evaluate retrieval quality against ground truth documents and snippets. Produces per-mode reports with document and snippet recall metrics. Sweep mode runs all fusion parameter combinations in one pass.
+
+**Prerequisites:** Embedding server (8081) always. SPLADE (8083) for sparse, hybrid, cc, cc+rerank, hybrid+rerank modes. Reranker (8082) for any mode containing "rerank".
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--collection` | `RAG_MCP` | Collection name to query |
+| `--queries` | `dev/retrieval/queries_rag_mcp.json` | Queries JSON path |
+| `--top-k` | `10` | Results per query |
+| `--modes` | `dense` | Comma-separated modes |
+| `--alpha` | `0.7` | CC fusion alpha weight for dense (used when mode is `cc`) |
+| `--rrf-k` | `60` | RRF K constant (used when mode is `hybrid`) |
+| `--sweep` | flag | Run full parameter sweep — ignores `--modes` |
+
+**Valid modes:** `dense`, `sparse`, `hybrid`, `cc`, `cc+rerank`, `hybrid+rerank`
+
+**Queries JSON format:**
+```json
+{
+  "queries": [
+    {
+      "query": "What embedding dimensions does Qwen3 support?",
+      "type": "factual",
+      "expected_documents": ["Qwen3_Embedding_Paper"],
+      "expected_snippets": ["Matryoshka Representation Learning"]
+    }
+  ]
+}
+```
+
+**Output:**
+- `A_retrieval_eval_reports/eval_<mode>_<timestamp>.md` — per-mode report with per-query results and summary
+- `A_retrieval_eval_reports/sweep_comparison_<timestamp>.md` — comparison table across all configs (only with `--sweep`)
+
+**Usage:**
+```bash
+./venv/bin/python dev/retrieval/A_retrieval_eval.py \
+    --collection RAG_MCP \
+    --queries dev/retrieval/queries_rag_mcp.json \
+    --modes dense,hybrid,cc
+
+./venv/bin/python dev/retrieval/A_retrieval_eval.py \
+    --modes cc --alpha 0.8
+
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --sweep
+```
+
+---
+
+### A_retrieval_sandbox.py
+
+**Purpose:** Explore retrieval results interactively across modes for a set of ad-hoc queries. No ground truth — outputs raw ranked results per query per mode for manual inspection.
+
+**Prerequisites:** Embedding server (8081) always. SPLADE (8083) for sparse, hybrid, cc, cc+rerank, hybrid+rerank modes. Reranker (8082) for any mode containing "rerank".
 
 **CLI flags:**
 
@@ -40,10 +97,10 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 |------|---------|-------------|
 | `--collection` | required | Collection name to query |
 | `--queries` | required | Path to JSON file with queries list |
-| `--top-k` | 5 | Results per query per mode |
-| `--modes` | `dense,sparse,hybrid,hybrid+rerank` | Comma-separated modes |
+| `--top-k` | `5` | Results per query per mode |
+| `--modes` | `dense,sparse,hybrid,cc` | Comma-separated modes |
 
-**Valid modes:** `dense`, `sparse`, `hybrid`, `hybrid+rerank`
+**Valid modes:** `dense`, `sparse`, `hybrid`, `hybrid+rerank`, `cc`, `cc+rerank`
 
 **Queries JSON format:**
 ```json
@@ -51,7 +108,7 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 ```
 
 **Output:** `A_retrieval_sandbox_reports/retrieval_<collection>_<timestamp>.md`
-- Per query, per mode: rank/score/document/snippet table (300 char snippets)
+- Per query, per mode: rank/score/document/chunk index with content snippet
 
 **Usage:**
 ```bash
@@ -63,11 +120,34 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 ./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
     --collection RAG_MCP \
     --queries dev/retrieval/queries.json \
-    --modes dense,hybrid
+    --modes dense,hybrid,cc
 
 ./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
     --collection RAG_MCP \
     --queries dev/retrieval/queries.json \
-    --modes hybrid+rerank \
+    --modes cc+rerank \
     --top-k 10
 ```
+
+---
+
+### A_mrl_sweep.py
+
+**Purpose:** Sweep embedding dimensions [256, 512, 768, 1024, 2048, 4096] to evaluate dense and hybrid retrieval quality across MRL truncation levels. Collection and dimensions are hardcoded (`COLLECTION = "RAG_MCP"`, `DIMENSIONS = [256, 512, 768, 1024, 2048, 4096]`). Requires full 4096d embeddings already indexed.
+
+**Prerequisites:** Embedding server (8081), SPLADE (8083).
+
+**Output:** `A_mrl_sweep_reports/mrl_sweep_<timestamp>.md`
+
+**Usage:**
+```bash
+./venv/bin/python dev/retrieval/A_mrl_sweep.py
+```
+
+---
+
+## Data Files
+
+### queries_rag_mcp.json
+
+20 queries (8 factual, 7 conceptual, 5 cross-document) with ground truth for the RAG_MCP collection. Used by `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`.

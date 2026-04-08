@@ -49,9 +49,19 @@ Reranker effectiveness is **domain-dependent**, not universally beneficial:
 Adding BGE cross-encoder to GTE-large pipeline: Acc@3 from 0.412 to 0.506 (+9.4pp).
 Reranking bridges ~50% of the gap between 2000-char and 512-char chunking.
 
+### Reranker on CC Fusion (RAG_MCP, 20 queries, 483 chunks — mixed, 2026-04-08)
+
+| Mode | Doc Recall @10 | Snippet Recall @10 |
+|---|---|---|
+| CC α=0.8 | 80% | **78%** |
+| CC+Rerank α=0.8 | **84%** | 77% |
+| Hybrid+Rerank K=60 | **84%** | 77% |
+
+Reranker adds +4pp Doc Recall but costs -1pp Snippet Recall. CC+Rerank = Hybrid+Rerank (reranker normalizes fusion method). For MCP tool responses where snippet quality matters more than document discovery, reranking is not recommended.
+
 ## Recommendation (SOLL)
 
-- **Keep:** `rerank=False` as default — reranker hurts on technical docs (-8.5pp NDCG@3), which is the dominant collection type
+- **Keep:** `rerank=False` as default — reranker hurts on technical docs (-8.5pp NDCG@3), which is the dominant collection type. CC+Rerank tested on RAG_MCP: +4pp Doc Recall, -1pp Snippet Recall — trade-off rejected.
 - **Keep:** Qwen3-Reranker-0.6B model — adequate for academic text (+19.3pp NDCG@3)
 - **Pending:** Domain-dependent rerank config (auto-enable for academic collections, disable for technical docs)
 - **Pending:** Score threshold calibration (0.3 is unvalidated)
@@ -70,3 +80,5 @@ Reranking bridges ~50% of the gap between 2000-char and 512-char chunking.
 - RAG Collection: Qwen3_Embedding_Paper (Qwen3-Reranker architecture and benchmarks)
 - ColBERT + pgvector blog (VectorChord — MaxSim in PostgreSQL)
 - RAG Collection: qwen3reranker (model card details)
+- Bruch et al. 2023 "An Analysis of Fusion Functions for Hybrid Retrieval" (ACM TOIS, arXiv:2210.11934)
+- RAG_MCP Fusion Sweep (dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448.md)
