@@ -9,7 +9,7 @@ import httpx
 
 from p2_embedder import embed
 from p3_sparse_embedder import embed_sparse
-from p4_db import get_connection, search_dense, search_sparse, search_hybrid
+from p4_db import get_connection, search_dense, search_sparse, search_hybrid, search_cc
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,18 @@ def retrieve_hybrid(query: str, collection: str, top_k: int = 10, rrf_k: int = 6
     dense_results = search_dense(conn, emb, collection, CANDIDATES)
     sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)
     results = search_hybrid(conn, dense_results, sparse_results, rrf_k)
+    conn.close()
+    return results[:top_k]
+
+
+# Retrieve top results using Convex Combination fusion of dense + sparse
+def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7) -> list[dict]:
+    conn = get_connection()
+    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
+    sparse = embed_sparse([query])[0]
+    dense_results = search_dense(conn, emb, collection, CANDIDATES)
+    sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)
+    results = search_cc(conn, dense_results, sparse_results, alpha)
     conn.close()
     return results[:top_k]
 

@@ -171,3 +171,29 @@ def search_hybrid(conn, dense_results: list[dict], sparse_results: list[dict], r
 
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     return [{**chunks[key], "score": round(score, 6)} for key, score in ranked]
+
+
+# Fuse dense and sparse results using Convex Combination with min-max normalization
+def search_cc(conn, dense_results: list[dict], sparse_results: list[dict], alpha: float = 0.7) -> list[dict]:
+    max_dense = max((r["score"] for r in dense_results), default=0.0)
+    max_sparse = max((r["score"] for r in sparse_results), default=0.0)
+
+    scores = {}
+    chunks = {}
+
+    if max_dense > 0:
+        for r in dense_results:
+            key = (r["collection"], r["document"], r["chunk_index"])
+            scores[key] = alpha * (r["score"] / max_dense)
+            chunks[key] = r
+
+    if max_sparse > 0:
+        for r in sparse_results:
+            key = (r["collection"], r["document"], r["chunk_index"])
+            sparse_contrib = (1 - alpha) * (r["score"] / max_sparse)
+            scores[key] = scores.get(key, 0.0) + sparse_contrib
+            if key not in chunks:
+                chunks[key] = r
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return [{**chunks[key], "score": round(score, 6)} for key, score in ranked]

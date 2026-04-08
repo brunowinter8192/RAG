@@ -19,7 +19,7 @@ SPLADE_HEALTH_URL = "http://localhost:8083/health"
 
 # ORCHESTRATOR
 
-def run_eval(collection: str, queries_path: str, top_k: int, modes: list[str]) -> None:
+def run_eval(collection: str, queries_path: str, top_k: int, modes: list[str], alpha: float = 0.7, rrf_k: int = 60) -> None:
     _check_servers(modes)
 
     queries = _load_queries(queries_path)
@@ -28,7 +28,7 @@ def run_eval(collection: str, queries_path: str, top_k: int, modes: list[str]) -
     for mode in modes:
         query_results = []
         for entry in queries:
-            hits = _run_query(entry["query"], collection, top_k, mode)
+            hits = _run_query(entry["query"], collection, top_k, mode, alpha=alpha, rrf_k=rrf_k)
             doc_match = _check_document_match(entry["expected_documents"], hits)
             snippet_match = _check_snippet_match(entry["expected_snippets"], hits)
             query_results.append({
@@ -41,12 +41,57 @@ def run_eval(collection: str, queries_path: str, top_k: int, modes: list[str]) -
         _write_report(query_results, collection, top_k, mode)
 
 
+def run_sweep(collection: str, queries_path: str, top_k: int) -> None:
+    sweep_configs = [
+        ("dense", {}),
+        ("hybrid", {"rrf_k": 30}),
+        ("hybrid", {"rrf_k": 60}),
+        ("hybrid", {"rrf_k": 90}),
+        ("cc", {"alpha": 0.5}),
+        ("cc", {"alpha": 0.6}),
+        ("cc", {"alpha": 0.7}),
+        ("cc", {"alpha": 0.8}),
+        ("cc", {"alpha": 0.9}),
+    ]
+    all_modes = list({cfg[0] for cfg in sweep_configs})
+    _check_servers(all_modes)
+
+    queries = _load_queries(queries_path)
+    print(f"Running sweep: {len(queries)} queries x {len(sweep_configs)} configs on '{collection}' top_k={top_k}")
+
+    comparison_rows = []
+
+    for mode, params in sweep_configs:
+        alpha = params.get("alpha", 0.7)
+        rrf_k = params.get("rrf_k", 60)
+
+        query_results = []
+        for entry in queries:
+            hits = _run_query(entry["query"], collection, top_k, mode, alpha=alpha, rrf_k=rrf_k)
+            doc_match = _check_document_match(entry["expected_documents"], hits)
+            snippet_match = _check_snippet_match(entry["expected_snippets"], hits)
+            query_results.append({
+                "entry": entry,
+                "hits": hits,
+                "doc_match": doc_match,
+                "snippet_match": snippet_match,
+            })
+
+        param_label = f"α={alpha}" if mode == "cc" else (f"K={rrf_k}" if mode == "hybrid" else "-")
+        _write_report(query_results, collection, top_k, f"{mode}_{param_label.replace('=', '')}")
+
+        avg_doc, avg_snip = _compute_avg_recalls(query_results)
+        comparison_rows.append((mode, param_label, avg_doc, avg_snip))
+
+    _write_sweep_comparison(comparison_rows)
+
+
 # FUNCTIONS
 
 # Check required servers are healthy based on modes
 def _check_servers(modes: list[str]) -> None:
     checks = [("embedding (8081)", EMBEDDING_HEALTH_URL)]
-    if any(m in modes for m in ["sparse", "hybrid"]):
+    if any(m in modes for m in ["sparse", "hybrid", "cc"]):
         checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
     for name, url in checks:
         try:
@@ -76,14 +121,16 @@ def _load_queries(queries_path: str) -> list[dict]:
 
 
 # Run a single query in one mode and return hits list
-def _run_query(query: str, collection: str, top_k: int, mode: str) -> list[dict]:
+def _run_query(query: str, collection: str, top_k: int, mode: str, alpha: float = 0.7, rrf_k: int = 60) -> list[dict]:
     try:
         if mode == "dense":
             return _retriever.retrieve_dense(query, collection, top_k)
         elif mode == "sparse":
             return _retriever.retrieve_sparse(query, collection, top_k)
         elif mode == "hybrid":
-            return _retriever.retrieve_hybrid(query, collection, top_k)
+            return _retriever.retrieve_hybrid(query, collection, top_k, rrf_k=rrf_k)
+        elif mode == "cc":
+            return _retriever.retrieve_cc(query, collection, top_k, alpha=alpha)
         return []
     except Exception as e:
         print(f"WARNING: query failed ({e}): {query[:60]}")
@@ -173,6 +220,39 @@ def _write_report(query_results: list[dict], collection: str, top_k: int, mode: 
     print(f"Report: {report_path}")
 
 
+# Compute average doc and snippet recall across all query results
+def _compute_avg_recalls(query_results: list[dict]) -> tuple[float, float]:
+    doc_recalls = []
+    snip_recalls = []
+    for qr in query_results:
+        doc_match = qr["doc_match"]
+        snippet_match = qr["snippet_match"]
+        doc_recalls.append(sum(1 for d in doc_match if d["found"]) / len(doc_match) if doc_match else 0)
+        snip_recalls.append(sum(1 for s in snippet_match if s["found"]) / len(snippet_match) if snippet_match else 0)
+    total = len(query_results)
+    return (sum(doc_recalls) / total if total else 0, sum(snip_recalls) / total if total else 0)
+
+
+# Write sweep comparison MD report with all mode/param combinations
+def _write_sweep_comparison(rows: list[tuple]) -> None:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_dir = Path(__file__).parent / "A_retrieval_eval_reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"sweep_comparison_{timestamp}.md"
+
+    lines = [
+        "# Fusion Sweep Comparison",
+        "",
+        "| Mode | Params | Doc Recall | Snippet Recall |",
+        "|------|--------|-----------|----------------|",
+    ]
+    for mode, params, avg_doc, avg_snip in rows:
+        lines.append(f"| {mode} | {params} | {avg_doc:.0%} | {avg_snip:.0%} |")
+
+    report_path.write_text("\n".join(lines) + "\n")
+    print(f"Sweep comparison: {report_path}")
+
+
 # Build summary section with aggregate metrics
 def _build_summary(query_results: list[dict]) -> list[str]:
     total = len(query_results)
@@ -244,7 +324,13 @@ if __name__ == "__main__":
     parser.add_argument("--queries", default="dev/retrieval/queries_rag_mcp.json", help="Queries JSON path")
     parser.add_argument("--top-k", type=int, default=10, help="Results per query (default: 10)")
     parser.add_argument("--modes", default="dense", help="Comma-separated modes (default: dense)")
+    parser.add_argument("--alpha", type=float, default=0.7, help="CC fusion alpha weight for dense (default: 0.7)")
+    parser.add_argument("--rrf-k", type=int, default=60, help="RRF K constant for hybrid mode (default: 60)")
+    parser.add_argument("--sweep", action="store_true", help="Run full parameter sweep (ignores --modes)")
     args = parser.parse_args()
 
-    modes = [m.strip() for m in args.modes.split(",")]
-    run_eval(args.collection, args.queries, args.top_k, modes)
+    if args.sweep:
+        run_sweep(args.collection, args.queries, args.top_k)
+    else:
+        modes = [m.strip() for m in args.modes.split(",")]
+        run_eval(args.collection, args.queries, args.top_k, modes, alpha=args.alpha, rrf_k=args.rrf_k)
