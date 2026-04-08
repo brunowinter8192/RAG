@@ -43,12 +43,13 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `get_connection` | `(db_name="rag_test") -> conn` | psycopg2 connection, creates pgvector extension before registering |
-| `ensure_schema` | `(conn, vector_dim=1024)` | Creates `documents` table with `vector(1024)` + `sparsevec(30522)` if not exists |
+| `ensure_schema` | `(conn, vector_dim=4096)` | Creates `documents` table with `vector(4096)` + `sparsevec(30522)` if not exists |
 | `clear_collection` | `(conn, collection) -> int` | DELETE all chunks for collection, returns count |
 | `store_chunks` | `(conn, chunks, embeddings, sparse_embeddings)` | Bulk INSERT chunks with both embedding types |
 | `search_dense` | `(conn, query_embedding, collection, top_k) -> list[dict]` | Cosine distance on `vector` column |
 | `search_sparse` | `(conn, query_sparse, collection, top_k) -> list[dict]` | Cosine distance on `sparsevec` column |
 | `search_hybrid` | `(conn, dense_results, sparse_results, rrf_k=60) -> list[dict]` | Reciprocal Rank Fusion of two result lists |
+| `search_cc` | `(conn, dense_results, sparse_results, alpha=0.7) -> list[dict]` | Convex Combination fusion with min-max normalization |
 
 ### p5_indexer.py
 
@@ -63,7 +64,7 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 |-----------|-------|
 | CHUNK_SIZE | 2000 chars |
 | OVERLAP | 400 chars |
-| MRL dims | 1024 (truncated from 4096) |
+| MRL dims | 1024 (truncated from 4096d stored in DB) |
 | Batch size | 32 |
 | DB | rag_test, port 5433, user rag |
 
