@@ -1,6 +1,6 @@
 ---
 name: agent-rag-search
-description: RAG CLI tool reference for search agents. Invoke via bash using cli.py. Use when performing semantic search, hybrid search, keyword search, reading documents, listing collections, or listing documents in the RAG vector database.
+description: See ~/.claude/shared-rules/global/cli-skills.md
 ---
 
 # RAG CLI Tools — Reference
