@@ -1,19 +1,13 @@
 {
   "name": "rag",
-  "version": "1.0.0",
-  "description": "RAG system - semantic search over indexed documents via MCP",
+  "version": "1.1.0",
+  "description": "RAG system - semantic search over indexed documents via CLI",
   "author": {
     "name": "Bruno Winter"
   },
   "repository": "https://github.com/brunowinter8192/RAG",
-  "keywords": ["rag", "search", "mcp", "embeddings", "pgvector"],
+  "keywords": ["rag", "search", "cli", "embeddings", "pgvector"],
   "skills": ["./skills/agent-rag-search/", "./skills/agent-md-cleanup/", "./skills/agent-web-md-cleanup/"],
   "agents": ["./agents/rag-search.md", "./agents/md-cleanup-master.md", "./agents/web-md-cleanup.md"],
-  "commands": ["./commands/pdf-convert.md", "./commands/web-md-index.md"],
-  "mcpServers": {
-    "rag": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-start.sh",
-      "args": []
-    }
-  }
+  "commands": ["./commands/pdf-convert.md", "./commands/web-md-index.md"]
 }

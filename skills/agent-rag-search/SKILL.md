@@ -1,9 +1,51 @@
 ---
 name: agent-rag-search
-description: RAG MCP tool reference for search agents
+description: RAG CLI tool reference for search agents. Invoke via bash using cli.py. Use when performing semantic search, hybrid search, keyword search, reading documents, listing collections, or listing documents in the RAG vector database.
 ---
 
-# RAG MCP Tools — Reference
+# RAG CLI Tools — Reference
+
+## CLI Invocation
+
+All tools are invoked via the Bash tool using absolute paths:
+
+```bash
+/Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/venv/bin/python \
+  /Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/cli.py <cmd> [args]
+```
+
+### Quick Reference — All 6 Tools
+
+```bash
+# Discovery
+python cli.py list_collections
+python cli.py list_documents my_collection
+python cli.py list_documents my_collection --document "arxiv_%"
+
+# Search
+python cli.py search_hybrid "transformer attention mechanism" my_collection --top-k 20
+python cli.py search_hybrid "cost function" my_collection --document "paper.md" --neighbors 1
+python cli.py search_hybrid "query" my_collection --no-rerank   # faster, lower precision
+
+python cli.py search "semantic similarity" my_collection --top-k 30 --neighbors 2
+python cli.py search_keyword "learning_rate dropout" my_collection --top-k 20
+
+# Read
+python cli.py read_document my_collection paper.md 42
+python cli.py read_document my_collection paper.md 40 --num-chunks 15
+```
+
+**Always use full absolute paths** when invoking from the Bash tool:
+
+```bash
+/Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/venv/bin/python \
+  /Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/cli.py \
+  search_hybrid "attention is all you need" my_collection --top-k 20
+```
+
+On error (import failure, DB connection refused): the CLI prints to stderr and exits non-zero. Check PostgreSQL (rag-postgres Docker container) and GPU servers are running via `start.sh`.
+
+# RAG CLI Tools — Reference (Detailed)
 
 ## GPU Server Prerequisite
 
