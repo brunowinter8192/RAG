@@ -7,40 +7,31 @@ description: See ~/.claude/shared-rules/global/cli-skills.md
 
 ## CLI Invocation
 
-All tools are invoked via the Bash tool using absolute paths:
+All tools are invoked via the `rag-cli` wrapper (installed at `~/.local/bin/rag-cli`, in PATH):
 
 ```bash
-/Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/venv/bin/python \
-  /Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/cli.py <cmd> [args]
+rag-cli <cmd> [args]
 ```
 
 ### Quick Reference — All 6 Tools
 
 ```bash
 # Discovery
-python cli.py list_collections
-python cli.py list_documents my_collection
-python cli.py list_documents my_collection --document "arxiv_%"
+rag-cli list_collections
+rag-cli list_documents my_collection
+rag-cli list_documents my_collection --document "arxiv_%"
 
 # Search
-python cli.py search_hybrid "transformer attention mechanism" my_collection --top-k 20
-python cli.py search_hybrid "cost function" my_collection --document "paper.md" --neighbors 1
-python cli.py search_hybrid "query" my_collection --no-rerank   # faster, lower precision
+rag-cli search_hybrid "transformer attention mechanism" my_collection --top-k 20
+rag-cli search_hybrid "cost function" my_collection --document "paper.md" --neighbors 1
+rag-cli search_hybrid "query" my_collection --no-rerank   # faster, lower precision
 
-python cli.py search "semantic similarity" my_collection --top-k 30 --neighbors 2
-python cli.py search_keyword "learning_rate dropout" my_collection --top-k 20
+rag-cli search "semantic similarity" my_collection --top-k 30 --neighbors 2
+rag-cli search_keyword "learning_rate dropout" my_collection --top-k 20
 
 # Read
-python cli.py read_document my_collection paper.md 42
-python cli.py read_document my_collection paper.md 40 --num-chunks 15
-```
-
-**Always use full absolute paths** when invoking from the Bash tool:
-
-```bash
-/Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/venv/bin/python \
-  /Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/cli.py \
-  search_hybrid "attention is all you need" my_collection --top-k 20
+rag-cli read_document my_collection paper.md 42
+rag-cli read_document my_collection paper.md 40 --num-chunks 15
 ```
 
 On error (import failure, DB connection refused): the CLI prints to stderr and exits non-zero. Check PostgreSQL (rag-postgres Docker container) and GPU servers are running via `start.sh`.
