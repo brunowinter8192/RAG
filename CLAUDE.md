@@ -1,4 +1,4 @@
-# RAG MCP Server
+# RAG
 
 Hybrid RAG pipeline with dense (Qwen3) + sparse (SPLADE) embeddings, pgvector, and reranking.
 
@@ -26,7 +26,7 @@ See [sources/sources.md](sources/sources.md).
 | **Sparse Search** | SPLADE cosine on sparsevec | top 50 candidates |
 | **Fusion** | Reciprocal Rank Fusion (RRF) | K=60 |
 | **Reranking** | Qwen3-Reranker-0.6B via llama-server | port 8082, cross-encoder |
-| **Delivery** | MCP Tools (FastMCP) | search, search_hybrid, search_keyword, read_document |
+| **Delivery** | CLI subcommands (rag-cli wrapper) | Consumed by agent-rag-search Skill |
 
 ### Key Files
 
@@ -45,10 +45,9 @@ See [sources/sources.md](sources/sources.md).
 
 ```
 RAG/
-├── server.py
+├── cli.py
 ├── workflow.py
 ├── start.sh
-├── mcp-start.sh
 ├── requirements.txt
 ├── DOCS.md                         → [Root Module Docs](DOCS.md)
 ├── README.md                       → [Setup & External Docs](README.md)
