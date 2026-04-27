@@ -377,30 +377,3 @@ When `neighbors > 0`, each result's content is expanded to include adjacent chun
 | RRF_K | 60 | RRF smoothing constant |
 | DEFAULT_QUERY_PREFIX | `"Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "` | Qwen3 instruct prefix applied to all search queries via `embed_query()` |
 
----
-
-## jsonl_to_md.py
-
-**Purpose:** Convert Claude Code JSONL session files to readable Markdown. Extracts tool calls (input + output), task prompt, and final response. Optionally includes dispatch context from the main session (for subagent sessions).
-**Input:** Path to a JSONL session file (Claude Code conversation log). Optional `--dispatch` flag to include the main session's dispatch context.
-**Output:** Markdown file with tool call summary table, task prompt, final response, and per-tool-call detail sections.
-
-**Usage:**
-```bash
-./venv/bin/python src/rag/jsonl_to_md.py \
-    --input ~/.claude/projects/<project>/<session>.jsonl \
-    --output /tmp/session.md
-
-# Include dispatch context (for subagent sessions)
-./venv/bin/python src/rag/jsonl_to_md.py \
-    --input ~/.claude/projects/<project>/agents/<agent-id>.jsonl \
-    --output /tmp/agent_session.md \
-    --dispatch
-```
-
-**Output structure:**
-- `# Dispatch Context` — pre/post-dispatch messages from main session (if `--dispatch`)
-- `# Task Prompt` — first user message
-- `# Tool Call Summary` — compact table: tool name, input brief, output size
-- `# Final Response` — last assistant text block
-- `# Tool Call N: ToolName` — full input + output for each tool call
