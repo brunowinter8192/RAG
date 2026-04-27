@@ -1,379 +1,165 @@
-# src/rag/ - RAG Pipeline Modules
+# src/rag/ — RAG Pipeline Modules
 
-## Working Directory
+## Role
 
-```
-cd /path/to/MCP/RAG
-```
+Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) embedding, PostgreSQL/pgvector storage, retrieval with CC/RRF fusion and cross-encoder reranking, and GPU server lifecycle management. Touch this package when changing retrieval logic, embedding models, search algorithms, indexing behavior, or server startup. Do NOT touch for Skills/Commands (project root) or dev scripts (`dev/`).
 
-## Directory Structure
+## Public Interface
 
-```
-src/rag/
-├── __init__.py
-├── chunker.py
-├── embedder.py
-├── indexer.py
-├── reranker.py
-├── retriever.py
-├── server_manager.py
-├── sparse_embedder.py
-├── splade_server.py
-└── logs/
-```
+`__init__.py` is empty — import directly from sub-modules:
+- `from src.rag.retriever import search_workflow, format_results` — primary entry point (cli.py, workflow.py)
+- `from src.rag.db import get_connection` — direct DB access in scripts
 
----
+## Flow
 
-## embedder.py
+**Retrieval (per query):** `retriever.py` workflow → `db.py` opens connection + validates collection → `search_primitives.py` embeds query and runs vector / BM25 / SPLADE search → `fusion.py` fuses results → `expansion.py` expands neighboring chunks → `reranker.py` re-scores → `formatting.py` serializes output.
 
-**Purpose:** Generate embeddings via llama.cpp server (HTTP API).
+**Indexing (per batch):** `chunker.py` splits document → `indexer.py` embeds chunks via `embedder.py` + `sparse_embedder.py` and inserts into PostgreSQL. `server_manager.py` ensures GPU servers are running before embedding starts.
 
-**Input:** Text or list of texts
-**Output:** List of embedding vectors (list[list[float]])
+## Modules
 
-**Usage:**
-```python
-from src.rag.embedder import embed_workflow
+### db.py (93 LOC)
 
-embeddings = embed_workflow("Your text here")
-embeddings = embed_workflow(["Text 1", "Text 2"])
-
-# With Qwen3 instruct prefix (used internally by retriever.py)
-embeddings = embed_workflow("Your text", prefix="Instruct: ...\nQuery: ")
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| texts | str \| list[str] | required | Text or list of texts to embed |
-| prefix | str \| None | None | Optional prefix prepended to each text (e.g., Qwen3 instruct format) |
-
-**Token Truncation:**
-
-Texts are automatically truncated to ~MAX_TOKENS (4000) before embedding using character-based estimation (no API calls).
-
-```python
-truncate_to_max_tokens(text: str, max: int) -> str  # Truncate using char estimate
-```
-
-**Environment Variables (.env):**
-| Variable | Default | Description |
-|----------|---------|-------------|
-| EMBEDDING_URL | http://localhost:8081/v1/embeddings | llama.cpp server endpoint |
-| EMBEDDING_MODEL | Qwen3-Embedding-8B | Model name for API |
-
-**Constants:**
-| Constant | Value | Description |
-|----------|-------|-------------|
-| MAX_TOKENS | 4000 | Max tokens per embedding request |
-| CHARS_PER_TOKEN | 3 | Conservative char/token ratio for truncation |
-
-**Server lifecycle:** Managed by `server_manager.py`. Auto-starts via `ensure_ready("embedding")`, auto-stops after idle timeout.
+**Purpose:** PostgreSQL connection factory, collection/document queries, and WHERE-clause filter builder shared across retrieval sub-modules.
+**Reads:** `.env` (POSTGRES_* connection params); PostgreSQL `documents` table.
+**Writes:** nothing (read-only queries).
+**Called by:** retriever.py, search_primitives.py, expansion.py
+**Calls out:** psycopg2, pgvector, python-dotenv
 
 ---
 
-## chunker.py
+### embedder.py (62 LOC)
 
-**Purpose:** Split documents into semantic chunks for embedding.
-
-**Input:** File path, chunking strategy
-**Output:** List of chunk dicts with content and metadata
-
-**Usage:**
-```python
-from src.rag.chunker import chunk_workflow
-
-chunks = chunk_workflow("docs/readme.md")
-chunks = chunk_workflow("docs/readme.md", chunk_size=1500, overlap=200)
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| file_path | str | required | Path to file to chunk |
-| chunk_size | int | 2000 | Max characters per chunk |
-| overlap | int | 400 | Overlap between chunks (word-aligned) |
-
-**Chunking (Recursive Split — semantic boundaries):**
-
-Uses hierarchical separators to split at natural boundaries:
-1. `\n\n` (paragraphs)
-2. `\n` (lines)
-3. `. ` / `! ` / `? ` (sentences)
-4. ` ` (words - last resort)
-
-Chunks never break mid-sentence. If a paragraph exceeds chunk_size, it splits at sentence boundaries first.
-
-**Overlap Handling:**
-
-Overlap text is aligned to word boundaries to prevent mid-word cuts:
-```python
-get_word_aligned_overlap(text, overlap) -> str  # Returns overlap starting at word boundary
-```
-
-**Constants:**
-| Constant | Value | Description |
-|----------|-------|-------------|
-| DEFAULT_CHUNK_SIZE | 2000 | Max characters per chunk |
-| DEFAULT_OVERLAP | 400 | Overlap between chunks (word-aligned) |
-
-**CLI Usage (via workflow.py):**
-```bash
-./venv/bin/python workflow.py chunk --input docs/readme.md --chunk-size 1500 --overlap 300
-```
-
-Produces a JSON file at the same path with `.json` extension, compatible with `index-json`:
-```json
-{"document": "readme.md", "chunks": [{"index": 0, "content": "..."}]}
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| --input | required | Path to markdown file |
-| --chunk-size | 2000 | Target chunk size in chars |
-| --overlap | 400 | Overlap between chunks |
-| --document | input filename | Document name in JSON output |
+**Purpose:** HTTP client for the llama-server dense embedding endpoint; auto-starts the embedding GPU server on first call via `server_manager.ensure_ready`.
+**Reads:** `EMBEDDING_URL`, `EMBEDDING_MODEL` from env; llama-server `/v1/embeddings` response.
+**Writes:** nothing.
+**Called by:** search_primitives.py, indexer.py
+**Calls out:** requests
 
 ---
 
-## splade_server.py
+### sparse_embedder.py (47 LOC)
 
-**Purpose:** Standalone FastAPI server generating SPLADE sparse embeddings.
-
-**Model:** `naver/splade-cocondenser-ensembledistil` (110M params, CC BY-NC-SA)
-**Port:** 8083 (configurable via env `SPLADE_PORT`)
-
-**Endpoints:**
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Returns `{"status": "ok"}` |
-| `/v1/sparse-embeddings` | POST | Generate sparse embeddings |
-
-**Request:**
-```json
-{"input": ["text1", "text2"], "model": "splade"}
-```
-
-**Response:**
-```json
-{"data": [{"index": 0, "sparse_vector": {"indices": [1, 42, 7891], "values": [0.82, 0.31, 0.15]}}]}
-```
-
-**Startup:**
-```bash
-bash scripts/start_splade_server.sh
-# or
-./venv/bin/python -m uvicorn src.rag.splade_server:app --host 0.0.0.0 --port 8083
-```
-
-Model loaded once at module level (not per request). First start downloads model from HuggingFace (~440MB).
+**Purpose:** HTTP client for the SPLADE server sparse embedding endpoint; mirrors `embedder.py` interface.
+**Reads:** `SPLADE_URL` from env; SPLADE server `/v1/sparse-embeddings` response.
+**Writes:** nothing.
+**Called by:** search_primitives.py, indexer.py
+**Calls out:** requests
 
 ---
 
-## server_manager.py
+### reranker.py (55 LOC)
 
-**Purpose:** Centralized lifecycle management for all GPU servers (embedding, SPLADE, reranker). Single source of truth for server configs, ports, and startup commands.
-
-**Key functions:**
-
-| Function | Description |
-|----------|-------------|
-| `status()` | Returns running/stopped state, PID, health for all servers |
-| `start(name)` | Start a server with port-check (no duplicates) |
-| `stop(name)` | Stop all processes on a server's port |
-| `restart(name)` | Stop + start |
-| `ensure_ready(target)` | Auto-start server(s) needed for an operation, touch idle timestamp |
-| `start_all()` / `stop_all()` | Batch operations |
-
-**Idle timeout:** Servers auto-stop after 5 minutes without use. Configurable via `RAG_SERVER_IDLE_TIMEOUT` env var (seconds). Cross-project aware via shared timestamp files (`/tmp/rag-server-{name}-last-used`).
-
-**Server definitions:**
-
-| Server | Port | Model | Required for |
-|--------|------|-------|-------------|
-| embedding | 8081 | Qwen3-Embedding-8B-Q8_0 | search, index |
-| reranker | 8082 | qwen3-reranker-0.6b-q8_0 | rerank |
-| splade | 8083 | naver/splade-cocondenser-ensembledistil | search, index |
-
-**CLI:** `./venv/bin/python workflow.py server status|start|stop|restart [name]`
+**Purpose:** HTTP client for the llama-server cross-encoder reranking endpoint; re-scores candidate result lists by query-document relevance.
+**Reads:** `RERANKER_URL` from env; llama-server `/v1/rerank` response.
+**Writes:** nothing.
+**Called by:** retriever.py
+**Calls out:** requests
 
 ---
 
-## sparse_embedder.py
+### search_primitives.py (173 LOC)
 
-**Purpose:** HTTP client for SPLADE server (port 8083). Mirrors `embedder.py` pattern.
-
-**Input:** Text or list of texts
-**Output:** List of sparse vector dicts `[{"indices": [...], "values": [...]}]`
-
-**Usage:**
-```python
-from src.rag.sparse_embedder import sparse_embed_workflow
-
-sparse_vecs = sparse_embed_workflow("Your text here")
-sparse_vecs = sparse_embed_workflow(["Text 1", "Text 2"])
-```
-
-**Server lifecycle:** Managed by `server_manager.py`. Auto-starts via `ensure_ready("splade")`, auto-stops after idle timeout.
-
-**Environment Variables (.env):**
-| Variable | Default | Description |
-|----------|---------|-------------|
-| SPLADE_URL | http://localhost:8083/v1/sparse-embeddings | SPLADE server endpoint |
+**Purpose:** Low-level search functions — `embed_query`, vector cosine search, BM25 full-text search, and SPLADE sparse search against PostgreSQL.
+**Reads:** PostgreSQL `documents` table (via `conn` parameter); embedding and SPLADE servers (via embedder/sparse_embedder).
+**Writes:** nothing.
+**Called by:** retriever.py
+**Calls out:** (none — all via internal modules: db, embedder, sparse_embedder)
 
 ---
 
-## indexer.py
+### fusion.py (52 LOC)
 
-**Purpose:** Index documents into PostgreSQL with pgvector. Handles schema creation, batch embedding + insert, SPLADE backfill, and deletion by collection/document.
-**Input:** Path to `chunks.json` (index), collection name (backfill/delete), or collection+document pair (delete).
-**Output:** Count of indexed or deleted chunks.
-
-### Environment Variables (.env)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| POSTGRES_HOST | localhost | PostgreSQL host |
-| POSTGRES_PORT | 5433 | PostgreSQL port (Docker-mapped) |
-| POSTGRES_USER | rag | Database user |
-| POSTGRES_PASSWORD | rag | Database password |
-| POSTGRES_DB | rag | Database name |
-| VECTOR_DIMENSION | 4096 | Vector dimension |
-
-### Schema
-
-```sql
-CREATE TABLE documents (
-    id SERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    collection TEXT NOT NULL,
-    document TEXT NOT NULL,
-    chunk_index INTEGER NOT NULL,
-    total_chunks INTEGER NOT NULL,
-    embedding vector(4096),
-    tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
-    sparse_embedding sparsevec(30522)
-)
-```
-
-**Indexes:**
-```sql
-CREATE INDEX idx_documents_tsv ON documents USING gin(tsv);
-CREATE UNIQUE INDEX idx_documents_unique ON documents(collection, document, chunk_index);
-```
-
-All schema elements are created automatically by `ensure_schema()` in `indexer.py` (idempotent — safe to run on existing databases).
+**Purpose:** Fuse two ranked result lists via Reciprocal Rank Fusion (`rrf_fusion`) or Convex Combination with min-max normalization (`cc_fusion`). Pure Python, no I/O.
+**Reads:** in-memory result lists.
+**Writes:** nothing.
+**Called by:** retriever.py
+**Calls out:** (none — pure Python)
 
 ---
 
-## reranker.py
+### expansion.py (91 LOC)
 
-**Purpose:** Re-score search results using a cross-encoder model via llama.cpp server (HTTP API).
-
-**Input:** Query string, list of document dicts, top_k
-**Output:** Top-k documents re-scored by cross-encoder relevance
-
-**Usage:**
-```python
-from src.rag.reranker import rerank_workflow
-
-# Rerank search results for higher precision
-reranked = rerank_workflow("authentication patterns", search_results, top_k=5)
-```
-
-**How it works:**
-1. Extracts `content` from each document dict
-2. Sends query + documents to `/v1/rerank` endpoint
-3. Maps relevance scores back to original document dicts
-4. Returns top_k sorted by relevance score (descending)
-
-**Model:** Qwen3-Reranker-8B (GGUF Q8_0, ~7.5GB). Self-converted from HF (`convert_hf_to_gguf.py` → f16, then `llama-quantize` → Q8_0). Verified against Issue #16407 test data — ranking identical to official ggml-org 0.6B.
-
-**Server:** Second llama-server instance (Homebrew) on port 8082 with `--rerank -c 4096 --no-webui` flags. Auto-started on first use (same pattern as embedder.py).
-
-**Environment Variables (.env):**
-| Variable | Default | Description |
-|----------|---------|-------------|
-| RERANKER_URL | http://localhost:8082/v1/rerank | llama.cpp reranker endpoint |
-
-**Constants:**
-| Constant | Value | Description |
-|----------|-------|-------------|
-| RERANKER_HEALTH_URL | http://localhost:8082/health | Health check endpoint |
-| RERANKER_MODEL_PATH | models/Qwen3-Reranker-8B-Q8_0.gguf | Model file path |
+**Purpose:** Expand search hits with neighboring chunks from the same document; merges contiguous ranges with overlap deduplication.
+**Reads:** PostgreSQL `documents` table via `db.fetch_chunk_range`.
+**Writes:** nothing.
+**Called by:** retriever.py
+**Calls out:** (none — internal db dependency only)
 
 ---
 
-## retriever.py
+### formatting.py (38 LOC)
 
-**Purpose:** Search indexed documents via vector cosine similarity.
+**Purpose:** Serialize search results, collections, and document lists as human-readable strings for CLI stdout.
+**Reads:** in-memory result lists.
+**Writes:** nothing.
+**Called by:** retriever.py (imported then re-exported — see Gotchas)
+**Calls out:** (none — pure Python)
 
-**Input:** Query string, optional filters
-**Output:** List of matching chunks with scores
+---
 
-**Usage:**
-```python
-from src.rag.retriever import search_workflow
+### retriever.py (132 LOC)
 
-# Basic search
-results = search_workflow("How to configure authentication?", top_k=5)
+**Purpose:** Workflow orchestration for all six retrieval operations (search, search_hybrid, search_keyword, list_collections, list_documents, read_document). Thin shell composing db, search_primitives, fusion, expansion, formatting, and reranker sub-modules. Re-exports `format_*` functions for cli.py backward compatibility.
+**Reads:** PostgreSQL via db; embedding/SPLADE/reranker servers via search_primitives/reranker.
+**Writes:** `src/rag/logs/retriever.log` (via `logging.basicConfig`).
+**Called by:** cli.py, workflow.py
+**Calls out:** (none — all external calls delegated to sub-modules)
 
-# Filter by collection
-results = search_workflow("pricing", top_k=5, collection="specification")
+---
 
-# Filter by document
-results = search_workflow("query execution", collection="specification", document="specification.md")
+### chunker.py (116 LOC)
 
-# With context expansion (include neighboring chunks)
-results = search_workflow("authentication", top_k=3, neighbors=1)
-```
+**Purpose:** Split markdown documents into semantic chunks using recursive character splitting at paragraph → sentence → word boundaries.
+**Reads:** markdown file from disk.
+**Writes:** nothing (returns chunk list; caller writes JSON).
+**Called by:** workflow.py
+**Calls out:** (none — pure Python)
 
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| query | str | required | Search query |
-| top_k | int | 5 | Number of results (max 20) |
-| collection | str | None | Filter by collection name |
-| document | str | None | Filter by document name |
-| neighbors | int | 0 | Include N chunks before/after each match (0-2) |
+---
 
-**Context Expansion:**
+### indexer.py (268 LOC)
 
-When `neighbors > 0`, each result's content is expanded to include adjacent chunks:
-- `neighbors=1`: Returns [prev_chunk + match + next_chunk]
-- `neighbors=2`: Returns [prev-2 + prev-1 + match + next+1 + next+2]
+**Purpose:** Index chunks into PostgreSQL with dense + sparse embeddings; handles schema creation, batch insert, SPLADE backfill, and deletion by collection/document.
+**Reads:** `chunks.json` from disk; `.env` for connection params; PostgreSQL schema state.
+**Writes:** PostgreSQL `documents` table (insert, delete, schema init).
+**Called by:** workflow.py
+**Calls out:** psycopg2, pgvector, python-dotenv
 
-**Behavior:**
-- Chunks concatenated with `\n\n`
-- Overlapping matches are deduplicated and merged into contiguous blocks
-- Results sorted by document order (collection, document, chunk_index)
-- Edge cases (first/last chunk) handled automatically
+---
 
-**Output Format:**
-```python
-[
-    {
-        "content": "The actual chunk text...",
-        "collection": "specification",
-        "document": "specification.md",
-        "chunk_index": 0,
-        "score": 0.8742  # cosine similarity (1 - distance)
-    }
-]
-```
+### server_manager.py (351 LOC)
 
-**Score Filtering:** Results below 0.5 cosine similarity are automatically removed.
+**Purpose:** Centralized lifecycle manager for all three GPU servers — embedding (port 8081), reranker (8082), SPLADE (8083). Handles start, stop, restart, health check, and idle-timeout auto-stop.
+**Reads:** server health endpoints; `/tmp/rag-server-{name}-last-used` timestamp files; process port occupancy.
+**Writes:** `/tmp/rag-server-{name}-last-used` idle timestamps; spawns/kills server processes.
+**Called by:** embedder.py, sparse_embedder.py, reranker.py, workflow.py (lazy import for `index-dir` and `server` subcommands)
+**Calls out:** requests, subprocess
 
-**Collection Validation:** Raises `ValueError` if collection doesn't exist (lists available collections in error message).
+**Refactor candidate (351 LOC > 300-LOC threshold)** — no concrete pain-points today, tracked as known debt.
 
-**Environment Variables:** Same as indexer.py (PostgreSQL connection)
+---
 
-**Constants:**
-| Constant | Value | Description |
-|----------|-------|-------------|
-| HYBRID_CANDIDATES | 50 | Number of candidates per search method for RRF fusion |
-| RERANK_CANDIDATES | 50 | Number of RRF candidates sent to cross-encoder for reranking |
-| RRF_K | 60 | RRF smoothing constant |
-| DEFAULT_QUERY_PREFIX | `"Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "` | Qwen3 instruct prefix applied to all search queries via `embed_query()` |
+### splade_server.py (67 LOC)
 
+**Purpose:** Standalone FastAPI server that loads the SPLADE model at startup and exposes `/v1/sparse-embeddings` and `/health` on port 8083.
+**Reads:** HuggingFace model (`naver/splade-cocondenser-ensembledistil`) from disk/HF cache at startup.
+**Writes:** nothing.
+**Called by:** (none — subprocess target launched by `server_manager.py`, never imported by Python code)
+**Calls out:** fastapi, uvicorn, torch, transformers
+
+---
+
+## State
+
+| Owner | State | Reads | Writes |
+|---|---|---|---|
+| PostgreSQL `documents` table | All indexed chunks with dense + sparse embeddings | db.py, search_primitives.py | indexer.py (insert/delete/schema) |
+| `/tmp/rag-server-{name}-last-used` | Last-used timestamps for idle-timeout | server_manager.py (idle checker) | server_manager.py (ensure_ready) |
+
+## Gotchas
+
+- **splade_server.py has no Python import callers** — appears as dead code in any import grep but is the subprocess target launched by `server_manager.py`. Do not delete.
+- **retriever.py re-exports format_results / format_collections / format_documents** from `formatting.py`. `cli.py` imports these from `src.rag.retriever`, not `src.rag.formatting`. Keep the import in retriever.py's INFRASTRUCTURE or cli.py breaks.
+- **DEFAULT_QUERY_PREFIX** lives in `search_primitives.py`, not retriever.py — it moved with `embed_query()` during the retriever split refactor.
+- **server_manager.py 351 LOC** — exceeds the 300-LOC refactor threshold. No concrete pain-points today; tracked as known debt.

@@ -1,21 +1,24 @@
-# Delivery (MCP Tools)
+# Delivery (CLI Tools via agent-rag-search Skill)
 
 ## Status Quo (IST)
 
-- FastMCP server started via `mcp-start.sh` (PostgreSQL + FastMCP, no GPU)
-- 6 MCP tools exposed in `server.py`:
-  - `search` — dense-only search with optional reranking
-  - `search_hybrid` — dense + sparse fusion (RRF) with optional reranking
-  - `search_keyword` — sparse-only (SPLADE) search
-  - `list_collections` — list indexed collections
-  - `list_documents` — list documents in a collection
-  - `read_document` — read document chunks sequentially
-- list/read tools work without GPU servers
-- search tools require GPU servers (auto-started on demand by `server_manager.py`)
+- RAG retrieval tools exposed as CLI subcommands in `cli.py`, wrapped by `rag-cli` at `~/.local/bin/rag-cli` (in PATH)
+- Consumed by Claude Code via the `agent-rag-search` Skill (`skills/agent-rag-search/SKILL.md`)
+- PostgreSQL required for all operations; GPU servers auto-started on demand by `server_manager.py`
+- `list_collections`, `list_documents`, `read_document` work without GPU servers; search subcommands require GPU servers
+- Direct CLI integration — no server process required for session start
+| Subcommand | Description |
+|---|---|
+| `search` | Dense vector search (cosine similarity) |
+| `search_hybrid` | Dense + SPLADE + CC fusion; optional cross-encoder reranking |
+| `search_keyword` | BM25 full-text keyword search |
+| `list_collections` | List indexed collections with chunk counts |
+| `list_documents` | List documents in a collection |
+| `read_document` | Read document chunks sequentially |
 
 ## Evidenz
 
-No benchmarks run. Tool interface designed for Claude Code consumption.
+No benchmarks run. Tool interface designed for Claude Code consumption via Skill.
 
 ## Recommendation (SOLL)
 
