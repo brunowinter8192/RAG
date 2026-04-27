@@ -151,3 +151,23 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 ### queries_rag_mcp.json
 
 20 queries (8 factual, 7 conceptual, 5 cross-document) with ground truth for the RAG_MCP collection. Used by `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`.
+
+---
+
+### Current Test Database State
+
+rag_test enthält RAG_MCP (28 Docs / 483 Chunks aus data/documents/RAG_MCP/, 1:1 mit Disk gespiegelt). Production-DB rag enthält wise2627 (3246 Chunks, alte Pipeline-Konfig 1000/200 + 4096d + SPLADE++). Fünf weitere Disk-Collections (searxng, FAUWingMaster, GoetheBWLMaster, linkedin, TradBot) sind nirgends indexiert.
+
+### Query Coverage
+
+20 Queries verweisen auf 24 unique Dokumente, alle 24 sind in rag_test.RAG_MCP vorhanden (kein Drift). 4 indexierte Dokumente werden von keiner Query getestet — anthropic__docs__en__build-with-claude__embeddings.md, docs_haystack_deepset_ai__docs__advanced-rag-techniques.md, docs_together_ai__docs__building-a-rag-workflow.md, docs_together_ai__docs__embeddings-rag.md. Mögliche Distraktoren oder Coverage-Lücke.
+
+### Pipeline Coverage / Friction Boundary
+
+Was die Eval heute prüft: alle Retrieval-Knöpfe ohne Re-Indexing-Bedarf — Modi (dense/sparse/hybrid/cc/cc+rerank/hybrid+rerank), Fusion-Parameter (RRF K, CC α), MRL-Dimension via separates Script.
+
+Was die Eval nicht prüft trotz No-Re-Index-Möglichkeit: BM25/keyword (Code in src/rag/search_primitives.py vorhanden, nicht in p1_retriever.py exposed), top_k-Variation, score_threshold, query_prefix-Ablation.
+
+Was die Eval nicht prüft weil Re-Index nötig: Chunking-Config, Dense-Embedding-Modell, Sparse-Embedding-Modell, Schema-Änderungen.
+
+Wichtig: Eval läuft auf RAG_MCP, Production läuft auf wise2627 — die Eval-Aussagen (CC α=0.8 optimal, Reranker schadet auf technischen Docs) basieren auf RAG_MCP-Inhalten und generalisieren nicht zwingend.
