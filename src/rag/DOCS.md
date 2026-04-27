@@ -12,7 +12,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ## Flow
 
-**Retrieval (per query):** `retriever.py` workflow → `db.py` opens connection + validates collection → `search_primitives.py` embeds query and runs vector / BM25 / SPLADE search → `fusion.py` fuses results → `expansion.py` expands neighboring chunks → `reranker.py` re-scores → `formatting.py` serializes output.
+**Retrieval (per query):** `retriever.py` workflow → `db.py` opens connection + validates collection → `search_primitives.py` embeds query and runs vector / BM25 / SPLADE search → `fusion.py` fuses results → `reranker.py` re-scores → `formatting.py` serializes output. Context expansion (neighboring chunks) is done on demand via `read_document_workflow` using `--before`/`--after`.
 
 **Indexing (per batch):** `chunker.py` splits document → `indexer.py` embeds chunks via `embedder.py` + `sparse_embedder.py` and inserts into PostgreSQL. `server_manager.py` ensures GPU servers are running before embedding starts.
 
@@ -23,7 +23,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 **Purpose:** PostgreSQL connection factory, collection/document queries, and WHERE-clause filter builder shared across retrieval sub-modules.
 **Reads:** `.env` (POSTGRES_* connection params); PostgreSQL `documents` table.
 **Writes:** nothing (read-only queries).
-**Called by:** retriever.py, search_primitives.py, expansion.py
+**Called by:** retriever.py, search_primitives.py
 **Calls out:** psycopg2, pgvector, python-dotenv
 
 ---
@@ -78,16 +78,6 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### expansion.py (91 LOC)
-
-**Purpose:** Expand search hits with neighboring chunks from the same document; merges contiguous ranges with overlap deduplication.
-**Reads:** PostgreSQL `documents` table via `db.fetch_chunk_range`.
-**Writes:** nothing.
-**Called by:** retriever.py
-**Calls out:** (none — internal db dependency only)
-
----
-
 ### formatting.py (38 LOC)
 
 **Purpose:** Serialize search results, collections, and document lists as human-readable strings for CLI stdout.
@@ -98,9 +88,9 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### retriever.py (132 LOC)
+### retriever.py (145 LOC)
 
-**Purpose:** Workflow orchestration for all six retrieval operations (search, search_hybrid, search_keyword, list_collections, list_documents, read_document). Thin shell composing db, search_primitives, fusion, expansion, formatting, and reranker sub-modules. Re-exports `format_*` functions for cli.py backward compatibility.
+**Purpose:** Workflow orchestration for all six retrieval operations (search, search_hybrid, search_keyword, list_collections, list_documents, read_document). Thin shell composing db, search_primitives, fusion, formatting, and reranker sub-modules. Hosts `merge_chunks` + `find_overlap` helpers (chunk context expansion for read_document). Re-exports `format_*` functions for cli.py backward compatibility.
 **Reads:** PostgreSQL via db; embedding/SPLADE/reranker servers via search_primitives/reranker.
 **Writes:** `src/rag/logs/retriever.log` (via `logging.basicConfig`).
 **Called by:** cli.py, workflow.py
