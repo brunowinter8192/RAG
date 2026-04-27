@@ -45,7 +45,7 @@ Replace `/path/to/your/RAG/clone` with the absolute path where you cloned this r
 
 You choose your own models — any llama-server-compatible GGUF works for embedding and reranking. SPLADE uses a fixed HuggingFace model that auto-downloads. All model paths and ports are configured in `.env`.
 
-`mcp-start.sh` auto-starts PostgreSQL and GPU servers on each session. Manual setup is only needed for first-time installation.
+`start.sh` starts PostgreSQL and all GPU servers. Manual setup is only needed for first-time installation.
 
 ## Setup
 
@@ -104,10 +104,12 @@ Update `EMBEDDING_MODEL_PATH` and `RERANKER_MODEL_PATH` in `.env` to match your 
 
 ## Usage
 
-### MCP Tools
+### CLI Subcommands (via `rag-cli`)
 
-| Tool | What it does | When to use |
-|------|-------------|-------------|
+The `agent-rag-search` Skill calls these automatically via the `rag-cli` wrapper. You can also run them directly from the terminal.
+
+| Subcommand | What it does | When to use |
+|------------|-------------|-------------|
 | `search_hybrid` | Hybrid semantic + keyword search with RRF fusion and cross-encoder reranking | Default choice for any collection |
 | `search` | Pure semantic vector search | Conceptual questions, no exact terms needed |
 | `search_keyword` | Exact term matching with stemming | Technical terms, function names, identifiers |
@@ -117,14 +119,9 @@ Update `EMBEDDING_MODEL_PATH` and `RERANKER_MODEL_PATH` in `.env` to match your 
 
 ### Skills & Commands
 
+- **agent-rag-search** Skill — Autonomous search agent. Dispatched automatically for RAG queries. Handles collection discovery, multi-query strategy, and deep reading via `read_document`.
 - `/rag:pdf-convert` — Full PDF→RAG pipeline. Extracts PDF with MinerU, cleans markdown with LLM agent, chunks and indexes into PostgreSQL. Runs in phases with stop points for verification.
 - `/rag:web-md-index` — Website markdown→RAG pipeline. Cleans crawled markdown (removes navigation, footers, UI chrome), then chunks and indexes.
-
-### Agents
-
-- **rag-search** — Autonomous search agent. Handles collection discovery, multi-query search strategy, and deep reading via `read_document`. Dispatched automatically when RAG search is needed.
-- **md-cleanup-master** — Cleans PDF-converted markdown. Fixes OCR artifacts, broken images, spaced LaTeX, and split words.
-- **web-md-cleanup** — Cleans website-crawled markdown. Removes navigation blocks, footers, UI chrome, and duplicate table-of-contents.
 
 ## Workflows
 
@@ -133,14 +130,14 @@ Update `EMBEDDING_MODEL_PATH` and `RERANKER_MODEL_PATH` in `.env` to match your 
 1. PDF extraction (MinerU) → raw markdown
 2. LLM cleanup (md-cleanup-master agent) → clean markdown
 3. Chunking + dense/sparse embedding → PostgreSQL with pgvector
-4. Ready to search via MCP tools
+4. Ready to search via `agent-rag-search` Skill
 
 **Website → RAG**
 
 1. Crawl website (e.g. via SearXNG `/crawl-site`) → markdown files
 2. LLM cleanup (web-md-cleanup agent) → clean markdown
 3. Chunking + dense/sparse embedding → PostgreSQL
-4. Ready to search via MCP tools
+4. Ready to search via `agent-rag-search` Skill
 
 ## Troubleshooting
 
@@ -160,7 +157,7 @@ Verify: `docker ps --filter name=rag-postgres`
 <details>
 <summary>Embedding server not responding (port 8081)</summary>
 
-`mcp-start.sh` starts the embedding server automatically. For manual start:
+GPU servers auto-start on demand when the Skill runs a search. For manual start:
 
 ```bash
 ./venv/bin/python workflow.py server start
@@ -185,7 +182,7 @@ The reranker model (Qwen3-Reranker-0.6B, ~600MB) downloads on first use. Subsequ
 <details>
 <summary>Search returns empty results</summary>
 
-1. Verify the collection exists: `list_collections()` (no GPU servers needed)
+1. Verify the collection exists: `rag-cli list_collections` (no GPU servers needed)
 2. Check that GPU servers are running: `./venv/bin/python workflow.py server status`
 3. If servers are down: `./venv/bin/python workflow.py server start`
 
