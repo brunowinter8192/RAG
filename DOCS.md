@@ -20,16 +20,16 @@
 | `search_keyword` | BM25 full-text keyword search |
 | `list_collections` | All indexed collections with chunk counts |
 | `list_documents` | Documents in a collection |
-| `read_document` | Continuous chunks from a document at a given offset |
+| `read_document` | Anchor chunk plus N chunks before and M chunks after |
 
 **Usage (via `rag-cli` wrapper):**
 ```bash
 rag-cli list_collections
 rag-cli list_documents my_collection
 rag-cli search_hybrid "transformer attention" my_collection --top-k 20
-rag-cli search "semantic similarity" my_collection --top-k 30 --neighbors 2
+rag-cli search "semantic similarity" my_collection --top-k 30
 rag-cli search_keyword "learning_rate dropout" my_collection --top-k 20
-rag-cli read_document my_collection paper.md 42 --num-chunks 15
+rag-cli read_document my_collection paper.md 42 --before 2 --after 5
 ```
 
 ---

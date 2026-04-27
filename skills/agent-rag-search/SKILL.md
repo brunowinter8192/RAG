@@ -23,15 +23,15 @@ rag-cli list_documents my_collection --document "arxiv_%"
 
 # Search
 rag-cli search_hybrid "transformer attention mechanism" my_collection --top-k 20
-rag-cli search_hybrid "cost function" my_collection --document "paper.md" --neighbors 1
+rag-cli search_hybrid "cost function" my_collection --document "paper.md"
 rag-cli search_hybrid "query" my_collection --no-rerank   # faster, lower precision
 
-rag-cli search "semantic similarity" my_collection --top-k 30 --neighbors 2
+rag-cli search "semantic similarity" my_collection --top-k 30
 rag-cli search_keyword "learning_rate dropout" my_collection --top-k 20
 
 # Read
 rag-cli read_document my_collection paper.md 42
-rag-cli read_document my_collection paper.md 40 --num-chunks 15
+rag-cli read_document my_collection paper.md 42 --before 2 --after 5
 ```
 
 On error (import failure, DB connection refused): the CLI prints to stderr and exits non-zero. Check PostgreSQL (rag-postgres Docker container) and GPU servers are running via `start.sh`.
@@ -154,7 +154,6 @@ Deduplicate + rank by content fit, not just score.
 | collection | str | required | Collection to search in |
 | top_k | int | 20 | Number of results (20-50) |
 | document | str | None | Filter by document. `%` as wildcard (e.g. `arxiv__%`) |
-| neighbors | int | 0 | Include N chunks before/after each match (0-2) |
 | rerank | bool | True | Re-score with cross-encoder for higher precision |
 
 **How it works:** Runs 50 vector + 50 BM25 candidates internally, fuses with RRF, optionally reranks with cross-encoder. SPLADE expands synonyms ("revenue" also matches "profit", "earnings").
@@ -171,9 +170,8 @@ Deduplicate + rank by content fit, not just score.
 | collection | str | required | Collection to search in |
 | top_k | int | 20 | Number of results (20-50) |
 | document | str | None | Filter by document. `%` as wildcard |
-| neighbors | int | 0 | Include N chunks before/after (0-2) |
 
-**Context Expansion (neighbors):** `neighbors=1` returns [prev] + [match] + [next]. Overlapping matches are deduplicated and merged.
+**Context expansion:** use `read_document` with `--before`/`--after` on promising hits to read surrounding chunks.
 
 ### search_keyword
 
@@ -194,13 +192,16 @@ Deduplicate + rank by content fit, not just score.
 |-----------|------|---------|-------------|
 | collection | str | required | Collection name |
 | document | str | required | Document name (e.g. "chapter1.md") |
-| start_chunk | int | required | Chunk index to start reading from |
-| num_chunks | int | 5 | Number of chunks to read (1-20) |
+| chunk_index | int | required | Anchor chunk index (from search hit) |
+| before | int | 0 | Chunks to read before the anchor (0–10) |
+| after | int | 0 | Chunks to read after the anchor (0–10) |
+
+**Context expansion:** `read_document(chunk_index=42, before=2, after=5)` returns chunks 40–47. Overlapping chunks are deduplicated and merged.
 
 **Drill-Down Pattern:**
 ```
 1. search_hybrid("concept", collection="docs") → finds Chunk: 42
-2. read_document(start_chunk=40, num_chunks=10) → read full section
+2. read_document(chunk_index=42, before=2, after=5) → read surrounding section
 3. search_keyword("exact_term", collection="docs", document="chapter.md") → find exact definition
 ```
 
@@ -249,7 +250,7 @@ rm -rf data/documents/<name>
 - **GPU servers required** for search/index — MCP server alone only supports list/read operations
 - **search results show 500 char abstract preview** — use read_document for full context
 - **search_keyword uses stemming** — "running" matches "run" but exact phrase matching is not supported
-- **read_document max 20 chunks per call** — for longer sections, make multiple calls with offset
+- **read_document max 10 chunks before + 10 after per call** — for longer sections, make multiple calls with shifted chunk_index
 
 ## Autonomous Operation
 
