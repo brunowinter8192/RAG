@@ -5,8 +5,8 @@
 **Code:** `src/rag/chunker.py` (Plugin: `workflow.py chunk`)
 **Method:** Recursive character split with hierarchical separators
 **Separators:** `\n\n` → `\n` → `. ` → `! ` → `? ` → ` `
-**Config:** 1000 chars target, 200 chars overlap (word-aligned)
-**CLI:** `./venv/bin/python workflow.py chunk --input file.md --chunk-size 1000 --overlap 200`
+**Config:** 2000 chars target, 400 chars overlap (word-aligned)
+**CLI:** `./venv/bin/python workflow.py chunk --input file.md --chunk-size 2000 --overlap 400`
 
 No markdown-awareness (headers not treated as boundaries). No content-adaptive splitting (code, prose, tables treated identically).
 
@@ -54,7 +54,7 @@ Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwe
 
 ## Recommendation (SOLL)
 
-**Change:** `1000 chars / 200 overlap → 2000 chars / 400 overlap` — Reddit-Research (2026-04-07) confirms decoder-based models (Qwen3/Qwen2 family) benefit from larger chunks. Community consensus: 500-1000 tokens for decoder models. 2000 chars (~500 tokens) with 400 overlap is the pragmatic middle ground. Validated via A_chunking_stats: 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket. Recursive character split with default separators sufficient — semantic chunking not worth the complexity (multiple Reddit threads confirm).
+**Keep:** `2000 chars / 400 overlap` — decoder-based models (Qwen3/Qwen2 family) benefit from larger chunks. Community consensus: 500-1000 tokens for decoder models. 2000 chars (~500 tokens) with 400 overlap is the active production default. Validated via A_chunking_stats: 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket. Recursive character split with default separators sufficient — semantic chunking not worth the complexity (multiple Reddit threads confirm).
 
 **Keep:** Recursive character split with hierarchical separators (`\n\n` → `\n` → `. ` → `! ` → `? ` → ` `)
 

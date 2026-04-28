@@ -71,12 +71,12 @@ llama.cpp v638 crashes on Metal/M4 Pro when `-ub 512` with Qwen3-Embedding-8B. S
 
 ## Recommendation (SOLL)
 
-- **Change:** Embedding dimension `4096d → 1024d` — MRL Sweep on 26k chunks confirms 1024d is optimal (best Recall@10, HNSW-compatible). Migration: `UPDATE documents SET embedding = truncate_and_normalize(embedding, 1024)` — no re-embedding needed.
+- **Keep:** 4096d in storage permanently — MRL is one-way: truncation 4096→1024 is always available; promoting 1024→4096 requires full re-embedding. Storage format frozen at 4096d.
+- **Keep:** MRL truncation available on-the-fly — `truncate_mrl(embeddings, dims=1024)` in `dev/indexing/p2_embedder.py`; `dev/retrieval/A_mrl_sweep.py` provides the sweep utility. Apply at query time or eval time without touching the index. The MRL Sweet Spot Evidence (1024d best Recall@10, see Evidenz) justifies availability, not migration.
 - **Keep:** Qwen3-Embedding-8B Q8_0 — still #1 MTEB Multilingual
 - **Keep:** Server config `-c 2048 -np 1 -b 4096 -ub 4096 -ngl 99`
 - **Pending:** Contextual Embeddings (Anthropic) — not evaluated
-
-**Migration blocked:** Wait until complete pipeline eval (all decisions/ SOLL finalized). Then migrate ALL changes in one batch.
+- **Pending:** ColBERT / latency-driven Query-Time MRL — if future ColBERT integration or latency requirements arise, revisit query-time dimension reduction.
 
 ## Offene Fragen
 

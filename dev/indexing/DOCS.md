@@ -1,6 +1,6 @@
 # dev/indexing/ — Indexing Pipeline Dev Suite
 
-Self-contained modules and scripts for indexing experiments. No imports from `src/rag/`. DB: `rag_test` (never `rag`). Vector dim: 1024 (MRL-truncated from 4096d).
+Self-contained modules and scripts for indexing experiments. No imports from `src/rag/`. DB: `rag_test` (never `rag`). Vector dim: 4096 in DB; MRL truncation only on-the-fly via `A_mrl_sweep.py` or the `truncate_mrl` helper in `p2_embedder.py`.
 
 All scripts run from project root:
 ```bash
@@ -55,7 +55,7 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `index_file` | `(md_path, collection, db_conn) -> int` | Chunk + parallel embed (dense+sparse) + MRL truncate + store; returns chunk count |
+| `index_file` | `(md_path, collection, db_conn) -> int` | Chunk + parallel embed (dense+sparse) + store (full 4096d); no MRL truncation in index path |
 | `index_directory` | `(dir_path, collection, db_conn) -> dict` | Index all `.md` files; returns `{files, chunks, errors, per_file, elapsed}` |
 
 ### Config Defaults
@@ -64,7 +64,7 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 |-----------|-------|
 | CHUNK_SIZE | 2000 chars |
 | OVERLAP | 400 chars |
-| MRL dims | 1024 (truncated from 4096d stored in DB) |
+| MRL dims | Not applied at index time; `truncate_mrl` available on-the-fly (`p2_embedder.py`) |
 | Batch size | 32 |
 | DB | rag_test, port 5433, user rag |
 

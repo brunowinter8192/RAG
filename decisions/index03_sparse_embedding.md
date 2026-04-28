@@ -3,7 +3,7 @@
 ## Status Quo (IST)
 
 **Code:** `src/rag/sparse_embedder.py` (client), `src/rag/splade_server.py` (server)
-**Model:** naver/splade-cocondenser-ensembledistil (SPLADE++) via sentence-transformers SparseEncoder v5.2.0
+**Model:** naver/splade-v3 via sentence-transformers SparseEncoder v5.2.0
 **Server:** FastAPI/uvicorn on port 8083 (single worker, synchronous), device auto-detected as MPS (Metal)
 **Dimensions:** 30522 (BERT vocabulary size, sparse)
 **Storage:** pgvector `sparsevec(30522)` column
@@ -43,9 +43,8 @@ Sparse performed better on the small academic paper dataset — in-domain for MS
 
 ## Recommendation (SOLL)
 
-- **Keep:** SPLADE++ as sparse component — no better alternative evaluated yet
+- **Keep:** naver/splade-v3 as sparse component — upgraded from SPLADE++ (naver/splade-cocondenser-ensembledistil); now active in production via sentence-transformers SparseEncoder (no separate `pip install splade` required)
 - **Keep:** `max_active_dims=256` safety-net in splade_server.py
-- **Pending:** SPLADE v3 evaluation (requires separate `pip install splade` library, not sentence-transformers compatible)
 - **Pending:** Decision whether to drop Sparse entirely for technical docs (BM25 via tsvector as lightweight alternative)
 
 ## Offene Fragen
