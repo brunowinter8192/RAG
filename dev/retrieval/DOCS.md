@@ -21,8 +21,8 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 | `retrieve_sparse` | `(query, collection, top_k=10) -> list[dict]` | SPLADE-embed query, sparse cosine search |
 | `retrieve_bm25` | `(query, collection, top_k=10) -> list[dict]` | BM25 full-text search via PostgreSQL tsquery |
 | `retrieve_hybrid` | `(query, collection, top_k=10, rrf_k=60, query_prefix=True) -> list[dict]` | Dense + sparse search, RRF fusion |
-| `retrieve_cc` | `(query, collection, top_k=10, alpha=0.7, query_prefix=True) -> list[dict]` | Dense + sparse search, Convex Combination fusion |
-| `retrieve_cc_rerank` | `(query, collection, top_k=10, alpha=0.7, rerank_candidates=50, query_prefix=True) -> list[dict]` | CC fusion then cross-encoder rerank |
+| `retrieve_cc` | `(query, collection, top_k=10, alpha=0.8, query_prefix=True) -> list[dict]` | Dense + sparse search, Convex Combination fusion |
+| `retrieve_cc_rerank` | `(query, collection, top_k=10, alpha=0.8, rerank_candidates=50, query_prefix=True) -> list[dict]` | CC fusion then cross-encoder rerank |
 | `rerank` | `(query, results, top_k=10) -> list[dict]` | Cross-encoder rerank via llama-server port 8082 |
 
 **Dense query prefix:** `Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: `
@@ -77,8 +77,8 @@ SWEEP_RANGES = {
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--collection` | `RAG_MCP` | Collection name to query |
-| `--queries` | `dev/retrieval/queries_rag_mcp.json` | Queries JSON path |
+| `--collection` | `RAG_MCP_test` | Collection name to query |
+| `--queries` | `dev/retrieval/queries_rag_mcp_test.json` | Queries JSON path |
 | `--baseline` | — | Single run at BASELINE config (+ any `--override`) |
 | `--sweep PARAM` | — | Sweep `PARAM` over `SWEEP_RANGES[PARAM]`; others fixed at BASELINE |
 | `--override key=val` | — | Override one BASELINE key; repeatable |
@@ -150,17 +150,17 @@ Exactly one of `--baseline` or `--sweep PARAM` is required.
 **Usage:**
 ```bash
 ./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
-    --collection RAG_MCP \
+    --collection RAG_MCP_test \
     --queries dev/retrieval/queries.json \
     --top-k 5
 
 ./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
-    --collection RAG_MCP \
+    --collection RAG_MCP_test \
     --queries dev/retrieval/queries.json \
     --modes dense,hybrid,cc
 
 ./venv/bin/python dev/retrieval/A_retrieval_sandbox.py \
-    --collection RAG_MCP \
+    --collection RAG_MCP_test \
     --queries dev/retrieval/queries.json \
     --modes cc+rerank \
     --top-k 10
@@ -170,7 +170,7 @@ Exactly one of `--baseline` or `--sweep PARAM` is required.
 
 ### A_mrl_sweep.py
 
-**Purpose:** Sweep embedding dimensions [256, 512, 768, 1024, 2048, 4096] to evaluate dense and hybrid retrieval quality across MRL truncation levels. Collection and dimensions are hardcoded (`COLLECTION = "RAG_MCP"`, `DIMENSIONS = [256, 512, 768, 1024, 2048, 4096]`). Requires full 4096d embeddings already indexed.
+**Purpose:** Sweep embedding dimensions [256, 512, 768, 1024, 2048, 4096] to evaluate dense and hybrid retrieval quality across MRL truncation levels. Collection and dimensions are hardcoded (`COLLECTION = "RAG_MCP_test"`, `DIMENSIONS = [256, 512, 768, 1024, 2048, 4096]`). Requires full 4096d embeddings already indexed.
 
 **Prerequisites:** Embedding server (8081), SPLADE (8083).
 
@@ -185,19 +185,19 @@ Exactly one of `--baseline` or `--sweep PARAM` is required.
 
 ## Data Files
 
-### queries_rag_mcp.json
+### queries_rag_mcp_test.json
 
-20 queries (8 factual, 7 conceptual, 5 cross-document) with ground truth for the RAG_MCP collection. Used by `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`.
+20 queries (8 factual, 7 conceptual, 5 cross-document) with ground truth for the RAG_MCP_test collection. Used by `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`.
 
 ---
 
 ### Current Test Database State
 
-rag_test enthält RAG_MCP (28 Docs / 483 Chunks aus data/documents/RAG_MCP/, 1:1 mit Disk gespiegelt). Production-DB rag enthält wise2627 (3246 Chunks, alte Pipeline-Konfig 1000/200 + 4096d + SPLADE++). Fünf weitere Disk-Collections (searxng, FAUWingMaster, GoetheBWLMaster, linkedin, TradBot) sind nirgends indexiert.
+rag_test enthält RAG_MCP_test (28 Docs / 483 Chunks aus data/documents/RAG_MCP_test/, 1:1 mit Disk gespiegelt). Production-DB rag enthält wise2627 (3246 Chunks, alte Pipeline-Konfig 1000/200 + 4096d + SPLADE++). Fünf weitere Disk-Collections (searxng, FAUWingMaster, GoetheBWLMaster, linkedin, TradBot) sind nirgends indexiert.
 
 ### Query Coverage
 
-20 Queries verweisen auf 24 unique Dokumente, alle 24 sind in rag_test.RAG_MCP vorhanden (kein Drift). 4 indexierte Dokumente werden von keiner Query getestet — anthropic__docs__en__build-with-claude__embeddings.md, docs_haystack_deepset_ai__docs__advanced-rag-techniques.md, docs_together_ai__docs__building-a-rag-workflow.md, docs_together_ai__docs__embeddings-rag.md. Mögliche Distraktoren oder Coverage-Lücke.
+20 Queries verweisen auf 24 unique Dokumente, alle 24 sind in rag_test.RAG_MCP_test vorhanden (kein Drift). 4 indexierte Dokumente werden von keiner Query getestet — anthropic__docs__en__build-with-claude__embeddings.md, docs_haystack_deepset_ai__docs__advanced-rag-techniques.md, docs_together_ai__docs__building-a-rag-workflow.md, docs_together_ai__docs__embeddings-rag.md. Mögliche Distraktoren oder Coverage-Lücke.
 
 ### Pipeline Coverage / Friction Boundary
 
@@ -207,4 +207,4 @@ Was die Eval nicht prüft trotz No-Re-Index-Möglichkeit: BM25/keyword (Code in 
 
 Was die Eval nicht prüft weil Re-Index nötig: Chunking-Config, Dense-Embedding-Modell, Sparse-Embedding-Modell, Schema-Änderungen.
 
-Wichtig: Eval läuft auf RAG_MCP, Production läuft auf wise2627 — die Eval-Aussagen (CC α=0.8 optimal, Reranker schadet auf technischen Docs) basieren auf RAG_MCP-Inhalten und generalisieren nicht zwingend.
+Wichtig: Eval läuft auf RAG_MCP_test, Production läuft auf wise2627 — die Eval-Aussagen (CC α=0.8 optimal, Reranker schadet auf technischen Docs) basieren auf RAG_MCP-Inhalten und generalisieren nicht zwingend.
