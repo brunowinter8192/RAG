@@ -2,14 +2,14 @@
 
 ## Status Quo (IST)
 
-**Code:** `src/rag/retriever.py:rrf_fusion()`
-**Method:** Reciprocal Rank Fusion (RRF)
-**Formula:** `score(d) = sum(1 / (K + rank_i(d)))` across all result lists
-**K parameter:** 60 (standard, RRF_K constant)
+**Code:** `src/rag/retriever.py:search_hybrid_workflow` → calls `cc_fusion` (from `src/rag/fusion.py`, `CC_ALPHA = 0.8`)
+**Method:** Convex Combination (CC) with min-max normalization
+**Formula:** `score(d) = α * (dense_score / max_dense) + (1-α) * (sparse_score / max_sparse)`
+**α parameter:** 0.8 (`CC_ALPHA` constant in `fusion.py`)
 **Input:** Top 50 Dense + Top 50 Sparse candidates
 **Output:** Fused ranking, top_k returned
 
-RRF is used only in `search_hybrid_workflow()`. The `search_workflow()` (pure dense) returns dense results directly without fusion.
+`cc_fusion` is the live default in `search_hybrid_workflow()`. `rrf_fusion` is retained in `fusion.py` as a reference implementation but is not called from the workflow. `search_workflow()` (pure dense) returns dense results directly without fusion.
 
 ## Evidenz
 
@@ -55,7 +55,7 @@ On academic text, Hybrid outperforms Dense on Recall@10 (0.80 vs 0.73). Hybrid+R
 
 ## Recommendation (SOLL)
 
-- **Change:** RRF K=60 → CC α=0.8 (Convex Combination with min-max normalization). CC outperforms RRF on Snippet Recall (+3pp) while matching Doc Recall. Based on Bruch et al. 2023 ("An Analysis of Fusion Functions for Hybrid Retrieval") and confirmed on RAG_MCP collection.
+- **Keep:** CC α=0.8 (Convex Combination with min-max normalization). CC outperforms RRF on Snippet Recall (+3pp) while matching Doc Recall. Based on Bruch et al. 2023 ("An Analysis of Fusion Functions for Hybrid Retrieval"), confirmed on RAG_MCP collection (2026-04-08, re-confirmed 2026-04-28). `cc_fusion` is the active default; `rrf_fusion` retained in `fusion.py` as reference.
 - **Keep:** Hybrid as separate MCP tool (`search_hybrid`), not default search path
 - **Keep:** Rerank=False as default — reranker costs 1pp Snippet Recall and adds latency. Only +4pp Doc Recall does not justify the trade-off for MCP tool responses where snippet quality matters more.
 
