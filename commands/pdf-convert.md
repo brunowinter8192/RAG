@@ -15,7 +15,7 @@ PDF Path: $ARGUMENTS
 PDF
  ↓ MinerU
 {stem}.md  ← raw state, directly in collection folder
- ↓ md-cleanup-master (works in /tmp only, overwrites {stem}.md)
+ ↓ LLM Cleanup (works in /tmp only, overwrites {stem}.md)
 {stem}.md  ← clean state
  ↓ chunker
 {stem}.json

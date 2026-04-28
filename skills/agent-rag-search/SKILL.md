@@ -7,40 +7,31 @@ description: See ~/.claude/shared-rules/global/cli-skills.md
 
 ## CLI Invocation
 
-All tools are invoked via the Bash tool using absolute paths:
+All tools are invoked via the `rag-cli` wrapper (installed at `~/.local/bin/rag-cli`, in PATH):
 
 ```bash
-/Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/venv/bin/python \
-  /Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/cli.py <cmd> [args]
+rag-cli <cmd> [args]
 ```
 
 ### Quick Reference — All 6 Tools
 
 ```bash
 # Discovery
-python cli.py list_collections
-python cli.py list_documents my_collection
-python cli.py list_documents my_collection --document "arxiv_%"
+rag-cli list_collections
+rag-cli list_documents my_collection
+rag-cli list_documents my_collection --document "arxiv_%"
 
 # Search
-python cli.py search_hybrid "transformer attention mechanism" my_collection --top-k 20
-python cli.py search_hybrid "cost function" my_collection --document "paper.md" --neighbors 1
-python cli.py search_hybrid "query" my_collection --no-rerank   # faster, lower precision
+rag-cli search_hybrid "transformer attention mechanism" my_collection --top-k 20
+rag-cli search_hybrid "cost function" my_collection --document "paper.md"
+rag-cli search_hybrid "query" my_collection --no-rerank   # faster, lower precision
 
-python cli.py search "semantic similarity" my_collection --top-k 30 --neighbors 2
-python cli.py search_keyword "learning_rate dropout" my_collection --top-k 20
+rag-cli search "semantic similarity" my_collection --top-k 30
+rag-cli search_keyword "learning_rate dropout" my_collection --top-k 20
 
 # Read
-python cli.py read_document my_collection paper.md 42
-python cli.py read_document my_collection paper.md 40 --num-chunks 15
-```
-
-**Always use full absolute paths** when invoking from the Bash tool:
-
-```bash
-/Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/venv/bin/python \
-  /Users/brunowinter2000/Documents/ai/Meta/ClaudeCode/MCP/RAG/cli.py \
-  search_hybrid "attention is all you need" my_collection --top-k 20
+rag-cli read_document my_collection paper.md 42
+rag-cli read_document my_collection paper.md 42 --before 2 --after 5
 ```
 
 On error (import failure, DB connection refused): the CLI prints to stderr and exits non-zero. Check PostgreSQL (rag-postgres Docker container) and GPU servers are running via `start.sh`.
@@ -163,7 +154,6 @@ Deduplicate + rank by content fit, not just score.
 | collection | str | required | Collection to search in |
 | top_k | int | 20 | Number of results (20-50) |
 | document | str | None | Filter by document. `%` as wildcard (e.g. `arxiv__%`) |
-| neighbors | int | 0 | Include N chunks before/after each match (0-2) |
 | rerank | bool | True | Re-score with cross-encoder for higher precision |
 
 **How it works:** Runs 50 vector + 50 BM25 candidates internally, fuses with RRF, optionally reranks with cross-encoder. SPLADE expands synonyms ("revenue" also matches "profit", "earnings").
@@ -180,9 +170,8 @@ Deduplicate + rank by content fit, not just score.
 | collection | str | required | Collection to search in |
 | top_k | int | 20 | Number of results (20-50) |
 | document | str | None | Filter by document. `%` as wildcard |
-| neighbors | int | 0 | Include N chunks before/after (0-2) |
 
-**Context Expansion (neighbors):** `neighbors=1` returns [prev] + [match] + [next]. Overlapping matches are deduplicated and merged.
+**Context expansion:** use `read_document` with `--before`/`--after` on promising hits to read surrounding chunks.
 
 ### search_keyword
 
@@ -203,13 +192,16 @@ Deduplicate + rank by content fit, not just score.
 |-----------|------|---------|-------------|
 | collection | str | required | Collection name |
 | document | str | required | Document name (e.g. "chapter1.md") |
-| start_chunk | int | required | Chunk index to start reading from |
-| num_chunks | int | 5 | Number of chunks to read (1-20) |
+| chunk_index | int | required | Anchor chunk index (from search hit) |
+| before | int | 0 | Chunks to read before the anchor (0–10) |
+| after | int | 0 | Chunks to read after the anchor (0–10) |
+
+**Context expansion:** `read_document(chunk_index=42, before=2, after=5)` returns chunks 40–47. Overlapping chunks are deduplicated and merged.
 
 **Drill-Down Pattern:**
 ```
 1. search_hybrid("concept", collection="docs") → finds Chunk: 42
-2. read_document(start_chunk=40, num_chunks=10) → read full section
+2. read_document(chunk_index=42, before=2, after=5) → read surrounding section
 3. search_keyword("exact_term", collection="docs", document="chapter.md") → find exact definition
 ```
 
@@ -258,4 +250,56 @@ rm -rf data/documents/<name>
 - **GPU servers required** for search/index — MCP server alone only supports list/read operations
 - **search results show 500 char abstract preview** — use read_document for full context
 - **search_keyword uses stemming** — "running" matches "run" but exact phrase matching is not supported
-- **read_document max 20 chunks per call** — for longer sections, make multiple calls with offset
+- **read_document max 10 chunks before + 10 after per call** — for longer sections, make multiple calls with shifted chunk_index
+
+## Autonomous Operation
+
+You CANNOT ask questions — not to the user, not to the caller.
+NEVER return questions, clarification requests, or "before I proceed" prompts.
+When information is missing or ambiguous, make your best judgment, proceed with research, and document assumptions in your output.
+ALWAYS return concrete findings (quotes, chunk references, document paths). If uncertain, flag it but STILL return what you found.
+
+**No filler prose:** Every sentence in your response must carry information the caller can act on. Do not open with "Perfect!", "I now have comprehensive information", "Let me compile", or any phrase that conveys nothing. Start directly with findings.
+
+## Output Format
+
+**Every finding MUST include document path + chunk reference + direct quote.**
+
+```
+## Findings
+
+### 1. <Topic/Answer>
+**Collection:** <collection>
+**Document:** <document.md>
+**Chunk:** <chunk number>
+**Quote:** "<direct quote from the text>"
+**Context:** <1-2 sentences explaining relevance>
+
+### 2. <Topic/Answer>
+...
+
+## Not Found
+- <what was searched for but not found>
+- <which queries were tried>
+
+## Search Metadata
+**Queries Used:** query1, query2, query3, ...
+**Collections Searched:** collection1, collection2
+**Total Hits Reviewed:** N
+**Documents Read (read_document):** N
+```
+
+## Honesty Rules (RAG-Specific)
+
+- **Provide short quotes** — quote relevant text directly for verification
+- **Flag figures/graphics** — if data is only in a figure: "The values are in Figure X, I can only read the text"
+- **No absolute negations from partial search** — NEVER say "X is not mentioned". Say: "Not found in the searched sections. Further search needed to be certain."
+- **No summaries as facts** — "7-114%" is WRONG if you only have "7.30% average" and "114% single example"
+
+## When to Stop
+
+- Found the specific answer with quotes → STOP immediately
+- Research task: minimum 3 query variations, stop when 5+ relevant hits found
+- After search: switch to `read_document` for full context on best hits
+- If GPU servers are not running → STOP and report the startup command to the user
+- If `list_collections` returns "No collections indexed." → STOP immediately. Return: "No collections indexed. Re-index the target collection first via `workflow.py index-json` or `workflow.py index-dir`." Do NOT fall back to Bash file reads.

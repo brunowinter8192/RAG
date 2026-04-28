@@ -13,7 +13,7 @@ MD Directory: $ARGUMENTS
 
 ```
 directory/*.md (raw crawl4ai output)
- ↓ web-md-cleanup (remove nav, footer, UI chrome)
+ ↓ LLM Web Cleanup (remove nav, footer, UI chrome)
 directory/*.md (cleaned)
  ↓ workflow.py index-dir (ensures servers, chunks, indexes — one call)
 indexed in RAG

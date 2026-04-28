@@ -17,16 +17,25 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `retrieve_dense` | `(query, collection, top_k=10) -> list[dict]` | Embed query (instruct prefix), cosine search |
+| `retrieve_dense` | `(query, collection, top_k=10, query_prefix=True) -> list[dict]` | Embed query (instruct prefix optional), cosine search |
 | `retrieve_sparse` | `(query, collection, top_k=10) -> list[dict]` | SPLADE-embed query, sparse cosine search |
-| `retrieve_hybrid` | `(query, collection, top_k=10, rrf_k=60) -> list[dict]` | Dense + sparse search, RRF fusion |
-| `retrieve_cc` | `(query, collection, top_k=10, alpha=0.7) -> list[dict]` | Dense + sparse search, Convex Combination fusion |
-| `retrieve_cc_rerank` | `(query, collection, top_k=10, alpha=0.7, rerank_candidates=50) -> list[dict]` | CC fusion then cross-encoder rerank |
+| `retrieve_bm25` | `(query, collection, top_k=10) -> list[dict]` | BM25 full-text search via PostgreSQL tsquery |
+| `retrieve_hybrid` | `(query, collection, top_k=10, rrf_k=60, query_prefix=True) -> list[dict]` | Dense + sparse search, RRF fusion |
+| `retrieve_cc` | `(query, collection, top_k=10, alpha=0.7, query_prefix=True) -> list[dict]` | Dense + sparse search, Convex Combination fusion |
+| `retrieve_cc_rerank` | `(query, collection, top_k=10, alpha=0.7, rerank_candidates=50, query_prefix=True) -> list[dict]` | CC fusion then cross-encoder rerank |
 | `rerank` | `(query, results, top_k=10) -> list[dict]` | Cross-encoder rerank via llama-server port 8082 |
 
 **Dense query prefix:** `Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: `
 
+**query_prefix=False:** passes bare query string to embedder (no instruct prefix). No-op for sparse/bm25 modes.
+
 **Candidates fetched before top_k cutoff:** 50
+
+---
+
+### eval_config.py
+
+Config module for `A_retrieval_eval.py`. Defines `BASELINE` (single-run defaults) and `SWEEP_RANGES` (valid value arrays per sweepable parameter). Import directly — no CLI, no side effects. See `A_retrieval_eval.py` section for full config reference.
 
 ---
 
@@ -34,9 +43,35 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 
 ### A_retrieval_eval.py
 
-**Purpose:** Evaluate retrieval quality against ground truth documents and snippets. Produces per-mode reports with document and snippet recall metrics. Sweep mode runs all fusion parameter combinations in one pass.
+**Purpose:** Evaluate retrieval quality against ground truth documents and snippets. Config-driven via `eval_config.py` — all parameters have BASELINE defaults and SWEEP_RANGES for systematic sweeps. Produces per-run reports with config header, per-query results, and aggregate summary. Sweep mode produces an additional comparison table across all swept values.
 
 **Prerequisites:** Embedding server (8081) always. SPLADE (8083) for sparse, hybrid, cc, cc+rerank, hybrid+rerank modes. Reranker (8082) for any mode containing "rerank".
+
+**Config file: `eval_config.py`**
+
+```python
+BASELINE = {
+    "mode": "cc",         # retrieval mode
+    "top_k": 10,          # results returned per query
+    "alpha": 0.8,         # CC fusion weight for dense (0–1)
+    "rrf_k": 60,          # RRF K constant for hybrid modes
+    "score_threshold": 0.0,   # min score filter (0.0 = off); cosine-based modes only
+    "query_prefix": True,     # apply instruct prefix to dense embedding; dense-using modes only
+}
+
+SWEEP_RANGES = {
+    "mode":            ["dense", "sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank", "bm25"],
+    "top_k":           [5, 10, 20],
+    "alpha":           [0.5, 0.6, 0.7, 0.8, 0.9],
+    "rrf_k":           [30, 60, 90],
+    "score_threshold": [0.0, 0.3, 0.5],
+    "query_prefix":    [True, False],
+}
+```
+
+**score_threshold** is applied only for cosine-based modes (dense, sparse, cc, cc+rerank). For rrf/bm25/rerank modes, score scales are not comparable — the threshold is silently ignored and the report header carries a ⚠ note.
+
+**query_prefix** is a no-op for pure sparse/bm25 modes (no dense embedding step). The report header carries a ℹ note when swept over these modes.
 
 **CLI flags:**
 
@@ -44,13 +79,11 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 |------|---------|-------------|
 | `--collection` | `RAG_MCP` | Collection name to query |
 | `--queries` | `dev/retrieval/queries_rag_mcp.json` | Queries JSON path |
-| `--top-k` | `10` | Results per query |
-| `--modes` | `dense` | Comma-separated modes |
-| `--alpha` | `0.7` | CC fusion alpha weight for dense (used when mode is `cc`) |
-| `--rrf-k` | `60` | RRF K constant (used when mode is `hybrid`) |
-| `--sweep` | flag | Run full parameter sweep — ignores `--modes` |
+| `--baseline` | — | Single run at BASELINE config (+ any `--override`) |
+| `--sweep PARAM` | — | Sweep `PARAM` over `SWEEP_RANGES[PARAM]`; others fixed at BASELINE |
+| `--override key=val` | — | Override one BASELINE key; repeatable |
 
-**Valid modes:** `dense`, `sparse`, `hybrid`, `cc`, `cc+rerank`, `hybrid+rerank`
+Exactly one of `--baseline` or `--sweep PARAM` is required.
 
 **Queries JSON format:**
 ```json
@@ -67,20 +100,24 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 ```
 
 **Output:**
-- `A_retrieval_eval_reports/eval_<mode>_<timestamp>.md` — per-mode report with per-query results and summary
-- `A_retrieval_eval_reports/sweep_comparison_<timestamp>.md` — comparison table across all configs (only with `--sweep`)
+- `A_retrieval_eval_reports/eval_<label>_<timestamp>.md` — per-run report with config table, per-query results, and summary
+- `A_retrieval_eval_reports/sweep_<param>_<timestamp>.md` — comparison table across all swept values (only with `--sweep`)
 
 **Usage:**
 ```bash
-./venv/bin/python dev/retrieval/A_retrieval_eval.py \
-    --collection RAG_MCP \
-    --queries dev/retrieval/queries_rag_mcp.json \
-    --modes dense,hybrid,cc
+# Single run at BASELINE
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --baseline
 
-./venv/bin/python dev/retrieval/A_retrieval_eval.py \
-    --modes cc --alpha 0.8
+# BASELINE with ad-hoc overrides
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --baseline --override mode=dense --override top_k=20
 
-./venv/bin/python dev/retrieval/A_retrieval_eval.py --sweep
+# Sweep a single parameter (others fixed at BASELINE)
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --sweep alpha
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --sweep mode
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --sweep score_threshold
+
+# Sweep with non-default fixed params
+./venv/bin/python dev/retrieval/A_retrieval_eval.py --sweep alpha --override top_k=20 --override mode=cc+rerank
 ```
 
 ---
@@ -151,3 +188,23 @@ Imports `p2_embedder`, `p3_sparse_embedder`, `p4_db` from `dev/indexing/` via `s
 ### queries_rag_mcp.json
 
 20 queries (8 factual, 7 conceptual, 5 cross-document) with ground truth for the RAG_MCP collection. Used by `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`.
+
+---
+
+### Current Test Database State
+
+rag_test enthält RAG_MCP (28 Docs / 483 Chunks aus data/documents/RAG_MCP/, 1:1 mit Disk gespiegelt). Production-DB rag enthält wise2627 (3246 Chunks, alte Pipeline-Konfig 1000/200 + 4096d + SPLADE++). Fünf weitere Disk-Collections (searxng, FAUWingMaster, GoetheBWLMaster, linkedin, TradBot) sind nirgends indexiert.
+
+### Query Coverage
+
+20 Queries verweisen auf 24 unique Dokumente, alle 24 sind in rag_test.RAG_MCP vorhanden (kein Drift). 4 indexierte Dokumente werden von keiner Query getestet — anthropic__docs__en__build-with-claude__embeddings.md, docs_haystack_deepset_ai__docs__advanced-rag-techniques.md, docs_together_ai__docs__building-a-rag-workflow.md, docs_together_ai__docs__embeddings-rag.md. Mögliche Distraktoren oder Coverage-Lücke.
+
+### Pipeline Coverage / Friction Boundary
+
+Was die Eval heute prüft: alle Retrieval-Knöpfe ohne Re-Indexing-Bedarf — Modi (dense/sparse/hybrid/cc/cc+rerank/hybrid+rerank), Fusion-Parameter (RRF K, CC α), MRL-Dimension via separates Script.
+
+Was die Eval nicht prüft trotz No-Re-Index-Möglichkeit: BM25/keyword (Code in src/rag/search_primitives.py vorhanden, nicht in p1_retriever.py exposed), top_k-Variation, score_threshold, query_prefix-Ablation.
+
+Was die Eval nicht prüft weil Re-Index nötig: Chunking-Config, Dense-Embedding-Modell, Sparse-Embedding-Modell, Schema-Änderungen.
+
+Wichtig: Eval läuft auf RAG_MCP, Production läuft auf wise2627 — die Eval-Aussagen (CC α=0.8 optimal, Reranker schadet auf technischen Docs) basieren auf RAG_MCP-Inhalten und generalisieren nicht zwingend.

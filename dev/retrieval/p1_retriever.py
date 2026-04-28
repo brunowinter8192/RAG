@@ -21,9 +21,10 @@ CANDIDATES = 50
 # FUNCTIONS
 
 # Retrieve top results using dense embedding search
-def retrieve_dense(query: str, collection: str, top_k: int = 10) -> list[dict]:
+def retrieve_dense(query: str, collection: str, top_k: int = 10, query_prefix: bool = True) -> list[dict]:
     conn = get_connection()
-    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
+    prefix = INSTRUCT_PREFIX if query_prefix else ""
+    emb = embed([query], prefix=prefix)[0]
     results = search_dense(conn, emb, collection, CANDIDATES)
     conn.close()
     return results[:top_k]
@@ -38,10 +39,53 @@ def retrieve_sparse(query: str, collection: str, top_k: int = 10) -> list[dict]:
     return results[:top_k]
 
 
-# Retrieve top results using hybrid RRF fusion of dense + sparse
-def retrieve_hybrid(query: str, collection: str, top_k: int = 10, rrf_k: int = 60) -> list[dict]:
+# Retrieve top results using BM25 full-text search
+def retrieve_bm25(query: str, collection: str, top_k: int = 10) -> list[dict]:
+    words = [w for w in query.split() if w]
+    if not words:
+        return []
     conn = get_connection()
-    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
+    tsquery_and = " & ".join(words)
+    results = _bm25_query(conn, tsquery_and, top_k, collection)
+    if not results and len(words) > 1:
+        tsquery_or = " | ".join(words)
+        results = _bm25_query(conn, tsquery_or, top_k, collection)
+    conn.close()
+    return results
+
+
+# Execute BM25 query against PostgreSQL full-text search index
+def _bm25_query(conn, tsquery: str, top_k: int, collection: str) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT content, collection, document, chunk_index,
+                   ts_rank(tsv, to_tsquery('english', %s)) as score
+            FROM documents
+            WHERE tsv @@ to_tsquery('english', %s) AND collection = %s
+            ORDER BY score DESC
+            LIMIT %s
+            """,
+            [tsquery, tsquery, collection, top_k]
+        )
+        rows = cur.fetchall()
+    return [
+        {
+            "content": row[0],
+            "collection": row[1],
+            "document": row[2],
+            "chunk_index": row[3],
+            "score": round(float(row[4]), 4)
+        }
+        for row in rows
+    ]
+
+
+# Retrieve top results using hybrid RRF fusion of dense + sparse
+def retrieve_hybrid(query: str, collection: str, top_k: int = 10, rrf_k: int = 60, query_prefix: bool = True) -> list[dict]:
+    conn = get_connection()
+    prefix = INSTRUCT_PREFIX if query_prefix else ""
+    emb = embed([query], prefix=prefix)[0]
     sparse = embed_sparse([query])[0]
     dense_results = search_dense(conn, emb, collection, CANDIDATES)
     sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)
@@ -51,9 +95,10 @@ def retrieve_hybrid(query: str, collection: str, top_k: int = 10, rrf_k: int = 6
 
 
 # Retrieve top results using Convex Combination fusion of dense + sparse
-def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7) -> list[dict]:
+def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7, query_prefix: bool = True) -> list[dict]:
     conn = get_connection()
-    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
+    prefix = INSTRUCT_PREFIX if query_prefix else ""
+    emb = embed([query], prefix=prefix)[0]
     sparse = embed_sparse([query])[0]
     dense_results = search_dense(conn, emb, collection, CANDIDATES)
     sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)
@@ -63,9 +108,10 @@ def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7
 
 
 # Retrieve top results using CC fusion then rerank with cross-encoder
-def retrieve_cc_rerank(query: str, collection: str, top_k: int = 10, alpha: float = 0.7, rerank_candidates: int = 50) -> list[dict]:
+def retrieve_cc_rerank(query: str, collection: str, top_k: int = 10, alpha: float = 0.7, rerank_candidates: int = 50, query_prefix: bool = True) -> list[dict]:
     conn = get_connection()
-    emb = embed([query], prefix=INSTRUCT_PREFIX)[0]
+    prefix = INSTRUCT_PREFIX if query_prefix else ""
+    emb = embed([query], prefix=prefix)[0]
     sparse = embed_sparse([query])[0]
     dense_results = search_dense(conn, emb, collection, CANDIDATES)
     sparse_results = search_sparse(conn, sparse, collection, CANDIDATES)

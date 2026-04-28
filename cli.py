@@ -32,8 +32,6 @@ def main():
                    help="Number of results (20–50, default 20)")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard (e.g. 'arxiv_%%')")
-    p.add_argument("--neighbors", type=int, default=0,
-                   help="Include N chunks before/after each match (0–2, default 0)")
 
     # ── search_hybrid ─────────────────────────────────────────────────────────
     p = sub.add_parser("search_hybrid", help="Hybrid search (vector + SPLADE + RRF fusion).")
@@ -43,8 +41,6 @@ def main():
                    help="Number of results (20–50, default 20)")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
-    p.add_argument("--neighbors", type=int, default=0,
-                   help="Include N chunks before/after each match (0–2, default 0)")
     p.add_argument("--no-rerank", dest="rerank", action="store_false", default=True,
                    help="Disable cross-encoder reranking (faster, lower precision)")
 
@@ -67,27 +63,27 @@ def main():
                    help="Filter by document name. %% as wildcard")
 
     # ── read_document ─────────────────────────────────────────────────────────
-    p = sub.add_parser("read_document", help="Read continuous chunks from a document.")
+    p = sub.add_parser("read_document", help="Read anchor chunk plus N before and M after.")
     p.add_argument("collection", help="Collection name")
     p.add_argument("document", help="Document name (e.g. 'chapter1.md')")
-    p.add_argument("start_chunk", type=int, help="Chunk index to start reading from")
-    p.add_argument("--num-chunks", dest="num_chunks", type=int, default=10,
-                   help="Number of chunks to read (10–20, default 10)")
+    p.add_argument("chunk_index", type=int, help="Anchor chunk index")
+    p.add_argument("--before", type=int, default=0,
+                   help="Chunks to read before the anchor (0–10, default 0)")
+    p.add_argument("--after", type=int, default=0,
+                   help="Chunks to read after the anchor (0–10, default 0)")
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
     args = parser.parse_args()
 
     if args.cmd == "search":
         results = search_workflow(
-            args.query, args.top_k, args.collection,
-            args.document, min(args.neighbors, 2)
+            args.query, args.top_k, args.collection, args.document
         )
         print(format_results(results))
 
     elif args.cmd == "search_hybrid":
         results = search_hybrid_workflow(
-            args.query, args.top_k, args.collection,
-            args.document, min(args.neighbors, 2), args.rerank
+            args.query, args.top_k, args.collection, args.document, args.rerank
         )
         print(format_results(results))
 
@@ -106,14 +102,16 @@ def main():
         print(format_documents(results))
 
     elif args.cmd == "read_document":
-        num_chunks = max(args.num_chunks, 10)
-        num_chunks = min(num_chunks, 20)
+        before = min(max(args.before, 0), 10)
+        after = min(max(args.after, 0), 10)
         result = read_document_workflow(
-            args.collection, args.document, args.start_chunk, num_chunks
+            args.collection, args.document, args.chunk_index, before, after
         )
+        start = result['chunk_index'] - result['before']
+        end = result['chunk_index'] + result['after']
         text = (
             f"Document: {result['document']} | "
-            f"Chunks {result['start_chunk']}-{result['start_chunk'] + result['num_chunks'] - 1}"
+            f"Chunks {start}-{end} (anchor: {result['chunk_index']})"
             f"\n\n{result['content']}"
         )
         print(text)
