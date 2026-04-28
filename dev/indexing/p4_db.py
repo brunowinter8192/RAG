@@ -174,7 +174,7 @@ def search_hybrid(conn, dense_results: list[dict], sparse_results: list[dict], r
 
 
 # Fuse dense and sparse results using Convex Combination with min-max normalization
-def search_cc(conn, dense_results: list[dict], sparse_results: list[dict], alpha: float = 0.7) -> list[dict]:
+def search_cc(conn, dense_results: list[dict], sparse_results: list[dict], alpha: float = 0.8) -> list[dict]:
     max_dense = max((r["score"] for r in dense_results), default=0.0)
     max_sparse = max((r["score"] for r in sparse_results), default=0.0)
 
