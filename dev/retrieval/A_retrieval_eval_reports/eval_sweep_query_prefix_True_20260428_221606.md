@@ -1,0 +1,288 @@
+# Retrieval Evaluation: RAG_MCP
+
+**Label:** sweep_query_prefix_True | **Timestamp:** 20260428_221606
+
+**Config:**
+
+| Param | Value | Note |
+|-------|-------|------|
+| mode | cc |  |
+| top_k | 10 |  |
+| alpha | 0.8 |  |
+| rrf_k | 60 |  |
+| score_threshold | 0.0 |  |
+| query_prefix | True ← swept |  |
+
+---
+
+## Query 1: "What is the default ef_search value for HNSW indexes in pgvector?"
+
+**Document Match:** 2/2 (100%)
+- www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md — Found (Rank 1, 2, 3, 5, 7)
+- www_thenile_dev__blog__pgvector-080.md — Found (Rank 6, 8, 10)
+
+**Snippet Match:** 2/2 (100%)
+- "_ef_search_ value is set to 40 (which is the default)" — Found in Rank 1
+- "the default hnsw.ef_search of 40, only 4 rows will match on average" — Found in Rank 8
+
+---
+
+## Query 2: "By how much does Contextual Retrieval combined with reranking reduce the top-20-chunk retrieval failure rate?"
+
+**Document Match:** 2/2 (100%)
+- www_anthropic_com__engineering__contextual-retrieval.md — Found (Rank 1, 3, 6, 7, 9)
+- www_anthropic_com__news__contextual-retrieval.md — Found (Rank 2, 4, 5, 8, 10)
+
+**Snippet Match:** 1/2 (50%)
+- "when combined with reranking, by 67%" — MISSING
+- "top-20-chunk retrieval failure rate by 67% (5.7% → 1.9%)" — Found in Rank 1
+
+---
+
+## Query 3: "What MRR@10 does SPLADE-v3 achieve on the MS MARCO dev set?"
+
+**Document Match:** 1/1 (100%)
+- arxiv__2403.06789__splade-v3.md — Found (Rank 1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+**Snippet Match:** 2/2 (100%)
+- "gets more than 40 MRR @ 10 on the MS MARCO dev set" — Found in Rank 1
+- "SPLADE-v3 | 40.2 | 72.3 | 75.4" — Found in Rank 2
+
+---
+
+## Query 4: "What embedding dimension does Qwen3-Embedding-8B produce by default?"
+
+**Document Match:** 3/3 (100%)
+- arxiv__2506.05176__qwen3-embedding.md — Found (Rank 1, 4, 6, 8, 9, 10)
+- arxiv__2511.22240__pipeline-optimization.md — Found (Rank 3)
+- medium.com__mrAryanKumar_comparative-analysis-of-qwen-3-and-bge-m3-embedding-models-for-multilingual-information-retriev.md — Found (Rank 2, 5, 7)
+
+**Snippet Match:** 1/2 (50%)
+- "Qwen3-Embedding-8B/4096 achieves Top-3 accuracy" — MISSING
+- "Qwen-3-Embedding-8B: 8B parameters, 4096 dimensions" — Found in Rank 2
+
+---
+
+## Query 5: "What new index scan feature was introduced in pgvector 0.8.0 to fix partial results when combining HNSW with WHERE clause filters?"
+
+**Document Match:** 1/1 (100%)
+- www_thenile_dev__blog__pgvector-080.md — Found (Rank 1, 2, 3, 4, 5, 6)
+
+**Snippet Match:** 2/2 (100%)
+- "Added support for iterative index scans" — Found in Rank 1
+- "Check if enough results are returned. If not, repeat the scan." — Found in Rank 1
+
+---
+
+## Query 6: "How does Hypothetical Document Embedding (HyDE) work and what is the averaging step?"
+
+**Document Match:** 1/1 (100%)
+- docs_haystack_deepset_ai__docs__hypothetical-document-embeddings-hyde.md — Found (Rank 1, 2, 3, 4, 6)
+
+**Snippet Match:** 2/2 (100%)
+- "this is done five times" — Found in Rank 2
+- "encodes each hypothetical document into an embedding vector and averages them" — Found in Rank 2
+
+---
+
+## Query 7: "What is the required minimum value of ef_construction relative to m when building an HNSW index?"
+
+**Document Match:** 1/1 (100%)
+- www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md — Found (Rank 1, 2, 4, 6, 9)
+
+**Snippet Match:** 1/1 (100%)
+- "_ef_construction_ is required to be 2x the value of _m_" — Found in Rank 1
+
+---
+
+## Query 8: "Around what embedding dimension does Matryoshka Representation Learning hit a sweet spot for Qwen3-Embedding-0.6B on retrieval quality vs storage cost?"
+
+**Document Match:** 1/1 (100%)
+- medium.com__yashasvimantha_matryoshka-embeddings-finding-the-sweet-spot-between-embedding-size-and-retrieval-quality-for.md — Found (Rank 1, 2, 3, 4)
+
+**Snippet Match:** 2/2 (100%)
+- "around the early 400 range is a good trade off" — Found in Rank 2
+- "I will be using a 512 (for some reason I like this number)" — Found in Rank 3
+
+---
+
+## Query 9: "What are the tradeoffs between cross-encoder rerankers and bi-encoder retrievers in a two-stage retrieval pipeline?"
+
+**Document Match:** 2/4 (50%)
+- docs_voyageai_com__docs__reranker.md — Found (Rank 5)
+- docs_together_ai__docs__how-to-improve-search-with-rerankers.md — MISSING
+- arxiv__2511.22240__pipeline-optimization.md — Found (Rank 1, 2, 3, 4, 6)
+- docs_vectorchord_ai__vectorchord__use-case__colbert-rerank.md — MISSING
+
+**Snippet Match:** 1/2 (50%)
+- "cross-encoders that jointly process a pair of query and document" — MISSING
+- "fast bi-encoder retrieval followed by accurate cross-encoder reranking" — Found in Rank 4
+
+---
+
+## Query 10: "How does hybrid search combining dense and sparse retrieval improve retrieval quality compared to using either alone, especially for out-of-domain queries?"
+
+**Document Match:** 1/4 (25%)
+- Fusion_Functions_Hybrid_Retrieval.md — Found (Rank 1, 2, 3, 4, 5, 6, 7, 8, 9)
+- www_anthropic_com__engineering__contextual-retrieval.md — MISSING
+- docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md — MISSING
+- arxiv__2403.06789__splade-v3.md — MISSING
+
+**Snippet Match:** 2/3 (66%)
+- "the two are complementary in how they model relevance" — Found in Rank 3
+- "especially when applied to out-of-domain datasets" — Found in Rank 1
+- "combining the embeddings and BM25 techniques" — MISSING
+
+---
+
+## Query 11: "What is late chunking and how does it preserve contextual information across chunk boundaries compared to traditional chunk-then-embed approaches?"
+
+**Document Match:** 2/2 (100%)
+- weaviate_io__blog__late-chunking.md — Found (Rank 1, 2, 3, 5, 6, 7, 8, 9)
+- Beyond_Chunk_Then_Embed_Taxonomy.md — Found (Rank 4, 10)
+
+**Snippet Match:** 2/2 (100%)
+- "only afterwards dividing these contextually-rich embeddings into chunks" — Found in Rank 1
+- "Segmentation boundaries are then applied to these context-aware representations" — Found in Rank 4
+
+---
+
+## Query 12: "What is Contextual Retrieval and what two sub-techniques does it combine to reduce retrieval failures?"
+
+**Document Match:** 2/3 (66%)
+- www_anthropic_com__engineering__contextual-retrieval.md — Found (Rank 1, 4, 6, 8, 9)
+- www_anthropic_com__news__contextual-retrieval.md — Found (Rank 2, 3, 5, 7, 10)
+- docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md — MISSING
+
+**Snippet Match:** 2/2 (100%)
+- "uses two sub-techniques: Contextual Embeddings and Contextual BM25" — Found in Rank 3
+- "prepending chunk-specific explanatory context to each chunk before embedding" — Found in Rank 7
+
+---
+
+## Query 13: "How does SPLADE represent text as sparse embeddings and what makes it more effective than BM25 for neural information retrieval?"
+
+**Document Match:** 1/2 (50%)
+- arxiv__2403.06789__splade-v3.md — Found (Rank 1, 3, 4, 5, 6, 7, 9, 10)
+- medium.com__mrAryanKumar_comparative-analysis-of-qwen-3-and-bge-m3-embedding-models-for-multilingual-information-retriev.md — MISSING
+
+**Snippet Match:** 1/2 (50%)
+- "SPLADE-v3 vastly outperforms BM25" — Found in Rank 6
+- "Sparse embedding: Lexical weights for each token in the vocabulary" — MISSING
+
+---
+
+## Query 14: "What HNSW parameters control the tradeoff between index build speed, index quality, and query accuracy?"
+
+**Document Match:** 2/2 (100%)
+- www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md — Found (Rank 1, 2, 3, 4)
+- www_pinecone_io__learn__series__faiss__hnsw.md — Found (Rank 5, 6, 7, 8, 9, 10)
+
+**Snippet Match:** 2/2 (100%)
+- "index quality tradeoff is controlled via the efConstruction parameter" — Found in Rank 4
+- "modifying three parameters: `M`, `efSearch`, and `efConstruction`" — Found in Rank 8
+
+---
+
+## Query 15: "How does LLM performance degrade with increasing context length and what factors influence the rate of degradation?"
+
+**Document Match:** 1/1 (100%)
+- research_trychroma_com__context-rot.md — Found (Rank 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+**Snippet Match:** 1/2 (50%)
+- "model performance degrades more significantly with increasing input length" — MISSING
+- "needle-question pairs increases the rate of performance degradation" — Found in Rank 10
+
+---
+
+## Query 16: "What are the tradeoffs between fixed-size, semantic, and LLM-guided chunking strategies for RAG retrieval quality?"
+
+**Document Match:** 3/5 (60%)
+- Beyond_Chunk_Then_Embed_Taxonomy.md — Found (Rank 7)
+- research_trychroma_com__evaluating-chunking.md — MISSING
+- Rethinking_Chunk_Size_Long_Document_Retrieval.md — Found (Rank 3, 4)
+- zilliz_com__learn__guide-to-chunking-strategies-for-rag.md — Found (Rank 1, 2, 5, 6, 8, 9, 10)
+- weaviate_io__blog__late-chunking.md — MISSING
+
+**Snippet Match:** 1/3 (33%)
+- "(64-128 tokens) are optimal for datasets with concise, fact-based answers" — MISSING
+- "ClusterSemanticChunker , which uses any given embedding model" — MISSING
+- "Lumber Chunker performs best for in-document retrieval" — Found in Rank 7
+
+---
+
+## Query 17: "How do Reciprocal Rank Fusion and convex combination score fusion differ in their behavior and which is more suitable for hybrid retrieval?"
+
+**Document Match:** 1/3 (33%)
+- Fusion_Functions_Hybrid_Retrieval.md — Found (Rank 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+- docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md — MISSING
+- www_anthropic_com__engineering__contextual-retrieval.md — MISSING
+
+**Snippet Match:** 3/3 (100%)
+- "we find RRF to be sensitive to its parameters" — Found in Rank 2
+- "convex combination outperforms RRF in in-domain and out-of-domain settings" — Found in Rank 2
+- "tuned RRF generalizes poorly to out-of-domain datasets" — Found in Rank 4
+
+---
+
+## Query 18: "How do Qwen3 embedding models compare to BGE-M3 and GTE models across standard retrieval benchmarks like MTEB?"
+
+**Document Match:** 2/3 (66%)
+- arxiv__2506.05176__qwen3-embedding.md — Found (Rank 6, 8, 9)
+- medium.com__mrAryanKumar_comparative-analysis-of-qwen-3-and-bge-m3-embedding-models-for-multilingual-information-retriev.md — Found (Rank 1, 2, 3, 4, 5, 7, 10)
+- arxiv__2511.22240__pipeline-optimization.md — MISSING
+
+**Snippet Match:** 2/2 (100%)
+- "70.58 on the MTEB Multilingual benchmark" — Found in Rank 8
+- "Qwen-3 models consistently outperform BGE-M3 across all evaluated dimensions" — Found in Rank 2
+
+---
+
+## Query 19: "What are the scaling strategies and performance tuning considerations for vector search using pgvector at production scale?"
+
+**Document Match:** 4/4 (100%)
+- www_crunchydata_com__blog__hnsw-indexes-with-postgres-and-pgvector.md — Found (Rank 5, 8)
+- www_crunchydata_com__blog__pgvector-performance-for-developers.md — Found (Rank 1, 6, 10)
+- www_crunchydata_com__blog__scaling-vector-data-with-postgres.md — Found (Rank 2, 3, 4, 7)
+- www_thenile_dev__blog__pgvector-080.md — Found (Rank 9)
+
+**Snippet Match:** 2/3 (66%)
+- "reduce the number of rows in index and reduce the concurrent queries" — Found in Rank 3
+- "Are you setting your `list` size appropriately for your data set?" — Found in Rank 6
+- "pgvector 0.8.0 and iterative scans work as expected" — MISSING
+
+---
+
+## Query 20: "What techniques exist for enriching document chunks with surrounding context before indexing to improve RAG retrieval accuracy?"
+
+**Document Match:** 3/6 (50%)
+- www_anthropic_com__engineering__contextual-retrieval.md — Found (Rank 2, 5, 9)
+- www_anthropic_com__news__contextual-retrieval.md — Found (Rank 1, 4, 8)
+- docs_together_ai__docs__how-to-implement-contextual-rag-from-anthropic.md — Found (Rank 3)
+- weaviate_io__blog__late-chunking.md — MISSING
+- Beyond_Chunk_Then_Embed_Taxonomy.md — MISSING
+- docs_haystack_deepset_ai__docs__hypothetical-document-embeddings-hyde.md — MISSING
+
+**Snippet Match:** 1/3 (33%)
+- "prepending chunk-specific explanatory context to each chunk before embedding" — Found in Rank 8
+- "only afterwards dividing these contextually-rich embeddings into chunks" — MISSING
+- "encodes each hypothetical document into an embedding vector and averages them" — MISSING
+
+---
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Document Recall @10 (avg) | 80% |
+| Snippet Recall @10 (avg) | 78% |
+| Queries with 100% doc match | 12/20 |
+| Queries with 100% snippet match | 11/20 |
+| Queries with 0 snippet match | 0/20 |
+
+### By Query Type
+| Type | Count | Avg Doc Recall | Avg Snippet Recall |
+|------|-------|---------------|-------------------|
+| conceptual | 7 | 70% | 74% |
+| cross-document | 5 | 62% | 67% |
+| factual | 8 | 100% | 88% |
