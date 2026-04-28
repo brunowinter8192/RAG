@@ -404,8 +404,8 @@ def _parse_overrides(override_list: list[str], base_config: dict) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate retrieval against ground truth documents and snippets")
-    parser.add_argument("--collection", default="RAG_MCP", help="Collection to query (default: RAG_MCP)")
-    parser.add_argument("--queries", default="dev/retrieval/queries_rag_mcp.json", help="Queries JSON path")
+    parser.add_argument("--collection", default="RAG_MCP_test", help="Collection to query (default: RAG_MCP_test)")
+    parser.add_argument("--queries", default="dev/retrieval/queries_rag_mcp_test.json", help="Queries JSON path")
     parser.add_argument("--baseline", action="store_true", help="Run single pass at BASELINE config values")
     parser.add_argument("--sweep", metavar="PARAM", help="Sweep PARAM over SWEEP_RANGES[PARAM]; others fixed at BASELINE")
     parser.add_argument("--override", metavar="key=val", action="append", help="Override a BASELINE key (repeatable)")

@@ -95,7 +95,7 @@ def retrieve_hybrid(query: str, collection: str, top_k: int = 10, rrf_k: int = 6
 
 
 # Retrieve top results using Convex Combination fusion of dense + sparse
-def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7, query_prefix: bool = True) -> list[dict]:
+def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.8, query_prefix: bool = True) -> list[dict]:
     conn = get_connection()
     prefix = INSTRUCT_PREFIX if query_prefix else ""
     emb = embed([query], prefix=prefix)[0]
@@ -108,7 +108,7 @@ def retrieve_cc(query: str, collection: str, top_k: int = 10, alpha: float = 0.7
 
 
 # Retrieve top results using CC fusion then rerank with cross-encoder
-def retrieve_cc_rerank(query: str, collection: str, top_k: int = 10, alpha: float = 0.7, rerank_candidates: int = 50, query_prefix: bool = True) -> list[dict]:
+def retrieve_cc_rerank(query: str, collection: str, top_k: int = 10, alpha: float = 0.8, rerank_candidates: int = 50, query_prefix: bool = True) -> list[dict]:
     conn = get_connection()
     prefix = INSTRUCT_PREFIX if query_prefix else ""
     emb = embed([query], prefix=prefix)[0]
