@@ -31,6 +31,7 @@
 | Reddit: Embedding Model SOTA (15 threads, r/Rag, r/LocalLLaMA, r/MachineLearning, r/LangChain) | reddit.com | Forum | index02 | Referenced |
 | Reddit: Chunking for Decoder Models (10 threads, r/Rag, r/LocalLLaMA, r/LangChain) | reddit.com | Forum | index01 | Referenced |
 | pgvector GitHub Releases (v0.8.2 latest, 2026-02-25) | github.com (pgvector/pgvector) | Repo | index04 | Referenced |
+| dep-tree (3D Code Dependency Visualizer, 1.7k stars, MIT) | github.com (gabotechs/dep-tree) | Repo | — (tooling, not pipeline) | Referenced |
 
 **Other RAG Collections:** `searxng` (SearXNG project docs), `TradBot` (trading bot docs)
 
