@@ -91,10 +91,10 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 **Usage:**
 ```bash
 ./venv/bin/python dev/indexing/A_chunking_stats.py \
-    --source-dir data/documents/RAG_MCP
+    --source-dir data/documents/RAG_MCP_test
 
 ./venv/bin/python dev/indexing/A_chunking_stats.py \
-    --source-dir data/documents/RAG_MCP \
+    --source-dir data/documents/RAG_MCP_test \
     --chunk-size 1000 --overlap 200
 ```
 
@@ -123,11 +123,11 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 **Usage:**
 ```bash
 ./venv/bin/python dev/indexing/A_index_collection.py \
-    --source-dir data/documents/RAG_MCP \
-    --collection RAG_MCP
+    --source-dir data/documents/RAG_MCP_test \
+    --collection RAG_MCP_test
 
 ./venv/bin/python dev/indexing/A_index_collection.py \
-    --source-dir data/documents/RAG_MCP \
+    --source-dir data/documents/RAG_MCP_test \
     --collection RAG_MCP_small \
     --chunk-size 500 --overlap 100
 ```

@@ -15,12 +15,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "indexing"))
 import p2_embedder
 from p1_retriever import retrieve_sparse
 
-COLLECTION = "RAG_MCP"
+COLLECTION = "RAG_MCP_test"
 DIMENSIONS = [256, 512, 768, 1024, 2048, 4096]
 TOP_K = 10
 CANDIDATES = 50
 RRF_K = 60
-QUERIES_PATH = Path(__file__).parent / "queries_rag_mcp.json"
+QUERIES_PATH = Path(__file__).parent / "queries_rag_mcp_test.json"
 REPORTS_DIR = Path(__file__).parent / "A_mrl_sweep_reports"
 INSTRUCT_PREFIX = "Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "
 EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
@@ -89,7 +89,7 @@ def _check_splade_server() -> None:
         sys.exit(1)
 
 
-# Load query list from queries_rag_mcp.json
+# Load query list from queries_rag_mcp_test.json
 def _load_queries() -> list[dict]:
     with open(QUERIES_PATH) as f:
         data = json.load(f)
@@ -359,7 +359,7 @@ def _write_report(queries: list[dict], dim_results: dict) -> None:
     report_path = REPORTS_DIR / f"mrl_sweep_{timestamp}.md"
 
     lines = [
-        "# MRL Dimension Sweep: RAG_MCP",
+        f"# MRL Dimension Sweep: {COLLECTION}",
         "",
         f"**Timestamp:** {timestamp}  ",
         f"**Dimensions tested:** {', '.join(str(d) for d in DIMENSIONS)}  ",
