@@ -133,7 +133,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 ### splade_server.py (67 LOC)
 
 **Purpose:** Standalone FastAPI server that loads the SPLADE model at startup and exposes `/v1/sparse-embeddings` and `/health` on port 8083.
-**Reads:** HuggingFace model (`naver/splade-cocondenser-ensembledistil`) from disk/HF cache at startup.
+**Reads:** HuggingFace model (`naver/splade-v3`, `MAX_ACTIVE_DIMS = 256`) from disk/HF cache at startup.
 **Writes:** nothing.
 **Called by:** (none — subprocess target launched by `server_manager.py`, never imported by Python code)
 **Calls out:** fastapi, uvicorn, torch, transformers
