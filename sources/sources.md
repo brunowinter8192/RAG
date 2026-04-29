@@ -32,6 +32,16 @@
 | Reddit: Chunking for Decoder Models (10 threads, r/Rag, r/LocalLLaMA, r/LangChain) | reddit.com | Forum | index01 | Referenced |
 | pgvector GitHub Releases (v0.8.2 latest, 2026-02-25) | github.com (pgvector/pgvector) | Repo | index04 | Referenced |
 | dep-tree (3D Code Dependency Visualizer, 1.7k stars, MIT) | github.com (gabotechs/dep-tree) | Repo | — (tooling, not pipeline) | Referenced |
+| Adaptive Chunking: Optimizing Chunking-Method Selection for RAG (LREC 2026) | arxiv.org (2603.25333) | Paper | index01 | Referenced |
+| A Systematic Analysis of Chunking Strategies for Reliable Question Answering | arxiv.org (2601.14123) | Paper | index01 | Referenced |
+| HiChunk: Evaluating and Enhancing RAG with Hierarchical Chunking | arxiv.org (2509.11552) | Paper | index01 | Referenced |
+| The Chronicles of RAG: The Retriever, the Chunk and the Generator | arxiv.org (2401.07883) | Paper | index01, retrieval03 | Referenced |
+| Toward General Semantic Chunking: A Discriminative Framework for Ultra-Long Documents | arxiv.org (2602.23370) | Paper | index01 | Referenced |
+| cAST: Enhancing Code RAG with Structural Chunking via Abstract Syntax Tree | arxiv.org (2506.15655) | Paper | index01 | Referenced |
+| Relative Positioning Based Code Chunking for Repository-Level Code Completion | arxiv.org (2510.08610) | Paper | index01 | Referenced |
+| Can LLMs Replace Humans During Code Chunking? | arxiv.org (2506.19897) | Paper | index01 | Referenced |
+| Semantic Source Code Segmentation using Small and Large Language Models | arxiv.org (2507.08992) | Paper | index01 | Referenced |
+| Financial Report Chunking for Effective RAG | arxiv.org (2402.05131) | Paper | index01 | Referenced |
 
 **Other RAG Collections:** `searxng` (SearXNG project docs), `TradBot` (trading bot docs)
 
