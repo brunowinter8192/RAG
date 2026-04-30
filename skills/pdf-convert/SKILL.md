@@ -59,7 +59,7 @@ mkdir -p ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/$STEM
 ### Step 3: Run MinerU Workflow
 
 ```bash
-cd ${MINERU_PATH} && \
+cd /Users/brunowinter2000/Documents/ai/Mineru && \
 ./venv/bin/python workflow.py convert \
   --input "$PDF_PATH" \
   --output ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/$STEM/$STEM.md
