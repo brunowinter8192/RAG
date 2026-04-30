@@ -73,15 +73,7 @@ Output: `{stem}.md` = MinerU output + generic postprocess.py cleanup (raw state,
 ls -la ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/$STEM/
 ```
 
-### Phase 1 Report
-
-```
-PHASE 1: PDF to Markdown
-========================
-INPUT:  [PDF path]
-OUTPUT: data/documents/$STEM/$STEM.md  (raw state)
-STATUS: [Success/Failed]
-```
+Output: `[N/M] <Name>: phase 1 done`
 
 ---
 
@@ -128,52 +120,13 @@ Read `{stem}.md` (raw state), fix artifacts via scripts in `/tmp/`, overwrite `{
 1. **Diagnose:** Scan for all issue types (broken_images, encoding, split_words, etc.)
 2. **Backup:** `cp "{input_file}" "/tmp/backup_{stem}.md"` — do this BEFORE any modification. If a fix goes wrong, restore via `cp /tmp/backup_{stem}.md "{input_file}"`.
 3. **Fix Loop:** For each issue type, create `/tmp/fix_{issue_type}_{stem}.py`, run, verify count reaches 0
-4. **Report:** Per-issue counts (before -> after), scripts created, final status
+4. **Report:** One line: `[N/M] <Name>: cleaned (chars X→Y, -Z%)`
 
-#### Output Format
-
-```
-ISSUES FOUND:
-- [issue_type]: [count] occurrences
-
-FIXES APPLIED:
-- [issue_type]: [before] -> [after] ([script_name])
-
-WORD COUNT: [before] -> [after] ([+/- %])
-STATUS: [CLEAN / ISSUES_REMAINING / ABORTED]
-```
+Output: `[N/M] <Name>: cleaned (chars X→Y, -Z%)`
 
 ### Verify Cleanup
 
-**CRITICAL:** Verify your own cleanup independently before proceeding.
-
-1. **Grep for claimed fixes** — For each pattern claimed fixed, grep BOTH raw and clean file:
-   - Raw file must show matches (confirms pattern existed)
-   - Clean file must show 0 matches (confirms fix applied)
-2. **Stichprobe Content** — Read 10-15 lines from the middle of both files side-by-side, confirm no content loss beyond the fixes
-3. **Line count** — Compare `wc -l` of raw vs clean. Should be stable (equal or very close)
-
-Report verification result in table format:
-
-```
-| Pattern | Raw | Clean | Status |
-|---------|-----|-------|--------|
-| [pattern] | N matches | 0 matches | OK/FAIL |
-```
-
-If any FAIL → report and stop.
-
-### Phase 2 Report
-
-```
-PHASE 2: LLM Cleanup
-=====================
-ISSUES FOUND:    [list]
-FIXES APPLIED:   [list with counts]
-WORD COUNT:      [before] -> [after] ([+/- %])
-VERIFICATION:    [table]
-STATUS:          [CLEAN / ISSUES_REMAINING / ABORTED]
-```
+Internally verify each fix: grep pattern in raw (must have matches) and in cleaned file (must have 0 matches). Also spot-check 10-15 lines from the middle for content loss. If any check fails → report error and stop. Otherwise continue silently — no table output.
 
 ---
 
@@ -214,15 +167,7 @@ cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
 ./venv/bin/python workflow.py search --query "[topic from PDF]" --top-k 3
 ```
 
-### Phase 3 Report
-
-```
-PHASE 3: Chunk + Index
-=======================
-CHUNKS INDEXED: [N]
-VERIFIED:       [Yes/No]
-STATUS:         [Success/Failed]
-```
+Output: `[N/M] <Name>: indexed (X chunks)`
 
 ---
 
