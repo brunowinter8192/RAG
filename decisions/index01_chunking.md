@@ -12,7 +12,7 @@ No markdown-awareness (headers not treated as boundaries). No content-adaptive s
 
 ## Evidenz
 
-### Pipeline Optimization Paper (RAG: Pipeline_Optimization_Paper)
+### Pipeline Optimization Paper (RAG: RAG_reference / Pipeline_Optimization)
 
 | Chunk Size | Acc@3 | NDCG@3 |
 |-----------|-------|--------|
@@ -27,7 +27,7 @@ No markdown-awareness (headers not treated as boundaries). No content-adaptive s
 - 5553 chunks total, avg 843 chars, median 889 chars, max 1190 chars
 - p90: 990, p95: 1005, p99: 1138
 
-### Rethinking Chunk Size (RAG: Rethinking_Chunk_Size_Long_Document_Retrieval)
+### Rethinking Chunk Size (RAG: RAG_reference / Rethinking_Chunk_Size_Long_Document)
 
 Systematic evaluation of fixed-size chunking across 6 datasets with 2 embedding models (Stella = Decoder/Qwen2-basis, Snowflake = Encoder). Chunk sizes: 64-1024 tokens.
 
@@ -38,7 +38,7 @@ Systematic evaluation of fixed-size chunking across 6 datasets with 2 embedding 
 
 **Key finding:** Chunk-size sensitivity is model-dependent. Decoder models benefit from larger chunks (+5-8% Recall@1 vs Encoder at 512-1024 tokens). Encoder models prefer smaller chunks for entity-based matching.
 
-### Beyond Chunk-Then-Embed Taxonomy (RAG: Beyond_Chunk_Then_Embed_Taxonomy)
+### Beyond Chunk-Then-Embed Taxonomy (RAG: RAG_reference / Beyond_Chunk_Then_Embed_Taxonomy)
 
 Comprehensive evaluation of chunking strategies across 4 Encoder models (Jina-v2, Jina-v3, Nomic, E5-large) on BEIR datasets.
 
@@ -48,7 +48,7 @@ Comprehensive evaluation of chunking strategies across 4 Encoder models (Jina-v2
 
 5-Doc subset sweep on RAG_MCP: 6 variants (A-F, 500-1500 chars). **Result: all variants Recall@3/5/10 = 1.000.** Corpus too small to discriminate — needs larger benchmark dataset.
 
-### Qwen3 vs BGE-M3 (RAG: medium.com__mrAryanKumar)
+### Qwen3 vs BGE-M3 (Referenced — Medium article, no longer indexed after 2026-04-30 clean-slate)
 
 Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwen3. No methodology provided.
 
@@ -65,11 +65,14 @@ Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwe
 
 ## Quellen
 
-- RAG Collection: Pipeline_Optimization_Paper (Chunks 6, 20, 28, 29, 36) — GTE-large, Encoder
-- RAG Collection: Rethinking_Chunk_Size_Long_Document_Retrieval — Stella/Snowflake, Decoder vs Encoder
-- RAG Collection: Beyond_Chunk_Then_Embed_Taxonomy — Jina/Nomic/E5, BEIR datasets
-- RAG Collection: medium.com__mrAryanKumar (Qwen3 vs BGE-M3 comparison)
-- RAG Collection: medium.com__yashasvimantha (MRL Sweet Spot Qwen3-0.6B)
-- RAG Collection: research_trychroma_com__evaluating-chunking (Chroma Technical Report)
+Indexed in collection `RAG_reference`:
+- Pipeline_Optimization (Chunks 6, 20, 28, 29, 36) — GTE-large, Encoder
+- Rethinking_Chunk_Size_Long_Document — Stella/Snowflake, Decoder vs Encoder
+- Beyond_Chunk_Then_Embed_Taxonomy — Jina/Nomic/E5, BEIR datasets
+
+Referenced (consulted historically, no longer indexed after 2026-04-30 data clean-slate — sources kept for attribution but not searchable in current collection):
+- medium.com__mrAryanKumar (Qwen3 vs BGE-M3 comparison)
+- medium.com__yashasvimantha (MRL Sweet Spot Qwen3-0.6B)
+- research_trychroma_com__evaluating-chunking (Chroma Technical Report)
 - Anthropic contextual-retrieval (Contextual Chunking concept)
 - Late Chunking vs Contextual Retrieval comparison
