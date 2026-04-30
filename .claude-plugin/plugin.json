@@ -7,6 +7,9 @@
   },
   "repository": "https://github.com/brunowinter8192/RAG",
   "keywords": ["rag", "search", "cli", "embeddings", "pgvector"],
-  "skills": ["./skills/agent-rag-search/"],
-  "commands": ["./commands/pdf-convert.md", "./commands/web-md-index.md"]
+  "skills": [
+    "./skills/agent-rag-search/",
+    "./skills/pdf-convert/",
+    "./skills/web-md-index/"
+  ]
 }

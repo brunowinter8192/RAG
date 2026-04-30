@@ -1,12 +1,6 @@
 ---
-description: Convert PDF to Markdown and index into RAG vector database
-argument-hint: [path/to/file.pdf]
----
-
-## Input
-
-PDF Path: $ARGUMENTS
-
+name: pdf-convert
+description: Convert PDF to Markdown via MinerU, LLM-cleanup, chunk and index into RAG collection. Supports single PDF or batch (directory of PDFs).
 ---
 
 ## Pipeline Flow
@@ -31,20 +25,17 @@ No `raw/` subfolder. No `debug/` subfolder. All process artifacts go to `/tmp/`.
 
 ---
 
-## Step Indicator Rule
+## Naming Convention
 
-**MANDATORY:** Every response MUST start with: `Phase X, Step Y: [Name]`
+Collection name MUST be descriptive: `Qwen3_Embedding_Paper`, `SPLADE_Architecture`, `RAG_Survey_2024`
 
----
+- NEVER use ArXiv IDs (`2506.05176`) or cryptic identifiers
+- Format: PascalCase_With_Underscores, no spaces
+- If the PDF filename is cryptic and no title is passed as argument, read the first page or the arxiv abstract to derive a descriptive name
 
-## STOP Point Rule
-
-**CRITICAL:** After each phase report, there is a `**STOP**` marker.
-
-- **STOP = END OF RESPONSE.** Do not continue to next phase.
-- Wait for user to say "weiter", "proceed", "phase X", etc.
-- "weiter" = proceed to NEXT phase only, not "run all remaining phases"
-- NEVER batch multiple phases in one response
+**Data paths (CRITICAL):**
+- All data writes go to the SOURCE repo: `~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/`
+- NEVER write to `${CLAUDE_PLUGIN_ROOT}/data/...` — those writes are lost on plugin-sync
 
 ---
 
@@ -56,19 +47,13 @@ No `raw/` subfolder. No `debug/` subfolder. All process artifacts go to `/tmp/`.
 ls -la "$PDF_PATH"
 ```
 
-If not found, ask for correct path.
+If not found, report error and stop.
 
 ### Step 2: Create Document Folder
 
-**Naming Convention (MANDATORY):**
-- Collection name MUST be descriptive: `Qwen3_Embedding_Paper`, `SPLADE_Architecture`, `RAG_Survey_2024`
-- NEVER use ArXiv IDs (`2506.05176`) or cryptic identifiers as collection names
-- Ask user for a descriptive name if the PDF filename is not self-explanatory
-- Format: PascalCase_With_Underscores, no spaces
-
 ```bash
-STEM="<descriptive_name>"  # NOT $(basename "$PDF_PATH" .pdf) if filename is cryptic
-mkdir -p ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM
+STEM="<descriptive_name>"
+mkdir -p ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/$STEM
 ```
 
 ### Step 3: Run MinerU Workflow
@@ -77,7 +62,7 @@ mkdir -p ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM
 cd ${MINERU_PATH} && \
 ./venv/bin/python workflow.py convert \
   --input "$PDF_PATH" \
-  --output ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/$STEM.md
+  --output ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/$STEM/$STEM.md
 ```
 
 Output: `{stem}.md` = MinerU output + generic postprocess.py cleanup (raw state, directly in collection folder)
@@ -85,22 +70,18 @@ Output: `{stem}.md` = MinerU output + generic postprocess.py cleanup (raw state,
 ### Step 4: Verify
 
 ```bash
-ls -la ${CLAUDE_PLUGIN_ROOT}/data/documents/$STEM/
+ls -la ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/$STEM/
 ```
 
-### PHASE 1 REPORT
+### Phase 1 Report
 
 ```
 PHASE 1: PDF to Markdown
 ========================
-INPUT: [PDF path]
+INPUT:  [PDF path]
 OUTPUT: data/documents/$STEM/$STEM.md  (raw state)
 STATUS: [Success/Failed]
 ```
-
----
-
-**STOP** - Ask: "Proceed to Phase 2 (LLM Cleanup)?"
 
 ---
 
@@ -108,9 +89,7 @@ STATUS: [Success/Failed]
 
 Read `{stem}.md` (raw state), fix artifacts via scripts in `/tmp/`, overwrite `{stem}.md` with the clean version.
 
-### Step 1: PDF Cleanup Protocol
-
-You are doing the cleanup directly. Follow this protocol:
+### PDF Cleanup Protocol
 
 #### CRITICAL EXECUTION PROTOCOL
 
@@ -164,15 +143,15 @@ WORD COUNT: [before] -> [after] ([+/- %])
 STATUS: [CLEAN / ISSUES_REMAINING / ABORTED]
 ```
 
-### Step 2: Verify Cleanup
+### Verify Cleanup
 
 **CRITICAL:** Verify your own cleanup independently before proceeding.
 
-1. **Grep for claimed fixes** - For each pattern you claim to have fixed, grep BOTH raw and clean file:
+1. **Grep for claimed fixes** — For each pattern claimed fixed, grep BOTH raw and clean file:
    - Raw file must show matches (confirms pattern existed)
    - Clean file must show 0 matches (confirms fix applied)
-2. **Stichprobe Content** - Read 10-15 lines from the middle of both files side-by-side, confirm no content loss beyond the fixes
-3. **Line count** - Compare `wc -l` of raw vs clean. Should be stable (equal or very close)
+2. **Stichprobe Content** — Read 10-15 lines from the middle of both files side-by-side, confirm no content loss beyond the fixes
+3. **Line count** — Compare `wc -l` of raw vs clean. Should be stable (equal or very close)
 
 Report verification result in table format:
 
@@ -182,9 +161,19 @@ Report verification result in table format:
 | [pattern] | N matches | 0 matches | OK/FAIL |
 ```
 
-If any FAIL → STOP and inform user.
+If any FAIL → report and stop.
 
-**STOP** - Ask: "Proceed to Phase 3 (Chunk)?"
+### Phase 2 Report
+
+```
+PHASE 2: LLM Cleanup
+=====================
+ISSUES FOUND:    [list]
+FIXES APPLIED:   [list with counts]
+WORD COUNT:      [before] -> [after] ([+/- %])
+VERIFICATION:    [table]
+STATUS:          [CLEAN / ISSUES_REMAINING / ABORTED]
+```
 
 ---
 
@@ -193,8 +182,8 @@ If any FAIL → STOP and inform user.
 ### Data Model
 
 ```
-collection = folder name (e.g. "Thesis")
-document   = file name (e.g. "1.Einleitung.md", "2.Grundlagen.md")
+collection = folder name (e.g. "Qwen3_Embedding_Paper")
+document   = file name (e.g. "Qwen3_Embedding_Paper.md")
 ```
 
 **Multiple MD files in one folder:**
@@ -225,32 +214,87 @@ cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
 ./venv/bin/python workflow.py search --query "[topic from PDF]" --top-k 3
 ```
 
-### PHASE 3 REPORT
+### Phase 3 Report
 
 ```
 PHASE 3: Chunk + Index
 =======================
 CHUNKS INDEXED: [N]
-VERIFIED: [Yes/No]
+VERIFIED:       [Yes/No]
+STATUS:         [Success/Failed]
 ```
 
 ---
 
-## Phase 4: Server Lifecycle (End)
+## Batch Mode
 
-**STOP** - Ask: "Stop GPU servers or keep running for MCP?"
+When the caller passes a directory of PDFs (e.g. `data/pdf/<project>/`), run the full pipeline for each PDF sequentially and index all into a single collection.
 
-### If Stop:
-
-```bash
-cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
-./venv/bin/python workflow.py server stop
-```
-
-### PHASE 4 REPORT
+**Invocation pattern:**
 
 ```
-PHASE 4: Server Lifecycle
-=========================
-GPU servers: [stopped / kept running for MCP]
+Input root:  data/pdf/<project>/           # directory containing *.pdf files
+Output root: data/documents/<project>_reference/   # one folder = one collection
+Collection:  <project>_reference           # derived from output root folder name
+```
+
+**Example:**
+
+```
+Input root:  data/pdf/RAG/
+Output root: data/documents/RAG_reference/
+Collection:  RAG_reference
+```
+
+### Batch Workflow
+
+1. **List PDFs:**
+   ```bash
+   ls data/pdf/<project>/*.pdf
+   ```
+
+2. **For each PDF**, derive a descriptive PascalCase name:
+   - Read first page or arxiv abstract (via CLI or embedded title)
+   - Derive: e.g. `Attention_Is_All_You_Need`, `SPLADE_Architecture`
+
+3. **Run Phase 1 (MinerU)** for that PDF, outputting to:
+   ```bash
+   ~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/<project>_reference/<DescriptiveName>.md
+   ```
+
+4. **Run Phase 2 (LLM Cleanup)** on the generated .md file
+
+5. **Run Phase 3 (index-dir)** pointing at the shared output root:
+   ```bash
+   cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
+   ./venv/bin/python workflow.py index-dir \
+     --input data/documents/<project>_reference/ \
+     --collection <project>_reference
+   ```
+   (Running index-dir once per PDF is fine — it is incremental and only re-indexes changed documents)
+
+6. **Report** per-PDF status, then a batch summary when all PDFs are processed:
+
+```
+BATCH SUMMARY
+=============
+Total PDFs:     [N]
+Indexed:        [N]
+Failed:         [N]
+Collection:     <project>_reference
+Chunks total:   [N]
+```
+
+### Single-PDF Invocation Example
+
+```
+Skill(skill="pdf-convert")
+Arguments: PDF=/path/to/paper.pdf STEM=Qwen3_Embedding_Paper
+```
+
+### Batch Invocation Example
+
+```
+Skill(skill="pdf-convert")
+Arguments: PDF_DIR=data/pdf/RAG/ OUTPUT_ROOT=data/documents/RAG_reference/
 ```

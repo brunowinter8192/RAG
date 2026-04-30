@@ -1,12 +1,6 @@
 ---
-description: Index website-crawled Markdown files into RAG (cleanup + chunk + embed)
-argument-hint: [path/to/md-directory]
----
-
-## Input
-
-MD Directory: $ARGUMENTS
-
+name: web-md-index
+description: Clean crawled web Markdown files (remove nav/footer/UI chrome), chunk and index into RAG collection. Input is a directory of .md files produced by a web crawler.
 ---
 
 ## Pipeline Flow
@@ -14,27 +8,10 @@ MD Directory: $ARGUMENTS
 ```
 directory/*.md (raw crawl4ai output)
  ↓ LLM Web Cleanup (remove nav, footer, UI chrome)
-directory/*.md (cleaned)
+directory/*.md (cleaned, overwritten in-place)
  ↓ workflow.py index-dir (ensures servers, chunks, indexes — one call)
 indexed in RAG
 ```
-
----
-
-## Step Indicator Rule
-
-**MANDATORY:** Every response MUST start with: `Phase X, Step Y: [Name]`
-
----
-
-## STOP Point Rule
-
-**CRITICAL:** After each phase, there is a `**STOP**` marker.
-
-- **STOP = END OF RESPONSE.** Do not continue to next phase.
-- Wait for user to say "weiter", "proceed", "phase X", etc.
-- "weiter" = proceed to NEXT phase only, not "run all remaining phases"
-- NEVER batch multiple phases in one response
 
 ---
 
@@ -46,11 +23,9 @@ indexed in RAG
 ls "$MD_DIR"/*.md | wc -l
 ```
 
-If no MD files found, ask for correct path.
+If no MD files found, report error and stop.
 
-### Step 2: Web MD Cleanup Protocol
-
-You are doing the cleanup directly. Follow this protocol:
+### Web MD Cleanup Protocol
 
 #### Key Difference from PDF Cleanup
 
@@ -164,31 +139,25 @@ OUTPUT: in-place (originals overwritten)
 STATUS: [CLEAN / ISSUES_REMAINING]
 ```
 
-### Step 3: Verify Cleanup
+### Verify Cleanup
 
 **CRITICAL:** Verify your own cleanup independently before proceeding.
 
 1. **Spot-check:** Read first 20 lines of 2-3 cleaned files. Should start with content, not navigation.
 2. **Source comments preserved:** `grep -l "<!-- source:" "$MD_DIR"/*.md | wc -l` should equal total file count.
-3. **Char reduction:** Compare total chars before/after. 10-50% reduction is expected. More than 60% = possible content loss.
+3. **Char reduction:** Compare total chars before/after. 10-50% reduction is expected. More than 60% = possible content loss — report and stop.
 
-If cleanup failed -> STOP and inform user.
-
-### PHASE 1 REPORT
+### Phase 1 Report
 
 ```
 PHASE 1: Web MD Cleanup
 ========================
-INPUT:    [directory]
-FILES:    [N] markdown files
-PATTERNS: [list of detected patterns]
+INPUT:     [directory]
+FILES:     [N] markdown files
+PATTERNS:  [list of detected patterns]
 REDUCTION: [X%] char reduction
-STATUS:   [Success/Failed]
+STATUS:    [Success/Failed]
 ```
-
----
-
-**STOP** - Ask: "Proceed to Phase 2 (Index)?"
 
 ---
 
@@ -212,32 +181,34 @@ cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
 ./venv/bin/python workflow.py search --query "[topic from crawled site]" --top-k 3
 ```
 
-### PHASE 2 REPORT
+### Phase 2 Report
 
 ```
 PHASE 2: Chunk + Index
 =======================
 CHUNKS INDEXED: [N]
 VERIFIED:       [Yes/No]
+STATUS:         [Success/Failed]
 ```
 
 ---
 
-## Phase 3: Server Lifecycle (End)
+## Invocation Examples
 
-**STOP** - Ask: "Stop GPU servers or keep running for MCP?"
+### Single directory
 
-### If Stop:
+```
+Skill(skill="web-md-index")
+Arguments: MD_DIR=~/Documents/ai/Meta/ClaudeCode/MCP/RAG/data/documents/SearXNG_Docs/
+```
+
+The collection name is derived from the directory name (`SearXNG_Docs`). If the directory name is cryptic, pass a descriptive collection name to `--collection` in the index-dir call.
+
+### Explicit collection override
 
 ```bash
 cd ~/Documents/ai/Meta/ClaudeCode/MCP/RAG && \
-./venv/bin/python workflow.py server stop
-```
-
-### PHASE 3 REPORT
-
-```
-PHASE 3: Server Lifecycle
-=========================
-GPU servers: [stopped / kept running for MCP]
+./venv/bin/python workflow.py index-dir \
+  --input data/documents/searxng_raw/ \
+  --collection SearXNG_Docs
 ```
