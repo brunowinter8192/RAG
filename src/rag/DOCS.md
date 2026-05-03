@@ -16,6 +16,8 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 **Indexing (per batch):** `chunker.py` splits document → `indexer.py` embeds chunks via `embedder.py` + `sparse_embedder.py` and inserts into PostgreSQL. `server_manager.py` ensures GPU servers are running before embedding starts.
 
+**Manifest-driven sync (per project, end of session):** `sync.py` reads `<project>/.rag-docs.json`, expands the include-globs, hashes each matched `.md` file, and diffs against the `indexed_files` tracking table. Only added/updated files are re-chunked + re-embedded; removed files are deleted from the index; unchanged files are skipped. Reuses chunker/indexer/server_manager primitives — no re-implementation of embedding or storage.
+
 ## Modules
 
 ### db.py (93 LOC)
@@ -113,8 +115,18 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 **Purpose:** Index chunks into PostgreSQL with dense + sparse embeddings; handles schema creation, batch insert, SPLADE backfill, and deletion by collection/document.
 **Reads:** `chunks.json` from disk; `.env` for connection params; PostgreSQL schema state.
 **Writes:** PostgreSQL `documents` table (insert, delete, schema init).
-**Called by:** workflow.py
+**Called by:** workflow.py, sync.py
 **Calls out:** psycopg2, pgvector, python-dotenv
+
+---
+
+### sync.py (265 LOC)
+
+**Purpose:** Manifest-driven project doc indexing with hash-based change detection. Reads `<project>/.rag-docs.json`, expands include-globs, hashes matched `.md` files, diffs against the `indexed_files` table, and only re-indexes the deltas. Composes existing chunker / indexer / server_manager primitives — no re-implementation of embedding or storage.
+**Reads:** `<project>/.rag-docs.json` manifest; matched `.md` files from disk; PostgreSQL `indexed_files` table.
+**Writes:** `src/rag/logs/sync.log`; PostgreSQL `indexed_files` (upsert/delete) and `documents` (via indexer primitives).
+**Called by:** cli.py (`update_docs` subcommand)
+**Calls out:** hashlib, json, pathlib, logging (stdlib only — all RAG-specific calls are intra-package: chunker, indexer, db, server_manager)
 
 ---
 
@@ -144,7 +156,8 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 | Owner | State | Reads | Writes |
 |---|---|---|---|
-| PostgreSQL `documents` table | All indexed chunks with dense + sparse embeddings | db.py, search_primitives.py | indexer.py (insert/delete/schema) |
+| PostgreSQL `documents` table | All indexed chunks with dense + sparse embeddings | db.py, search_primitives.py | indexer.py (insert/delete/schema), sync.py (delete via indexer primitives) |
+| PostgreSQL `indexed_files` table | Per-project (collection, document) → sha256 + last_indexed_at; sync.py's change-detection ledger | sync.py (diff against current file hashes) | sync.py (upsert/delete; auto-creates table on first run) |
 | `/tmp/rag-server-{name}-last-used` | Last-used timestamps for idle-timeout | server_manager.py (idle checker) | server_manager.py (ensure_ready) |
 
 ## Gotchas

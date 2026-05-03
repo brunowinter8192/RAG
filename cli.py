@@ -72,6 +72,19 @@ def main():
     p.add_argument("--after", type=int, default=0,
                    help="Chunks to read after the anchor (0–10, default 0)")
 
+    # ── update_docs ───────────────────────────────────────────────────────────
+    p = sub.add_parser(
+        "update_docs",
+        help="Sync project docs into RAG collection per .rag-docs.json manifest. "
+             "Hash-based change detection — unchanged files skipped, removed files cleaned up. "
+             "Run at the end of every session to keep the project's docs collection current."
+    )
+    p.add_argument("project_root", help="Project root containing .rag-docs.json")
+    p.add_argument("--chunk-size", dest="chunk_size", type=int, default=2000,
+                   help="Target chunk size in chars (default 2000)")
+    p.add_argument("--overlap", type=int, default=400,
+                   help="Overlap between chunks in chars (default 400)")
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
     args = parser.parse_args()
 
@@ -115,6 +128,26 @@ def main():
             f"\n\n{result['content']}"
         )
         print(text)
+
+    elif args.cmd == "update_docs":
+        from src.rag.sync import sync_docs_workflow
+        result = sync_docs_workflow(
+            args.project_root,
+            chunk_size=args.chunk_size,
+            overlap=args.overlap,
+        )
+        print(f"Collection: {result['collection']}")
+        print(f"  added:     {len(result['added'])}")
+        for r in result['added']:
+            print(f"             + {r}")
+        print(f"  updated:   {len(result['updated'])}")
+        for r in result['updated']:
+            print(f"             ~ {r}")
+        print(f"  removed:   {len(result['removed'])}")
+        for r in result['removed']:
+            print(f"             - {r}")
+        print(f"  unchanged: {len(result['unchanged'])}")
+        print(f"  total chunks indexed this run: {result['total_chunks_indexed']}")
 
     else:
         parser.error(f"Unknown command: {args.cmd}")
