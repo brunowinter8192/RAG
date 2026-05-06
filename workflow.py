@@ -93,6 +93,11 @@ def main(command: str, **kwargs) -> None:
             print(f"  Indexed {json_file.name} -> {count} chunks")
 
         print(f"\nDone: {len(md_files)} files, {total_chunks} chunks chunked, {indexed} chunks indexed")
+        skipped = total_chunks - indexed
+        if skipped:
+            print(f"\n⚠️  WARNING: {skipped} chunks ({skipped/total_chunks*100:.1f}%) skipped due to NULL embeddings.")
+            print(f"    Search 'NULL embedding skipped' in the indexer log for the (collection, document, chunk_index) of each.")
+            print(f"    If this happens after the search_document prefix fix, escalate — known issue should be 0%.")
 
     elif command == "server":
         from src.rag.server_manager import cli_server

@@ -25,7 +25,9 @@
 
 **Indexing Throughput:** ~20s per 32-chunk batch, ~1.2 chunks/sec.
 
-**Known Issue — NULL Embeddings:** llama-server returns NULL vectors for chunks starting with naked `import` statements (no preceding context). Root cause: tokenizer issue with Qwen3-Embedding-8B. Affected: ~2% of code-heavy chunks. Fix: Prefix every chunk with `search_document: ` before embedding. Validated: all NULL chunks produce valid embeddings with prefix. Safety net: `store_chunks()` in indexer.py skips NULL embeddings with warning. Full details: Previously in `fixes/null-embeddings.md`.
+**Indexing Prefix:** `parallel_embed` (in `indexer.py`) sends every chunk with the prefix `search_document: ` — required by Qwen3-Embedding-8B's task-aware tokenizer. Without the prefix, ~3-4% of code-heavy chunks silently produce all-None embeddings (tokenizer edge case at chunk boundaries that start with bare `import` etc.). Fix landed 2026-05-06; bug archive: `decisions/OldThemes/null_embedding_qwen3_prefix.md`.
+
+**Indexing Visibility:** `workflow.py index-dir` prints `⚠️  WARNING: N chunks skipped due to NULL embeddings` if any chunk's embedding fails to materialize. Operator-visible at run-time. Should be 0 with the prefix fix; non-zero indicates a new content pattern or model regression.
 
 ## Evidenz
 
