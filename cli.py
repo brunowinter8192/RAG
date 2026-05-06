@@ -73,9 +73,11 @@ def main():
                    help="Chunks to read after the anchor (0–10, default 0)")
 
     # ── delete ────────────────────────────────────────────────────────────────
-    p = sub.add_parser("delete", help="Delete indexed chunks by collection and/or document (DB only — does NOT remove data/documents/ folder).")
+    p = sub.add_parser("delete", help="Delete indexed chunks by collection and/or document. With --remove-source, also removes source file(s) from data/documents/.")
     p.add_argument("--collection", help="Delete all chunks in this collection")
     p.add_argument("--document", help="Delete all chunks of this document (filtered by --collection if provided)")
+    p.add_argument("--remove-source", action="store_true", default=False,
+                   help="Also remove source file(s) from data/documents/<collection>/. Requires --collection. With --document: removes the .md (plus raw/<document> if present). Without --document: removes the entire collection directory.")
 
     # ── update_docs ───────────────────────────────────────────────────────────
     p = sub.add_parser(
@@ -136,11 +138,17 @@ def main():
 
     elif args.cmd == "delete":
         from src.rag.indexer import delete_workflow
-        deleted = delete_workflow(
+        result = delete_workflow(
             collection=args.collection,
             document=args.document,
+            remove_source=args.remove_source,
         )
-        print(f"Deleted {deleted} chunks")
+        print(f"Deleted {result['chunks_deleted']} chunks")
+        if result["files_removed"]:
+            for f in result["files_removed"]:
+                print(f"Removed source: {f}")
+        elif args.remove_source:
+            print("No source files removed (path not found)")
 
     elif args.cmd == "update_docs":
         from src.rag.sync import sync_docs_workflow

@@ -69,14 +69,33 @@ def index_json_workflow(json_path: str) -> int:
     return indexed
 
 
-# Delete chunks by collection and/or document
-def delete_workflow(collection: str | None = None, document: str | None = None) -> int:
+# Delete chunks by collection and/or document; optionally remove source MDs from data/documents/
+def delete_workflow(
+    collection: str | None = None,
+    document: str | None = None,
+    remove_source: bool = False,
+) -> dict:
     if not collection and not document:
         raise ValueError("At least --collection or --document required")
+    if remove_source and not collection:
+        raise ValueError("--remove-source requires --collection")
     conn = get_connection()
     deleted = delete_chunks(conn, collection, document)
     conn.close()
-    return deleted
+    files_removed: list[str] = []
+    if remove_source:
+        import shutil
+        from .server_manager import RAG_ROOT
+        coll_dir = RAG_ROOT / "data" / "documents" / collection
+        if document:
+            for candidate in (coll_dir / document, coll_dir / "raw" / document):
+                if candidate.exists() and candidate.is_file():
+                    candidate.unlink()
+                    files_removed.append(str(candidate))
+        elif coll_dir.exists() and coll_dir.is_dir():
+            shutil.rmtree(coll_dir)
+            files_removed.append(str(coll_dir))
+    return {"chunks_deleted": deleted, "files_removed": files_removed}
 
 
 # Backfill sparse embeddings for chunks that have NULL sparse_embedding
