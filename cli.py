@@ -72,6 +72,11 @@ def main():
     p.add_argument("--after", type=int, default=0,
                    help="Chunks to read after the anchor (0–10, default 0)")
 
+    # ── delete ────────────────────────────────────────────────────────────────
+    p = sub.add_parser("delete", help="Delete indexed chunks by collection and/or document (DB only — does NOT remove data/documents/ folder).")
+    p.add_argument("--collection", help="Delete all chunks in this collection")
+    p.add_argument("--document", help="Delete all chunks of this document (filtered by --collection if provided)")
+
     # ── update_docs ───────────────────────────────────────────────────────────
     p = sub.add_parser(
         "update_docs",
@@ -128,6 +133,14 @@ def main():
             f"\n\n{result['content']}"
         )
         print(text)
+
+    elif args.cmd == "delete":
+        from src.rag.indexer import delete_workflow
+        deleted = delete_workflow(
+            collection=args.collection,
+            document=args.document,
+        )
+        print(f"Deleted {deleted} chunks")
 
     elif args.cmd == "update_docs":
         from src.rag.sync import sync_docs_workflow
