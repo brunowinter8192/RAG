@@ -1,6 +1,5 @@
 ---
 name: agent-rag-search
-description: See ~/.claude/shared-rules/global/cli-skills.md
 ---
 
 # RAG CLI Tools — Reference
