@@ -307,8 +307,6 @@ RIGHT: Read(file_path=...)   # whole file, one call
 
 If the persisted file is so large it won't fit (>200 KB / >2000 lines): the search itself was too broad. Re-issue with smaller `--top-k` or tighter query — don't paginate the read.
 
-**Don't draw conclusions from the preview.** The `Preview (first 2KB)` block shown in the persisted-output marker is bait. Skip the preview, Read the persisted file, work from full content. Conclusions drawn from the 2KB preview will miss most hits.
-
 ## When to Stop
 
 - Found the specific answer with quotes → STOP immediately
