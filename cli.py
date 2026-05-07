@@ -13,6 +13,7 @@ from src.rag.retriever import (
     search_hybrid_workflow,
     list_collections_workflow, format_collections,
     list_documents_workflow, format_documents,
+    progress_workflow, format_progress,
     read_document_workflow
 )
 
@@ -61,6 +62,15 @@ def main():
     p.add_argument("collection", help="Collection name")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
+
+    # ── progress ──────────────────────────────────────────────────────────────
+    p = sub.add_parser(
+        "progress",
+        help="Show indexing progress per document — done/total chunks plus percent. "
+             "Pollable during a workflow.py index-dir run; documents with done < total are "
+             "still being indexed."
+    )
+    p.add_argument("collection", help="Collection name")
 
     # ── read_document ─────────────────────────────────────────────────────────
     p = sub.add_parser("read_document", help="Read anchor chunk plus N before and M after.")
@@ -120,6 +130,10 @@ def main():
     elif args.cmd == "list_documents":
         results = list_documents_workflow(args.collection, args.document)
         print(format_documents(results))
+
+    elif args.cmd == "progress":
+        results = progress_workflow(args.collection)
+        print(format_progress(results, args.collection))
 
     elif args.cmd == "read_document":
         before = min(max(args.before, 0), 10)

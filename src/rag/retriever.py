@@ -2,10 +2,10 @@
 import logging
 from pathlib import Path
 
-from .db import get_connection, validate_collection, query_collections, query_documents, fetch_chunk_range
+from .db import get_connection, validate_collection, query_collections, query_documents, query_progress, fetch_chunk_range
 from .search_primitives import embed_query, search_vectors, bm25_search, splade_search
 from .fusion import cc_fusion
-from .formatting import format_results, format_collections, format_documents
+from .formatting import format_results, format_collections, format_documents, format_progress
 from .reranker import rerank_workflow
 
 LOG_DIR = Path(__file__).parent / "logs"
@@ -54,6 +54,14 @@ def list_documents_workflow(collection: str, document: str | None = None) -> lis
     conn = get_connection()
     validate_collection(conn, collection)
     results = query_documents(conn, collection, document)
+    conn.close()
+    return results
+
+
+def progress_workflow(collection: str) -> list[dict]:
+    conn = get_connection()
+    validate_collection(conn, collection)
+    results = query_progress(conn, collection)
     conn.close()
     return results
 

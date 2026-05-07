@@ -76,6 +76,30 @@ def query_documents(conn, collection: str, document: str | None = None) -> list[
     return [{"document": row[0], "chunks": row[1]} for row in rows]
 
 
+# Query indexing progress per document in a collection.
+# Returns rows of {"document", "done", "total"} where:
+#   done  = chunks currently in the documents table for this (collection, document)
+#   total = expected chunk count (from the per-row total_chunks column)
+# A document with done < total is in progress; done == total is fully indexed.
+# Documents that haven't started indexing won't appear.
+def query_progress(conn, collection: str) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT document,
+                   COUNT(*)            AS done,
+                   MAX(total_chunks)   AS total
+            FROM documents
+            WHERE collection = %s
+            GROUP BY document
+            ORDER BY document
+            """,
+            (collection,),
+        )
+        rows = cur.fetchall()
+    return [{"document": row[0], "done": row[1], "total": row[2]} for row in rows]
+
+
 # Fetch chunks for a contiguous range
 def fetch_chunk_range(conn, collection: str, document: str, start_idx: int, end_idx: int) -> list[dict]:
     with conn.cursor() as cur:

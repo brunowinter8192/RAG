@@ -36,3 +36,24 @@ def format_documents(results: list[dict]) -> str:
     for r in results:
         lines.append(f"  {r['document']} ({r['chunks']} chunks)")
     return "\n".join(lines)
+
+
+# Format indexing-progress list for display.
+# Input rows: {"document", "done", "total"}.
+# done == total → fully indexed; done < total → in progress.
+def format_progress(results: list[dict], collection: str = "") -> str:
+    if not results:
+        return f"No documents found in collection '{collection}'." if collection else "No documents found."
+    name_width = max(len(r["document"]) for r in results)
+    header = f"Indexing Progress: {collection}" if collection else "Indexing Progress"
+    lines = [header, ""]
+    lines.append(f"  {'Document'.ljust(name_width)}  {'Done':>6} / {'Total':<6}  {'%':>6}  Status")
+    for r in results:
+        done = r["done"]
+        total = r["total"]
+        pct = (100.0 * done / total) if total else 0.0
+        status = "done" if done >= total else "in-progress"
+        lines.append(
+            f"  {r['document'].ljust(name_width)}  {done:>6} / {total:<6}  {pct:>5.1f}%  {status}"
+        )
+    return "\n".join(lines)
