@@ -294,6 +294,21 @@ ALWAYS return concrete findings (quotes, chunk references, document paths). If u
 - **No absolute negations from partial search** — NEVER say "X is not mentioned". Say: "Not found in the searched sections. Further search needed to be certain."
 - **No summaries as facts** — "7-114%" is WRONG if you only have "7.30% average" and "114% single example"
 
+## Persisted-Output Handling
+
+`rag-cli search*` results regularly exceed CC's inline tool-output limit and get persisted (`<persisted-output>` block, file path under `tool-results/<id>.txt`). Typical size: 30-50 KB for `--top-k 15-20` with rerank enabled.
+
+**Rule: read the persisted file FULLY in ONE Read call.** No offset/limit chunking, no incremental "first 100 lines, then more". A 50 KB persisted file is ~400-500 lines in `cat -n` format and fits well below Read's 2000-line default — one call covers it.
+
+```
+WRONG: Read(file_path=..., offset=0, limit=100) → Read(offset=100, limit=200) → ...
+RIGHT: Read(file_path=...)   # whole file, one call
+```
+
+If the persisted file is so large it won't fit (>200 KB / >2000 lines): the search itself was too broad. Re-issue with smaller `--top-k` or tighter query — don't paginate the read.
+
+**Don't draw conclusions from the preview.** The `Preview (first 2KB)` block shown in the persisted-output marker is bait. Skip the preview, Read the persisted file, work from full content. Conclusions drawn from the 2KB preview will miss most hits.
+
 ## When to Stop
 
 - Found the specific answer with quotes → STOP immediately
