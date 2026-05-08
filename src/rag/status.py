@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import httpx
 
 from .lock import read as read_lock
-from .server_manager import SERVERS, get_last_used
+from .server_manager import SERVERS, get_last_used, get_port
 
 
 # ORCHESTRATOR
@@ -53,7 +53,8 @@ def format_status(info: dict) -> str:
         status = "RUNNING" if s["running"] else "STOPPED"
         health = "healthy" if s["healthy"] else ("unhealthy" if s["running"] else "—")
         last = f"  last_used: {s['last_used']}" if s["last_used"] else ""
-        lines.append(f"  {name:<12} :{s['port']:<5} {status:<8} {health}{last}")
+        port_str = str(s["port"]) if s["port"] else "-"
+        lines.append(f"  {name:<12} :{port_str:<5} {status:<8} {health}{last}")
 
     lines.append("")
 
@@ -83,12 +84,18 @@ def _lock_status() -> dict:
 
 def _server_status() -> dict:
     result = {}
-    for name, cfg in SERVERS.items():
-        running = _port_has_listener(cfg["port"])
+    for name in SERVERS:
+        port = None
+        running = False
+        try:
+            port = get_port(name)
+            running = True
+        except RuntimeError:
+            pass
         healthy = False
         if running:
             try:
-                resp = httpx.get(cfg["health_url"], timeout=2.0)
+                resp = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
                 healthy = resp.status_code == 200
             except Exception:
                 pass
@@ -96,7 +103,7 @@ def _server_status() -> dict:
         result[name] = {
             "running": running,
             "healthy": healthy,
-            "port": cfg["port"],
+            "port": port,
             "last_used": last_used,
         }
     return result
@@ -116,15 +123,6 @@ def _postgres_status() -> dict:
         return {"reachable": True, "port": POSTGRES_PORT, "error": None}
     except Exception as e:
         return {"reachable": False, "port": POSTGRES_PORT, "error": str(e)}
-
-
-def _port_has_listener(port: int) -> bool:
-    import subprocess
-    try:
-        r = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=3)
-        return r.returncode == 0 and bool(r.stdout.strip())
-    except Exception:
-        return False
 
 
 def _elapsed(iso: str) -> str:
