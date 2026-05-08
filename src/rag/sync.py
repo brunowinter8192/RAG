@@ -77,7 +77,7 @@ def sync_docs_workflow(
 
     files = expand_globs(project_root, includes)
 
-    conn = get_connection()
+    conn = get_connection(purpose="ddl")
     ensure_schema(conn)
     ensure_indexed_files_table(conn)
 

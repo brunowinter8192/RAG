@@ -5,10 +5,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import psycopg2
-from pgvector.psycopg2 import register_vector
 from dotenv import load_dotenv
 
+from .db import get_connection
 from .embedder import embed_workflow
 from .sparse_embedder import sparse_embed_workflow
 
@@ -23,11 +22,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5433")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "rag")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rag")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "4096"))
 BATCH_SIZE = 32
 
@@ -37,8 +31,10 @@ BATCH_SIZE = 32
 
 # Index from chunks.json (pre-chunked, LLM-cleaned)
 def index_json_workflow(json_path: str) -> int:
-    conn = get_connection()
-    ensure_schema(conn)
+    conn_ddl = get_connection(purpose="ddl")
+    ensure_schema(conn_ddl)
+    conn_ddl.close()
+    conn = get_connection(purpose="write")
 
     chunks = load_chunks_json(json_path)
     if not chunks:
@@ -79,7 +75,7 @@ def delete_workflow(
         raise ValueError("At least --collection or --document required")
     if remove_source and not collection:
         raise ValueError("--remove-source requires --collection")
-    conn = get_connection()
+    conn = get_connection(purpose="write")
     deleted = delete_chunks(conn, collection, document)
     conn.close()
     files_removed: list[str] = []
@@ -100,8 +96,10 @@ def delete_workflow(
 
 # Backfill sparse embeddings for chunks that have NULL sparse_embedding
 def backfill_splade_workflow(collection: str) -> int:
-    conn = get_connection()
-    ensure_schema(conn)
+    conn_ddl = get_connection(purpose="ddl")
+    ensure_schema(conn_ddl)
+    conn_ddl.close()
+    conn = get_connection(purpose="write")
 
     rows = fetch_null_sparse(conn, collection)
     if not rows:
@@ -163,19 +161,6 @@ def load_chunks_json(json_path: str) -> list[dict]:
         }
         for c in raw_chunks
     ]
-
-
-# Get PostgreSQL connection
-def get_connection():
-    conn = psycopg2.connect(
-        host=POSTGRES_HOST,
-        port=POSTGRES_PORT,
-        user=POSTGRES_USER,
-        password=POSTGRES_PASSWORD,
-        dbname=POSTGRES_DB
-    )
-    register_vector(conn)
-    return conn
 
 
 # Ensure pgvector extension and table exist
