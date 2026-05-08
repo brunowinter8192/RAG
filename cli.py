@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import signal
 import sys
 
 # Ensure src.rag.* imports resolve regardless of working directory
@@ -18,7 +19,14 @@ from src.rag.retriever import (
 )
 
 
+def _shutdown(sig: int, _frame: object) -> None:
+    sys.exit(128 + sig)
+
+
 def main():
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
     parser = argparse.ArgumentParser(
         prog="cli.py",
         description="RAG CLI — semantic, hybrid, and keyword search over indexed document collections."

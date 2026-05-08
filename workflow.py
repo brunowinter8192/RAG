@@ -4,12 +4,12 @@ import json
 from pathlib import Path
 
 from src.rag.chunker import chunk_workflow
+from src.rag.db import get_connection
 from src.rag.indexer import (
     backfill_splade_workflow,
     delete_workflow,
     doc_is_complete,
     ensure_schema,
-    get_connection,
     index_json_workflow,
 )
 from src.rag.retriever import search_workflow
@@ -110,7 +110,7 @@ def main(command: str, **kwargs) -> None:
         #   skipped: hash matches indexed_files entry → no work
         #   adopted: complete chunk set in DB but no hash entry → register hash, no re-embed
         #   to_index: missing, partial, or hash-changed → chunk + embed + insert
-        conn = get_connection()
+        conn = get_connection(purpose="ddl")
         ensure_schema(conn)
         ensure_indexed_files_table(conn)
 
@@ -179,7 +179,7 @@ def main(command: str, **kwargs) -> None:
         print(f"File: {file_path.name}")
         print(f"Collection: {collection}")
 
-        conn = get_connection()
+        conn = get_connection(purpose="ddl")
         ensure_schema(conn)
         ensure_indexed_files_table(conn)
 
