@@ -1,6 +1,8 @@
 # INFRASTRUCTURE
 import argparse
 import json
+import sys
+import threading
 from pathlib import Path
 
 from src.rag.chunker import chunk_workflow
@@ -41,7 +43,14 @@ def _write_chunks_json(md_file: Path, chunks: list[dict], collection: str, docum
 # ORCHESTRATOR
 def main(command: str, **kwargs) -> None:
     if command == "index-json":
-        count = index_json_workflow(kwargs["input"])
+        from src.rag.lock import acquire as _lock_acquire, LockBusyError
+        try:
+            _lock_ctx = _lock_acquire("index-json", {"input": kwargs["input"]})
+        except LockBusyError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        with _lock_ctx:
+            count = index_json_workflow(kwargs["input"])
         print(f"Indexed {count} chunks from JSON")
 
     elif command == "search":
@@ -89,6 +98,7 @@ def main(command: str, **kwargs) -> None:
 
     elif command == "index-dir":
         from src.rag.server_manager import ensure_ready
+        from src.rag.lock import acquire as _lock_acquire, LockBusyError, update_progress, heartbeat
         dir_path = Path(kwargs["input"])
         md_files = sorted(dir_path.glob("*.md"))
         if not md_files:
@@ -100,70 +110,87 @@ def main(command: str, **kwargs) -> None:
         overlap = kwargs.get("overlap", 400)
         force = kwargs.get("force", False)
 
-        print(f"Found {len(md_files)} markdown files in {dir_path}")
-        print(f"Collection: {collection}")
-        if force:
-            print("--force: skip-logic bypassed, all files will be re-indexed")
+        try:
+            _lock_ctx = _lock_acquire("index-dir", {"collection": collection, "input": str(dir_path)})
+        except LockBusyError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
-        # Plan phase — classify each file BEFORE touching GPU servers.
-        # Three buckets:
-        #   skipped: hash matches indexed_files entry → no work
-        #   adopted: complete chunk set in DB but no hash entry → register hash, no re-embed
-        #   to_index: missing, partial, or hash-changed → chunk + embed + insert
-        conn = get_connection(purpose="ddl")
-        ensure_schema(conn)
-        ensure_indexed_files_table(conn)
+        with _lock_ctx:
+            _stop_hb = threading.Event()
+            def _hb_loop():
+                while not _stop_hb.wait(30):
+                    heartbeat()
+            threading.Thread(target=_hb_loop, daemon=True).start()
 
-        db_hashes = {} if force else get_db_hashes(conn, collection)
+            print(f"Found {len(md_files)} markdown files in {dir_path}")
+            print(f"Collection: {collection}")
+            if force:
+                print("--force: skip-logic bypassed, all files will be re-indexed")
 
-        skipped: list[str] = []
-        adopted: list[str] = []
-        to_index: list[tuple[Path, str, str]] = []  # (path, document, hash)
+            # Plan phase — classify each file BEFORE touching GPU servers.
+            # Three buckets:
+            #   skipped: hash matches indexed_files entry → no work
+            #   adopted: complete chunk set in DB but no hash entry → register hash, no re-embed
+            #   to_index: missing, partial, or hash-changed → chunk + embed + insert
+            conn = get_connection(purpose="ddl")
+            ensure_schema(conn)
+            ensure_indexed_files_table(conn)
 
-        for md_file in md_files:
-            document = md_file.name
-            current = compute_hash(md_file)
+            db_hashes = {} if force else get_db_hashes(conn, collection)
 
-            if not force and document in db_hashes and db_hashes[document] == current:
-                skipped.append(document)
-                continue
+            skipped: list[str] = []
+            adopted: list[str] = []
+            to_index: list[tuple[Path, str, str]] = []  # (path, document, hash)
 
-            if not force and document not in db_hashes and doc_is_complete(conn, collection, document):
+            for md_file in md_files:
+                document = md_file.name
+                current = compute_hash(md_file)
+
+                if not force and document in db_hashes and db_hashes[document] == current:
+                    skipped.append(document)
+                    continue
+
+                if not force and document not in db_hashes and doc_is_complete(conn, collection, document):
+                    upsert_hash(conn, collection, document, current)
+                    adopted.append(document)
+                    continue
+
+                to_index.append((md_file, document, current))
+
+            print(f"  Skipped (hash unchanged): {len(skipped)}")
+            print(f"  Adopted (complete in DB, hash registered): {len(adopted)}")
+            print(f"  To index: {len(to_index)}")
+
+            if not to_index:
+                conn.close()
+                _stop_hb.set()
+                print("\nNothing to index.")
+                return
+
+            # GPU servers are only needed when there's work to embed.
+            print("\nChecking servers...")
+            ensure_ready("index")
+            print("Servers ready.")
+
+            total_chunks = 0
+            for i, (md_file, document, current) in enumerate(to_index):
+                raw_chunks = chunk_workflow(str(md_file), chunk_size, overlap)
+                json_path = _write_chunks_json(md_file, raw_chunks, collection, document)
+                n = index_json_workflow(str(json_path))
                 upsert_hash(conn, collection, document, current)
-                adopted.append(document)
-                continue
+                total_chunks += n
+                update_progress(done=i + 1, total=len(to_index), current_document=document)
+                print(f"  Indexed {document} -> {n} chunks (sidecar: {json_path.name})")
 
-            to_index.append((md_file, document, current))
-
-        print(f"  Skipped (hash unchanged): {len(skipped)}")
-        print(f"  Adopted (complete in DB, hash registered): {len(adopted)}")
-        print(f"  To index: {len(to_index)}")
-
-        if not to_index:
             conn.close()
-            print("\nNothing to index.")
-            return
-
-        # GPU servers are only needed when there's work to embed.
-        print("\nChecking servers...")
-        ensure_ready("index")
-        print("Servers ready.")
-
-        total_chunks = 0
-        for md_file, document, current in to_index:
-            raw_chunks = chunk_workflow(str(md_file), chunk_size, overlap)
-            json_path = _write_chunks_json(md_file, raw_chunks, collection, document)
-            n = index_json_workflow(str(json_path))
-            upsert_hash(conn, collection, document, current)
-            total_chunks += n
-            print(f"  Indexed {document} -> {n} chunks (sidecar: {json_path.name})")
-
-        conn.close()
-        print(f"\nDone: {len(to_index)} files indexed ({total_chunks} chunks), "
-              f"{len(skipped)} skipped, {len(adopted)} adopted")
+            _stop_hb.set()
+            print(f"\nDone: {len(to_index)} files indexed ({total_chunks} chunks), "
+                  f"{len(skipped)} skipped, {len(adopted)} adopted")
 
     elif command == "index-file":
         from src.rag.server_manager import ensure_ready
+        from src.rag.lock import acquire as _lock_acquire, LockBusyError
         file_path = Path(kwargs["input"])
         if not file_path.is_file():
             raise FileNotFoundError(f"Not a file: {file_path}")
@@ -176,37 +203,44 @@ def main(command: str, **kwargs) -> None:
         force = kwargs.get("force", False)
         document = file_path.name
 
-        print(f"File: {file_path.name}")
-        print(f"Collection: {collection}")
+        try:
+            _lock_ctx = _lock_acquire("index-file", {"collection": collection, "input": str(file_path)})
+        except LockBusyError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
-        conn = get_connection(purpose="ddl")
-        ensure_schema(conn)
-        ensure_indexed_files_table(conn)
+        with _lock_ctx:
+            print(f"File: {file_path.name}")
+            print(f"Collection: {collection}")
 
-        current = compute_hash(file_path)
+            conn = get_connection(purpose="ddl")
+            ensure_schema(conn)
+            ensure_indexed_files_table(conn)
 
-        if not force:
-            db_hashes = get_db_hashes(conn, collection)
-            if document in db_hashes and db_hashes[document] == current:
-                conn.close()
-                print("  Skipped (hash unchanged)")
-                return
-            if document not in db_hashes and doc_is_complete(conn, collection, document):
-                upsert_hash(conn, collection, document, current)
-                conn.close()
-                print("  Adopted (complete in DB, hash registered)")
-                return
+            current = compute_hash(file_path)
 
-        print("Checking servers...")
-        ensure_ready("index")
-        print("Servers ready.")
+            if not force:
+                db_hashes = get_db_hashes(conn, collection)
+                if document in db_hashes and db_hashes[document] == current:
+                    conn.close()
+                    print("  Skipped (hash unchanged)")
+                    return
+                if document not in db_hashes and doc_is_complete(conn, collection, document):
+                    upsert_hash(conn, collection, document, current)
+                    conn.close()
+                    print("  Adopted (complete in DB, hash registered)")
+                    return
 
-        raw_chunks = chunk_workflow(str(file_path), chunk_size, overlap)
-        json_path = _write_chunks_json(file_path, raw_chunks, collection, document)
-        n = index_json_workflow(str(json_path))
-        upsert_hash(conn, collection, document, current)
-        conn.close()
-        print(f"  Indexed -> {n} chunks (sidecar: {json_path.name})")
+            print("Checking servers...")
+            ensure_ready("index")
+            print("Servers ready.")
+
+            raw_chunks = chunk_workflow(str(file_path), chunk_size, overlap)
+            json_path = _write_chunks_json(file_path, raw_chunks, collection, document)
+            n = index_json_workflow(str(json_path))
+            upsert_hash(conn, collection, document, current)
+            conn.close()
+            print(f"  Indexed -> {n} chunks (sidecar: {json_path.name})")
 
     elif command == "server":
         from src.rag.server_manager import cli_server

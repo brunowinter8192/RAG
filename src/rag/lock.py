@@ -1,5 +1,4 @@
 # INFRASTRUCTURE
-import contextlib
 import fcntl
 import json
 import os
@@ -17,39 +16,49 @@ class LockBusyError(RuntimeError):
 
 # ORCHESTRATOR
 
-@contextlib.contextmanager
-def acquire(command: str, args: dict):
-    """Acquire the global RAG lock. Raises LockBusyError if held by another process."""
-    LOCK_DIR.mkdir(parents=True, exist_ok=True)
-    cleanup_stale()
+class acquire:
+    """Context manager that acquires the global RAG lock at construction time.
 
-    fd = open(_FLOCK_FILE, "a")
-    try:
-        fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        fd.close()
-        _raise_busy()
+    Raises LockBusyError immediately if the lock is held by another process.
+    Usage:
+        try:
+            lock_ctx = lock.acquire("index-dir", {"collection": "..."})
+        except lock.LockBusyError as e:
+            sys.exit(f"Error: {e}")
+        with lock_ctx:
+            # do work
+    """
 
-    data = {
-        "pid": os.getpid(),
-        "command": command,
-        "args": args,
-        "started_at": datetime.now(timezone.utc).isoformat(),
-        "status": "running",
-        "progress": {},
-        "heartbeat": datetime.now(timezone.utc).isoformat(),
-    }
-    _write_atomic(data)
+    def __init__(self, command: str, args: dict):
+        LOCK_DIR.mkdir(parents=True, exist_ok=True)
+        cleanup_stale()
+        self._fd = open(_FLOCK_FILE, "a")
+        try:
+            fcntl.flock(self._fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            self._fd.close()
+            _raise_busy()
+        data = {
+            "pid": os.getpid(),
+            "command": command,
+            "args": args,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "status": "running",
+            "progress": {},
+            "heartbeat": datetime.now(timezone.utc).isoformat(),
+        }
+        _write_atomic(data)
 
-    try:
-        yield
-    finally:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
         try:
             _DATA_FILE.unlink(missing_ok=True)
         except Exception:
             pass
-        fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-        fd.close()
+        fcntl.flock(self._fd.fileno(), fcntl.LOCK_UN)
+        self._fd.close()
 
 
 # FUNCTIONS
