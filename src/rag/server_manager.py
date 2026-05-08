@@ -1,10 +1,13 @@
 # INFRASTRUCTURE
+import json
 import logging
 import os
 import signal
+import socket
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -25,45 +28,36 @@ WATCHDOG_INTERVAL = 30
 
 LLAMA_SERVER_PATH = os.getenv("LLAMA_SERVER_PATH", str(RAG_ROOT / "llama.cpp/build/bin/llama-server"))
 EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-8B-Q8_0.gguf"))
-EMBEDDING_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
 RERANKER_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
-RERANKER_PORT = int(os.getenv("RERANKER_PORT", "8082"))
-SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
 
 _watchdog_started = False
 _watchdog_lock = threading.Lock()
 
 SERVERS = {
     "embedding": {
-        "port": EMBEDDING_PORT,
-        "health_url": f"http://localhost:{EMBEDDING_PORT}/health",
         "cmd": [
             LLAMA_SERVER_PATH,
             "-m", EMBEDDING_MODEL_PATH,
-            "--embedding", "--host", "0.0.0.0", "--port", str(EMBEDDING_PORT),
+            "--embedding", "--host", "0.0.0.0",
             "-ngl", "99", "-c", "2048", "-np", "1", "-b", "4096", "-ub", "4096",
         ],
         "timeout": 90,
         "required_for": ["search", "index"],
     },
     "reranker": {
-        "port": RERANKER_PORT,
-        "health_url": f"http://localhost:{RERANKER_PORT}/health",
         "cmd": [
             LLAMA_SERVER_PATH,
             "-m", RERANKER_MODEL_PATH,
-            "--rerank", "--host", "0.0.0.0", "--port", str(RERANKER_PORT),
+            "--rerank", "--host", "0.0.0.0",
             "-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096",
         ],
         "timeout": 90,
         "required_for": ["rerank"],
     },
     "splade": {
-        "port": SPLADE_PORT,
-        "health_url": f"http://localhost:{SPLADE_PORT}/health",
         "cmd": [
             str(RAG_ROOT / "venv/bin/python"), "-m", "uvicorn",
-            "src.rag.splade_server:app", "--host", "0.0.0.0", "--port", str(SPLADE_PORT),
+            "src.rag.splade_server:app", "--host", "0.0.0.0",
         ],
         "cwd": str(RAG_ROOT),
         "timeout": 60,
@@ -77,13 +71,26 @@ SERVERS = {
 # Return status of all servers: running, pid, port, healthy per server name
 def status() -> dict[str, dict]:
     result = {}
-    for name, cfg in SERVERS.items():
-        pid = find_pid_on_port(cfg["port"])
+    for name in SERVERS:
+        port = None
+        pid = None
+        running = False
+        try:
+            data = json.loads(_port_file(name).read_text())
+            port = data.get("port")
+            pid = data.get("pid")
+            if pid:
+                os.kill(pid, 0)
+                running = True
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        except ProcessLookupError:
+            _port_file(name).unlink(missing_ok=True)
         result[name] = {
-            "running": pid is not None,
-            "pid": pid,
-            "port": cfg["port"],
-            "healthy": check_health(name) if pid else False,
+            "running": running,
+            "pid": pid if running else None,
+            "port": port if running else None,
+            "healthy": check_health(name) if running else False,
         }
     return result
 
@@ -94,13 +101,16 @@ def start(name: str) -> bool:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
     cfg = SERVERS[name]
-    pid = find_pid_on_port(cfg["port"])
-    if pid is not None:
+
+    try:
+        port = get_port(name)
         if check_health(name):
-            logging.info(f"{name} already running on port {cfg['port']} (PID {pid})")
+            logging.info(f"{name} already running on port {port}")
             return False
-        logging.warning(f"{name} port {cfg['port']} occupied by PID {pid} but unhealthy, killing")
+        logging.warning(f"{name} on port {port} unhealthy, stopping before restart")
         stop(name)
+    except RuntimeError:
+        pass
 
     binary = Path(cfg["cmd"][0])
     if not binary.exists():
@@ -109,57 +119,95 @@ def start(name: str) -> bool:
             f"Start GPU servers from the RAG project: cd <RAG_ROOT> && ./start.sh"
         )
 
-    logging.info(f"Starting {name} on port {cfg['port']}...")
-    cwd = cfg.get("cwd", None)
-    subprocess.Popen(
-        cfg["cmd"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        cwd=cwd,
-    )
+    for attempt in range(1, 4):
+        # Small race window between socket close and subprocess bind — acceptable for personal use
+        port = _get_free_port()
+        cmd = cfg["cmd"] + ["--port", str(port)]
+        logging.info(f"Starting {name} on port {port} (attempt {attempt}/3)...")
+        cwd = cfg.get("cwd", None)
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=cwd,
+        )
 
-    timeout = cfg["timeout"]
-    for i in range(timeout):
-        time.sleep(1)
-        if check_health(name):
-            pid = find_pid_on_port(cfg["port"])
-            logging.info(f"{name} started on port {cfg['port']} (PID {pid}) after {i+1}s")
+        started = False
+        for i in range(cfg["timeout"]):
+            time.sleep(1)
+            if proc.poll() is not None:
+                logging.warning(f"{name} process exited on attempt {attempt} after {i+1}s")
+                break
+            try:
+                resp = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
+                if resp.status_code == 200:
+                    _write_port_file(name, port, proc.pid)
+                    logging.info(f"{name} started on port {port} (PID {proc.pid}) after {i+1}s")
+                    started = True
+                    break
+            except Exception:
+                pass
+
+        if started:
             return True
 
-    raise RuntimeError(f"Failed to start {name} after {timeout}s")
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        logging.warning(f"{name} failed on port {port} (attempt {attempt}/3)")
+
+    raise RuntimeError(f"Failed to start {name} after 3 attempts")
 
 
-# Stop a server; kills ALL processes on the port; returns True if stopped, False if not running
+# Stop a server via port file PID; returns True if stopped, False if not running
 def stop(name: str) -> bool:
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
-    cfg = SERVERS[name]
-    pids = find_all_pids_on_port(cfg["port"])
-    if not pids:
-        logging.info(f"{name} not running on port {cfg['port']}")
+    f = _port_file(name)
+    try:
+        data = json.loads(f.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.info(f"{name} not running (no port file)")
         return False
 
-    logging.info(f"Stopping {name} (PIDs {pids}) on port {cfg['port']}...")
-    for pid in pids:
+    pid = data.get("pid")
+    port = data.get("port")
+
+    pids = set(find_all_pids_on_port(port)) if port else set()
+    if pid:
+        pids.add(pid)
+
+    if not pids:
+        f.unlink(missing_ok=True)
+        return False
+
+    logging.info(f"Stopping {name} (PIDs {pids}) on port {port}...")
+    for p in pids:
         try:
-            os.kill(pid, signal.SIGTERM)
+            os.kill(p, signal.SIGTERM)
         except ProcessLookupError:
             pass
 
     for _ in range(10):
         time.sleep(0.5)
-        remaining = find_all_pids_on_port(cfg["port"])
-        if not remaining:
-            logging.info(f"{name} stopped")
-            return True
+        if port and not find_all_pids_on_port(port):
+            break
 
-    for pid in find_all_pids_on_port(cfg["port"]):
+    for p in (set(find_all_pids_on_port(port)) if port else set()):
         try:
-            os.kill(pid, signal.SIGKILL)
-            logging.warning(f"{name} force-killed (PID {pid})")
+            os.kill(p, signal.SIGKILL)
+            logging.warning(f"{name} force-killed (PID {p})")
         except ProcessLookupError:
             pass
+
+    f.unlink(missing_ok=True)
+    logging.info(f"{name} stopped")
     return True
 
 
@@ -192,7 +240,6 @@ def stop_all() -> dict[str, str]:
 
 # Ensure server(s) for a name or operation are running, starting if needed
 def ensure_ready(target: str) -> None:
-    # Direct server name
     if target in SERVERS:
         if not check_health(target):
             start(target)
@@ -200,7 +247,6 @@ def ensure_ready(target: str) -> None:
         _ensure_watchdog()
         return
 
-    # Operation-based lookup
     if target == "search_rerank":
         needed_ops = ["search", "rerank"]
     else:
@@ -224,13 +270,33 @@ def ensure_ready(target: str) -> None:
 
 # Check if a server responds to its health endpoint
 def check_health(name: str) -> bool:
-    cfg = SERVERS[name]
     try:
-        resp = httpx.get(cfg["health_url"], timeout=2.0)
+        port = get_port(name)
+    except RuntimeError:
+        return False
+    try:
+        resp = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
         return resp.status_code == 200
     except Exception as e:
-        logging.warning(f"Health check failed: {e}")
+        logging.warning(f"Health check failed for {name}: {e}")
         return False
+
+
+# Read port from port file; raise RuntimeError if missing or stale (cleans up stale file)
+def get_port(name: str) -> int:
+    f = _port_file(name)
+    try:
+        data = json.loads(f.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        raise RuntimeError(f"{name} server not running (no port file)")
+    pid = data.get("pid")
+    if pid:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            f.unlink(missing_ok=True)
+            raise RuntimeError(f"{name} server dead (stale port file cleaned up)")
+    return data["port"]
 
 
 # Find the first PID listening on a port; returns None if port is free
@@ -269,6 +335,24 @@ def get_last_used(name: str) -> float:
         return 0
 
 
+def _port_file(name: str) -> Path:
+    return TIMESTAMP_DIR / f"rag-server-{name}.port"
+
+
+def _get_free_port() -> int:
+    with socket.socket() as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
+
+def _write_port_file(name: str, port: int, pid: int) -> None:
+    TIMESTAMP_DIR.mkdir(parents=True, exist_ok=True)
+    data = {"port": port, "pid": pid, "started_at": datetime.now(timezone.utc).isoformat()}
+    tmp = _port_file(name).with_suffix(".tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.rename(_port_file(name))
+
+
 # Start the idle-timeout watchdog thread if not already running
 def _ensure_watchdog() -> None:
     global _watchdog_started
@@ -287,7 +371,11 @@ def _watchdog_loop() -> None:
     while True:
         time.sleep(WATCHDOG_INTERVAL)
         now = time.time()
-        for name, cfg in SERVERS.items():
+        for name in SERVERS:
+            try:
+                get_port(name)
+            except RuntimeError:
+                continue
             if not check_health(name):
                 continue
             last_used = get_last_used(name)
@@ -309,13 +397,14 @@ def cli_server(args: list[str]) -> None:
 
     if action == "status":
         st = status()
-        print(f"{'Server':<12} {'Port':<6} {'Status':<10} {'PID':<8} {'Healthy'}")
-        print("-" * 50)
+        print(f"{'Server':<12} {'Port':<8} {'Status':<10} {'PID':<8} {'Healthy'}")
+        print("-" * 52)
         for name, info in st.items():
             status_str = "RUNNING" if info["running"] else "STOPPED"
+            port_str = str(info["port"]) if info["port"] else "-"
             pid_str = str(info["pid"]) if info["pid"] else "-"
             health_str = "YES" if info["healthy"] else "NO"
-            print(f"{name:<12} {info['port']:<6} {status_str:<10} {pid_str:<8} {health_str}")
+            print(f"{name:<12} {port_str:<8} {status_str:<10} {pid_str:<8} {health_str}")
 
     elif action == "start":
         if target:
