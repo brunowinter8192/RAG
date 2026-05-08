@@ -42,7 +42,8 @@ rag-cli read_document my_collection paper.md 42 --before 2 --after 5
 
 | Subcommand | Description |
 |---|---|
-| `index-dir` | Chunk + index all `.md` files in a directory (handles server startup) |
+| `index-dir` | Chunk + index all `.md` files in a directory (skip-by-default via `indexed_files` hash; handles server startup) |
+| `index-file` | Chunk + index a single `.md` file (skip-by-default via `indexed_files` hash) |
 | `index-json` | Index chunks from a pre-chunked `chunks.json` file |
 | `search` | Dense search query with printed results |
 | `chunk` | Chunk a markdown file → writes `chunks.json` |
@@ -50,10 +51,20 @@ rag-cli read_document my_collection paper.md 42 --before 2 --after 5
 | `delete` | Delete chunks by collection and/or document |
 | `server` | GPU server control — status / start / stop / restart [name] |
 
+**Skip-Logik (`index-dir`, `index-file`):** Per file the SHA256 of the content is compared against the `indexed_files` tracking table (collection, document, sha256). Three buckets per run:
+
+- **skipped** — hash matches an existing entry → no work
+- **adopted** — file not in `indexed_files`, but a complete chunk set exists in `documents` (COUNT == MAX(total_chunks)) → register hash without re-embed (one-time bootstrap for collections that pre-date hash tracking)
+- **indexed** — missing, partial, or hash-changed → chunk + embed + insert + register hash
+
+GPU servers are only started when there is real work to embed. `--force` bypasses the skip and re-embeds every file (use only when the embedding model or chunker changed).
+
 **Usage:**
 ```bash
 ./venv/bin/python workflow.py index-dir --input data/documents/MyCollection/
 ./venv/bin/python workflow.py index-dir --input data/documents/papers/ --collection my_collection
+./venv/bin/python workflow.py index-dir --input data/documents/MyCollection/ --force        # re-embed everything
+./venv/bin/python workflow.py index-file --input data/documents/MyCollection/new_paper.md
 ./venv/bin/python workflow.py index-json --input data/documents/MyCollection/chunks.json
 ./venv/bin/python workflow.py search --query "hybrid retrieval" --collection RAG_MCP --top-k 5
 ./venv/bin/python workflow.py chunk --input data/documents/MyCollection/doc.md

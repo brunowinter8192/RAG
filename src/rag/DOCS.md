@@ -110,9 +110,9 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### indexer.py (268 LOC)
+### indexer.py (316 LOC)
 
-**Purpose:** Index chunks into PostgreSQL with dense + sparse embeddings; handles schema creation, batch insert, SPLADE backfill, and deletion by collection/document.
+**Purpose:** Index chunks into PostgreSQL with dense + sparse embeddings; handles schema creation, batch insert, SPLADE backfill, deletion by collection/document, and per-document completeness check (`doc_is_complete`) used by workflow.py for adopt-on-complete skip logic.
 **Reads:** `chunks.json` from disk; `.env` for connection params; PostgreSQL schema state.
 **Writes:** PostgreSQL `documents` table (insert, delete, schema init).
 **Called by:** workflow.py, sync.py
