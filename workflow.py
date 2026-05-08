@@ -133,7 +133,7 @@ def main(command: str, **kwargs) -> None:
             #   skipped: hash matches indexed_files entry → no work
             #   adopted: complete chunk set in DB but no hash entry → register hash, no re-embed
             #   to_index: missing, partial, or hash-changed → chunk + embed + insert
-            conn = get_connection(purpose="ddl")
+            conn = get_connection(purpose="ddl", autocommit=True)
             ensure_schema(conn)
             ensure_indexed_files_table(conn)
 
@@ -213,7 +213,7 @@ def main(command: str, **kwargs) -> None:
             print(f"File: {file_path.name}")
             print(f"Collection: {collection}")
 
-            conn = get_connection(purpose="ddl")
+            conn = get_connection(purpose="ddl", autocommit=True)
             ensure_schema(conn)
             ensure_indexed_files_table(conn)
 

@@ -21,7 +21,7 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "rag")
 #   "read"  — short-lived queries (SELECT, progress checks)      10s / 5s
 #   "write" — batch inserts, deletes                             120s / 10s
 #   "ddl"   — schema creation, CREATE INDEX                     300s / 30s
-def get_connection(purpose: str = "read"):
+def get_connection(purpose: str = "read", autocommit: bool = False):
     _timeouts = {
         "read":  {"stmt": 10_000,  "lock": 5_000},
         "write": {"stmt": 120_000, "lock": 10_000},
@@ -38,6 +38,8 @@ def get_connection(purpose: str = "read"):
         connect_timeout=5,
         options=options,
     )
+    if autocommit:
+        conn.autocommit = True
     register_vector(conn)
     return conn
 
