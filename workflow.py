@@ -4,8 +4,22 @@ import json
 from pathlib import Path
 
 from src.rag.chunker import chunk_workflow
-from src.rag.indexer import index_json_workflow, delete_workflow, backfill_splade_workflow
+from src.rag.indexer import (
+    backfill_splade_workflow,
+    delete_workflow,
+    doc_is_complete,
+    ensure_schema,
+    get_connection,
+    index_json_workflow,
+)
 from src.rag.retriever import search_workflow
+from src.rag.sync import (
+    compute_hash,
+    ensure_indexed_files_table,
+    get_db_hashes,
+    index_file,
+    upsert_hash,
+)
 
 
 # ORCHESTRATOR
@@ -56,48 +70,126 @@ def main(command: str, **kwargs) -> None:
             print(f"No .md files found in {dir_path}")
             return
 
-        collection = kwargs.get("collection")
-        print(f"Found {len(md_files)} markdown files in {dir_path}")
-        if collection:
-            print(f"Collection override: {collection}")
+        collection = kwargs.get("collection") or dir_path.name
         chunk_size = kwargs.get("chunk_size", 2000)
         overlap = kwargs.get("overlap", 400)
+        force = kwargs.get("force", False)
 
-        # Ensure GPU servers are running
+        print(f"Found {len(md_files)} markdown files in {dir_path}")
+        print(f"Collection: {collection}")
+        if force:
+            print("--force: skip-logic bypassed, all files will be re-indexed")
+
+        # Plan phase — classify each file BEFORE touching GPU servers.
+        # Three buckets:
+        #   skipped: hash matches indexed_files entry → no work
+        #   adopted: complete chunk set in DB but no hash entry → register hash, no re-embed
+        #   to_index: missing, partial, or hash-changed → chunk + embed + insert
+        conn = get_connection()
+        ensure_schema(conn)
+        ensure_indexed_files_table(conn)
+
+        db_hashes = {} if force else get_db_hashes(conn, collection)
+
+        skipped: list[str] = []
+        adopted: list[str] = []
+        to_index: list[tuple[Path, str, str]] = []  # (path, document, hash)
+
+        for md_file in md_files:
+            document = md_file.name
+            current = compute_hash(md_file)
+
+            if not force and document in db_hashes and db_hashes[document] == current:
+                skipped.append(document)
+                continue
+
+            if not force and document not in db_hashes and doc_is_complete(conn, collection, document):
+                upsert_hash(conn, collection, document, current)
+                adopted.append(document)
+                continue
+
+            to_index.append((md_file, document, current))
+
+        print(f"  Skipped (hash unchanged): {len(skipped)}")
+        print(f"  Adopted (complete in DB, hash registered): {len(adopted)}")
+        print(f"  To index: {len(to_index)}")
+
+        if not to_index:
+            conn.close()
+            print("\nNothing to index.")
+            return
+
+        # GPU servers are only needed when there's work to embed.
+        print("\nChecking servers...")
+        ensure_ready("index")
+        print("Servers ready.")
+
+        total_chunks = 0
+        for md_file, document, current in to_index:
+            n = index_file(
+                conn, md_file,
+                collection=collection,
+                document=document,
+                chunk_size=chunk_size,
+                overlap=overlap,
+            )
+            upsert_hash(conn, collection, document, current)
+            total_chunks += n
+            print(f"  Indexed {document} -> {n} chunks")
+
+        conn.close()
+        print(f"\nDone: {len(to_index)} files indexed ({total_chunks} chunks), "
+              f"{len(skipped)} skipped, {len(adopted)} adopted")
+
+    elif command == "index-file":
+        from src.rag.server_manager import ensure_ready
+        file_path = Path(kwargs["input"])
+        if not file_path.is_file():
+            raise FileNotFoundError(f"Not a file: {file_path}")
+        if file_path.suffix != ".md":
+            raise ValueError(f"Expected .md file: {file_path}")
+
+        collection = kwargs.get("collection") or file_path.parent.name
+        chunk_size = kwargs.get("chunk_size", 2000)
+        overlap = kwargs.get("overlap", 400)
+        force = kwargs.get("force", False)
+        document = file_path.name
+
+        print(f"File: {file_path.name}")
+        print(f"Collection: {collection}")
+
+        conn = get_connection()
+        ensure_schema(conn)
+        ensure_indexed_files_table(conn)
+
+        current = compute_hash(file_path)
+
+        if not force:
+            db_hashes = get_db_hashes(conn, collection)
+            if document in db_hashes and db_hashes[document] == current:
+                conn.close()
+                print("  Skipped (hash unchanged)")
+                return
+            if document not in db_hashes and doc_is_complete(conn, collection, document):
+                upsert_hash(conn, collection, document, current)
+                conn.close()
+                print("  Adopted (complete in DB, hash registered)")
+                return
+
         print("Checking servers...")
         ensure_ready("index")
         print("Servers ready.")
 
-        # Chunk all files
-        total_chunks = 0
-        for md_file in md_files:
-            chunks = chunk_workflow(str(md_file), chunk_size, overlap)
-            output = {
-                "document": md_file.name,
-                "chunks": [{"index": i, "content": c["content"]} for i, c in enumerate(chunks)]
-            }
-            if collection:
-                output["collection"] = collection
-            json_path = md_file.with_suffix(".json")
-            with open(json_path, "w") as f:
-                json.dump(output, f, indent=2, ensure_ascii=False)
-            total_chunks += len(chunks)
-            print(f"  Chunked {md_file.name} -> {len(chunks)} chunks")
-
-        # Index all JSON files
-        indexed = 0
-        json_files = sorted(dir_path.glob("*.json"))
-        for json_file in json_files:
-            count = index_json_workflow(str(json_file))
-            indexed += count
-            print(f"  Indexed {json_file.name} -> {count} chunks")
-
-        print(f"\nDone: {len(md_files)} files, {total_chunks} chunks chunked, {indexed} chunks indexed")
-        skipped = total_chunks - indexed
-        if skipped:
-            print(f"\n⚠️  WARNING: {skipped} chunks ({skipped/total_chunks*100:.1f}%) skipped due to NULL embeddings.")
-            print(f"    Search 'NULL embedding skipped' in the indexer log for the (collection, document, chunk_index) of each.")
-            print(f"    If this happens after the search_document prefix fix, escalate — known issue should be 0%.")
+        n = index_file(
+            conn, file_path,
+            collection=collection,
+            document=document,
+            chunk_size=chunk_size,
+            overlap=overlap,
+        )
+        upsert_hash(conn, collection, document, current)
+        conn.close()
+        print(f"  Indexed -> {n} chunks")
 
     elif command == "server":
         from src.rag.server_manager import cli_server
@@ -130,11 +222,19 @@ if __name__ == "__main__":
     delete_parser.add_argument("--collection", help="Delete by collection name")
     delete_parser.add_argument("--document", help="Delete by document name")
 
-    index_dir_parser = subparsers.add_parser("index-dir", help="Chunk + index all .md files in a directory")
+    index_dir_parser = subparsers.add_parser("index-dir", help="Chunk + index all .md files in a directory (skip-by-default via indexed_files hash)")
     index_dir_parser.add_argument("--input", required=True, help="Path to directory with .md files")
-    index_dir_parser.add_argument("--collection", help="Override collection name (default: parent folder name)")
+    index_dir_parser.add_argument("--collection", help="Override collection name (default: directory name)")
     index_dir_parser.add_argument("--chunk-size", type=int, default=2000, help="Target chunk size in chars")
     index_dir_parser.add_argument("--overlap", type=int, default=400, help="Overlap between chunks in chars")
+    index_dir_parser.add_argument("--force", action="store_true", help="Bypass skip-logic, re-embed every file (use only when embedding model or chunker changed)")
+
+    index_file_parser = subparsers.add_parser("index-file", help="Chunk + index a single .md file (skip-by-default via indexed_files hash)")
+    index_file_parser.add_argument("--input", required=True, help="Path to .md file")
+    index_file_parser.add_argument("--collection", help="Override collection name (default: parent folder name)")
+    index_file_parser.add_argument("--chunk-size", type=int, default=2000, help="Target chunk size in chars")
+    index_file_parser.add_argument("--overlap", type=int, default=400, help="Overlap between chunks in chars")
+    index_file_parser.add_argument("--force", action="store_true", help="Bypass skip-logic, re-embed even if hash matches")
 
     server_parser = subparsers.add_parser("server", help="Manage GPU servers (status/start/stop/restart)")
     server_parser.add_argument("server_args", nargs="*", default=["status"], help="action [server_name]")

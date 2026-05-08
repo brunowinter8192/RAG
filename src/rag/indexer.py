@@ -216,6 +216,25 @@ def delete_collection(conn, collection: str) -> int:
     return deleted
 
 
+# Check if a document has a complete chunk set in the documents table.
+# Complete means COUNT(*) > 0 AND COUNT(*) == MAX(total_chunks) — every
+# expected chunk-row is present. Used by workflow.py index-dir / index-file
+# to detect documents that were indexed before indexed_files tracking
+# existed (adopt-on-complete pattern: register hash without re-embed).
+def doc_is_complete(conn, collection: str, document: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*), MAX(total_chunks)
+            FROM documents
+            WHERE collection = %s AND document = %s
+            """,
+            (collection, document),
+        )
+        actual, expected = cur.fetchone()
+    return actual is not None and actual > 0 and actual == expected
+
+
 # Delete chunks by collection and/or document
 def delete_chunks(conn, collection: str | None, document: str | None) -> int:
     conditions = []
