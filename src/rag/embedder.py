@@ -7,7 +7,7 @@ from typing import Union
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready
+from .server_manager import ensure_ready, get_port
 
 load_dotenv()
 
@@ -20,10 +20,13 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8081/v1/embeddings")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "Qwen3-Embedding-8B")
 MAX_TOKENS = 4000
 CHARS_PER_TOKEN = 3
+
+
+def _embedding_url() -> str:
+    return f"http://localhost:{get_port('embedding')}/v1/embeddings"
 
 
 # ORCHESTRATOR
@@ -53,7 +56,7 @@ def generate_embeddings(texts: list[str], prefix: str | None = None) -> list[lis
     if prefix:
         texts = [f"{prefix}{t}" for t in texts]
     response = httpx.post(
-        EMBEDDING_URL,
+        _embedding_url(),
         json={"input": texts, "model": EMBEDDING_MODEL},
         timeout=300.0
     )

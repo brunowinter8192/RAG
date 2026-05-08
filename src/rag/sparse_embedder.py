@@ -1,13 +1,12 @@
 # INFRASTRUCTURE
 import logging
-import os
 from pathlib import Path
 from typing import Union
 
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready
+from .server_manager import ensure_ready, get_port
 
 load_dotenv()
 
@@ -20,7 +19,9 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-SPLADE_URL = os.getenv("SPLADE_URL", "http://localhost:8083/v1/sparse-embeddings")
+
+def _splade_url() -> str:
+    return f"http://localhost:{get_port('splade')}/v1/sparse-embeddings"
 
 
 # ORCHESTRATOR
@@ -38,7 +39,7 @@ def sparse_embed_workflow(texts: Union[str, list[str]]) -> list[dict]:
 # Generate sparse embeddings via SPLADE server API
 def generate_sparse_embeddings(texts: list[str]) -> list[dict]:
     response = httpx.post(
-        SPLADE_URL,
+        _splade_url(),
         json={"input": texts, "model": "splade"},
         timeout=300.0
     )
