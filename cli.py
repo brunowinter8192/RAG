@@ -97,6 +97,13 @@ def main():
     p.add_argument("--remove-source", action="store_true", default=False,
                    help="Also remove source file(s) from data/documents/<collection>/. Requires --collection. With --document: removes the .md (plus raw/<document> if present). Without --document: removes the entire collection directory.")
 
+    # ── status ────────────────────────────────────────────────────────────────
+    sub.add_parser(
+        "status",
+        help="Show lock state, GPU server health, and Postgres reachability. "
+             "Always works regardless of lock state — no DB query."
+    )
+
     # ── update_docs ───────────────────────────────────────────────────────────
     p = sub.add_parser(
         "update_docs",
@@ -112,6 +119,11 @@ def main():
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
     args = parser.parse_args()
+
+    if args.cmd == "status":
+        from src.rag.status import gather, format_status
+        print(format_status(gather()))
+        return
 
     if args.cmd == "search":
         results = search_workflow(
