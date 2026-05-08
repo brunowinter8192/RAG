@@ -56,11 +56,20 @@ def main(command: str, **kwargs) -> None:
         print(f"Backfilled {count} sparse embeddings")
 
     elif command == "delete":
-        deleted = delete_workflow(
+        result = delete_workflow(
             collection=kwargs.get("collection"),
-            document=kwargs.get("document")
+            document=kwargs.get("document"),
+            remove_source=kwargs.get("remove_source", False),
         )
-        print(f"Deleted {deleted} chunks")
+        chunks = result["chunks_deleted"]
+        files = result["files_removed"]
+        chunk_word = "chunk" if chunks == 1 else "chunks"
+        print(f"Deleted {chunks} {chunk_word}")
+        if files:
+            file_word = "file" if len(files) == 1 else "files"
+            print(f"Removed {len(files)} source {file_word}:")
+            for f in files:
+                print(f"  {f}")
 
     elif command == "index-dir":
         from src.rag.server_manager import ensure_ready
