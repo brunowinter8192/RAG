@@ -59,6 +59,8 @@ rag-cli read_document my_collection paper.md 42 --before 2 --after 5
 
 GPU servers are only started when there is real work to embed. `--force` bypasses the skip and re-embeds every file (use only when the embedding model or chunker changed).
 
+For every file in the **indexed** bucket a `chunks.json` sidecar is written next to the source `.md` (same content as what's about to land in the DB). The DB remains the source of truth — sidecars are a visibility/audit artifact for inspecting chunk boundaries without querying postgres.
+
 **Usage:**
 ```bash
 ./venv/bin/python workflow.py index-dir --input data/documents/MyCollection/
