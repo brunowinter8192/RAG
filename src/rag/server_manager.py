@@ -19,8 +19,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "900"))
-TIMESTAMP_DIR = Path("/tmp")
+IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "3600"))
+TIMESTAMP_DIR = Path.home() / ".rag-locks"
 WATCHDOG_INTERVAL = 30
 
 LLAMA_SERVER_PATH = os.getenv("LLAMA_SERVER_PATH", str(RAG_ROOT / "llama.cpp/build/bin/llama-server"))
@@ -255,6 +255,7 @@ def find_all_pids_on_port(port: int) -> list[int]:
 
 # Write last-used timestamp for a server to a temp file
 def touch_timestamp(name: str) -> None:
+    TIMESTAMP_DIR.mkdir(parents=True, exist_ok=True)
     ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
     ts_file.write_text(str(time.time()))
 

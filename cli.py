@@ -125,6 +125,22 @@ def main():
         print(format_status(gather()))
         return
 
+    from src.rag.lock import acquire as _lock_acquire, LockBusyError as _LockBusyError
+    _lock_args = {k: v for k, v in vars(args).items() if v is not None and k != "cmd"}
+    try:
+        _lock_ctx = _lock_acquire(args.cmd, _lock_args)
+        _lock_ctx.__enter__()
+    except _LockBusyError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        _dispatch(args)
+    finally:
+        _lock_ctx.__exit__(None, None, None)
+
+
+def _dispatch(args: argparse.Namespace) -> None:
     if args.cmd == "search":
         results = search_workflow(
             args.query, args.top_k, args.collection, args.document
@@ -205,7 +221,7 @@ def main():
         print(f"  total chunks indexed this run: {result['total_chunks_indexed']}")
 
     else:
-        parser.error(f"Unknown command: {args.cmd}")
+        raise SystemExit(f"Unknown command: {args.cmd}")
 
 
 if __name__ == "__main__":
