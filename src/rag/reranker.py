@@ -1,12 +1,11 @@
 # INFRASTRUCTURE
 import logging
-import os
 from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready
+from .server_manager import ensure_ready, get_port
 
 load_dotenv()
 
@@ -19,7 +18,9 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8082/v1/rerank")
+
+def _reranker_url() -> str:
+    return f"http://localhost:{get_port('reranker')}/v1/rerank"
 
 
 # ORCHESTRATOR
@@ -41,7 +42,7 @@ def rerank_workflow(query: str, documents: list[dict], top_k: int) -> list[dict]
 # Rerank documents against query via llama-server API
 def rerank_documents(query: str, contents: list[str]) -> list[dict]:
     response = httpx.post(
-        RERANKER_URL,
+        _reranker_url(),
         json={
             "query": query,
             "documents": contents,
