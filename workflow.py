@@ -17,9 +17,25 @@ from src.rag.sync import (
     compute_hash,
     ensure_indexed_files_table,
     get_db_hashes,
-    index_file,
     upsert_hash,
 )
+
+
+# FUNCTIONS
+
+# Write a chunks.json sidecar next to md_file. Mirrors what's about to land
+# in the DB so users can inspect chunk boundaries without querying postgres.
+# The DB is the source of truth — sidecars are an audit/visibility artifact.
+def _write_chunks_json(md_file: Path, chunks: list[dict], collection: str, document: str) -> Path:
+    output = {
+        "collection": collection,
+        "document": document,
+        "chunks": [{"index": i, "content": c["content"]} for i, c in enumerate(chunks)],
+    }
+    json_path = md_file.with_suffix(".json")
+    with open(json_path, "w") as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
+    return json_path
 
 
 # ORCHESTRATOR
@@ -135,16 +151,12 @@ def main(command: str, **kwargs) -> None:
 
         total_chunks = 0
         for md_file, document, current in to_index:
-            n = index_file(
-                conn, md_file,
-                collection=collection,
-                document=document,
-                chunk_size=chunk_size,
-                overlap=overlap,
-            )
+            raw_chunks = chunk_workflow(str(md_file), chunk_size, overlap)
+            json_path = _write_chunks_json(md_file, raw_chunks, collection, document)
+            n = index_json_workflow(str(json_path))
             upsert_hash(conn, collection, document, current)
             total_chunks += n
-            print(f"  Indexed {document} -> {n} chunks")
+            print(f"  Indexed {document} -> {n} chunks (sidecar: {json_path.name})")
 
         conn.close()
         print(f"\nDone: {len(to_index)} files indexed ({total_chunks} chunks), "
@@ -189,16 +201,12 @@ def main(command: str, **kwargs) -> None:
         ensure_ready("index")
         print("Servers ready.")
 
-        n = index_file(
-            conn, file_path,
-            collection=collection,
-            document=document,
-            chunk_size=chunk_size,
-            overlap=overlap,
-        )
+        raw_chunks = chunk_workflow(str(file_path), chunk_size, overlap)
+        json_path = _write_chunks_json(file_path, raw_chunks, collection, document)
+        n = index_json_workflow(str(json_path))
         upsert_hash(conn, collection, document, current)
         conn.close()
-        print(f"  Indexed -> {n} chunks")
+        print(f"  Indexed -> {n} chunks (sidecar: {json_path.name})")
 
     elif command == "server":
         from src.rag.server_manager import cli_server
