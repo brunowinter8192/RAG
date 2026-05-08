@@ -13,8 +13,8 @@ See [sources/sources.md](sources/sources.md).
 | Component | Implementation | Config |
 |-----------|---------------|--------|
 | **Chunking** | Recursive character split (paragraph → sentence → word) | 2000 chars, 400 overlap |
-| **Dense Embedding** | Qwen3-Embedding-8B Q8_0 via llama-server | 4096d, port 8081, -c 2048 -np 1 |
-| **Sparse Embedding** | SPLADE++ (cocondenser-ensembledistil) via FastAPI | 30522d sparse, port 8083 |
+| **Dense Embedding** | Qwen3-Embedding-8B Q8_0 via llama-server | 4096d, dynamic port, -c 2048 -np 1 |
+| **Sparse Embedding** | SPLADE++ (cocondenser-ensembledistil) via FastAPI | 30522d sparse, dynamic port |
 | **Storage** | pgvector (PostgreSQL 18, vector + sparsevec) | Sequential scan |
 
 ### Retrieval Pipeline (online, per query)
@@ -25,7 +25,7 @@ See [sources/sources.md](sources/sources.md).
 | **Dense Search** | pgvector cosine distance | top 50 candidates |
 | **Sparse Search** | SPLADE cosine on sparsevec | top 50 candidates |
 | **Fusion** | Convex Combination (CC) with min-max normalization | α=0.8 |
-| **Reranking** | Qwen3-Reranker-0.6B via llama-server | port 8082, cross-encoder |
+| **Reranking** | Qwen3-Reranker-0.6B via llama-server | dynamic port, cross-encoder |
 | **Delivery** | CLI subcommands (rag-cli wrapper) | Consumed by agent-rag-search Skill |
 
 ### Key Files
