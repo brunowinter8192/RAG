@@ -66,6 +66,12 @@ Document fallback path: `$RAG_ROOT/data/documents/<collection>/` when collection
 
 Read-only commands (`list_collections`, `list_documents`, `read_document`) don't need GPU servers — DB reads only. Search commands (`search`, `search_hybrid`, `search_keyword`) need the embedding server running.
 
+## GPU Server Interaction
+
+- **Status:** `rag-cli server status` — table: name, port, status, PID, healthy.
+- **Control:** `rag-cli server start|stop|restart [name]` — without `name`, all three.
+- **Debug:** `rag-cli server tail [name] [-n 30]` for llama-server output, `rag-cli server errors [--today] [--verbose]` for structured errors.
+
 ## Tools
 
 | Tool | Purpose |
