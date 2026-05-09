@@ -3,7 +3,7 @@ import logging
 import os
 import signal
 import subprocess
-import threading
+import sys
 import time
 from pathlib import Path
 
@@ -22,6 +22,7 @@ logging.basicConfig(
 IDLE_TIMEOUT = int(os.getenv("RAG_SERVER_IDLE_TIMEOUT", "900"))
 TIMESTAMP_DIR = Path("/tmp")
 WATCHDOG_INTERVAL = 30
+WATCHDOG_PID_FILE = Path.home() / ".rag-locks" / "watchdog.pid"
 
 LLAMA_SERVER_PATH = os.getenv("LLAMA_SERVER_PATH", str(RAG_ROOT / "llama.cpp/build/bin/llama-server"))
 EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-8B-Q8_0.gguf"))
@@ -29,9 +30,6 @@ EMBEDDING_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
 RERANKER_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
 RERANKER_PORT = int(os.getenv("RERANKER_PORT", "8082"))
 SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
-
-_watchdog_started = False
-_watchdog_lock = threading.Lock()
 
 SERVERS = {
     "embedding": {
@@ -197,7 +195,7 @@ def ensure_ready(target: str) -> None:
         if not check_health(target):
             start(target)
         touch_timestamp(target)
-        _ensure_watchdog()
+        _ensure_watchdog_process()
         return
 
     # Operation-based lookup
@@ -217,7 +215,7 @@ def ensure_ready(target: str) -> None:
             start(name)
         touch_timestamp(name)
 
-    _ensure_watchdog()
+    _ensure_watchdog_process()
 
 
 # FUNCTIONS
@@ -268,17 +266,25 @@ def get_last_used(name: str) -> float:
         return 0
 
 
-# Start the idle-timeout watchdog thread if not already running
-def _ensure_watchdog() -> None:
-    global _watchdog_started
-    with _watchdog_lock:
-        if _watchdog_started:
+# Spawn detached watchdog process if not already running; PID tracked in WATCHDOG_PID_FILE
+def _ensure_watchdog_process() -> None:
+    if WATCHDOG_PID_FILE.exists():
+        try:
+            pid = int(WATCHDOG_PID_FILE.read_text().strip())
+            os.kill(pid, 0)
             return
-        _watchdog_started = True
-
-    thread = threading.Thread(target=_watchdog_loop, daemon=True)
-    thread.start()
-    logging.info(f"Watchdog started (idle timeout: {IDLE_TIMEOUT}s)")
+        except (ProcessLookupError, ValueError, OSError):
+            pass
+    WATCHDOG_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    p = subprocess.Popen(
+        [sys.executable, '-m', 'src.rag.watchdog_main'],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=str(RAG_ROOT),
+    )
+    WATCHDOG_PID_FILE.write_text(str(p.pid))
+    logging.info(f"Watchdog process spawned (PID {p.pid}, idle timeout: {IDLE_TIMEOUT}s)")
 
 
 # Background loop that stops servers idle beyond IDLE_TIMEOUT
