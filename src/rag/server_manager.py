@@ -467,5 +467,32 @@ def cli_server(args: list[str]) -> None:
             if len(names) > 1:
                 print()
 
+    elif action == "errors":
+        from . import error_log as _el
+        from collections import Counter
+        today = "--today" in args
+        verbose = "--verbose" in args
+        if verbose:
+            entries = _el.read_today() if today else _el.read_all()
+            for e in reversed(entries):
+                ts = datetime.fromisoformat(e["ts"]).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"{ts} | {e['server']} | {e['code']} | {e['msg']}")
+        else:
+            entries = _el.read_today()
+            by_server: dict = {name: [] for name in SERVERS}
+            for e in entries:
+                by_server.setdefault(e["server"], []).append(e["code"])
+            printed = False
+            for srv, codes in by_server.items():
+                if not codes:
+                    continue
+                counts = Counter(codes)
+                detail = ", ".join(f"{code}×{cnt}" for code, cnt in counts.items())
+                n_word = "error" if len(codes) == 1 else "errors"
+                print(f"{srv}: {len(codes)} {n_word} today ({detail})")
+                printed = True
+            if not printed:
+                print("No errors today.")
+
     else:
         print(f"Unknown action: {action}. Use: status, start, stop, restart, tail, errors")

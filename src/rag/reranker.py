@@ -1,11 +1,13 @@
 # INFRASTRUCTURE
 import logging
+import os
 from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
 
 from .server_manager import ensure_ready, get_port
+from . import error_log, server_lock
 
 load_dotenv()
 
@@ -41,16 +43,33 @@ def rerank_workflow(query: str, documents: list[dict], top_k: int) -> list[dict]
 
 # Rerank documents against query via llama-server API
 def rerank_documents(query: str, contents: list[str]) -> list[dict]:
-    response = httpx.post(
-        _reranker_url(),
-        json={
-            "query": query,
-            "documents": contents,
-            "top_n": len(contents)
-        },
-        timeout=60.0
-    )
-    response.raise_for_status()
-    data = response.json()
-    results = data.get("results", data)
-    return sorted(results, key=lambda x: x['relevance_score'], reverse=True)
+    try:
+        with server_lock.acquire("reranker"):
+            response = httpx.post(
+                _reranker_url(),
+                json={
+                    "query": query,
+                    "documents": contents,
+                    "top_n": len(contents)
+                },
+                timeout=60.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results", data)
+            return sorted(results, key=lambda x: x['relevance_score'], reverse=True)
+    except server_lock.ServerBusyError as e:
+        error_log.write("reranker", "busy", str(e), caller_pid=os.getpid())
+        raise
+    except httpx.HTTPStatusError as e:
+        error_log.write("reranker", f"http_{e.response.status_code}", str(e))
+        raise
+    except httpx.ConnectError as e:
+        error_log.write("reranker", "connection_refused", str(e))
+        raise
+    except httpx.TimeoutException as e:
+        error_log.write("reranker", "timeout", str(e))
+        raise
+    except httpx.RequestError as e:
+        error_log.write("reranker", "request_error", str(e))
+        raise

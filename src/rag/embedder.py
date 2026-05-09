@@ -8,6 +8,7 @@ import httpx
 from dotenv import load_dotenv
 
 from .server_manager import ensure_ready, get_port
+from . import error_log, server_lock
 
 load_dotenv()
 
@@ -55,11 +56,28 @@ def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
 def generate_embeddings(texts: list[str], prefix: str | None = None) -> list[list[float]]:
     if prefix:
         texts = [f"{prefix}{t}" for t in texts]
-    response = httpx.post(
-        _embedding_url(),
-        json={"input": texts, "model": EMBEDDING_MODEL},
-        timeout=300.0
-    )
-    response.raise_for_status()
-    data = response.json()
-    return [item["embedding"] for item in data["data"]]
+    try:
+        with server_lock.acquire("embedding"):
+            response = httpx.post(
+                _embedding_url(),
+                json={"input": texts, "model": EMBEDDING_MODEL},
+                timeout=300.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            return [item["embedding"] for item in data["data"]]
+    except server_lock.ServerBusyError as e:
+        error_log.write("embedding", "busy", str(e), caller_pid=os.getpid())
+        raise
+    except httpx.HTTPStatusError as e:
+        error_log.write("embedding", f"http_{e.response.status_code}", str(e))
+        raise
+    except httpx.ConnectError as e:
+        error_log.write("embedding", "connection_refused", str(e))
+        raise
+    except httpx.TimeoutException as e:
+        error_log.write("embedding", "timeout", str(e))
+        raise
+    except httpx.RequestError as e:
+        error_log.write("embedding", "request_error", str(e))
+        raise
