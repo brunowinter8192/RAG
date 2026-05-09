@@ -125,12 +125,15 @@ def start(name: str) -> bool:
         cmd = cfg["cmd"] + ["--port", str(port)]
         logging.info(f"Starting {name} on port {port} (attempt {attempt}/3)...")
         cwd = cfg.get("cwd", None)
+        log_path = LOG_DIR / f"llama-{name}.log"
+        _log_fh = open(log_path, "w")
         proc = subprocess.Popen(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=_log_fh,
+            stderr=_log_fh,
             cwd=cwd,
         )
+        _log_fh.close()
 
         started = False
         for i in range(cfg["timeout"]):
@@ -437,5 +440,32 @@ def cli_server(args: list[str]) -> None:
             for name, result in results.items():
                 print(f"{name}: {result}")
 
+    elif action == "tail":
+        n = 30
+        name_arg = None
+        i = 1
+        while i < len(args):
+            if args[i] == "-n" and i + 1 < len(args):
+                n = int(args[i + 1])
+                i += 2
+            elif args[i] in SERVERS:
+                name_arg = args[i]
+                i += 1
+            else:
+                i += 1
+        names = [name_arg] if name_arg else list(SERVERS.keys())
+        for srv in names:
+            log_path = LOG_DIR / f"llama-{srv}.log"
+            if len(names) > 1:
+                print(f"=== {srv} ===")
+            if not log_path.exists():
+                print(f"  (no log yet — start {srv} first)")
+            else:
+                srv_lines = log_path.read_text().splitlines()
+                for line in srv_lines[-n:]:
+                    print(line)
+            if len(names) > 1:
+                print()
+
     else:
-        print(f"Unknown action: {action}. Use: status, start, stop, restart")
+        print(f"Unknown action: {action}. Use: status, start, stop, restart, tail, errors")

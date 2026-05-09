@@ -117,12 +117,21 @@ def main():
     p.add_argument("--overlap", type=int, default=400,
                    help="Overlap between chunks in chars (default 400)")
 
+    # ── server ────────────────────────────────────────────────────────────────
+    p = sub.add_parser("server", help="Manage GPU servers (status/start/stop/restart/tail/errors)")
+    p.add_argument("server_args", nargs=argparse.REMAINDER, default=["status"], help="action [server_name] [flags]")
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
     args = parser.parse_args()
 
     if args.cmd == "status":
         from src.rag.status import gather, format_status
         print(format_status(gather()))
+        return
+
+    if args.cmd == "server":
+        from src.rag.server_manager import cli_server
+        cli_server(args.server_args)
         return
 
     from src.rag.lock import acquire as _lock_acquire, LockBusyError as _LockBusyError
