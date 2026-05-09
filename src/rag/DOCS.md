@@ -130,15 +130,23 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_manager.py (351 LOC)
+### server_manager.py (357 LOC)
 
-**Purpose:** Centralized lifecycle manager for all three GPU servers — embedding (port 8081), reranker (8082), SPLADE (8083). Handles start, stop, restart, health check, and idle-timeout auto-stop.
-**Reads:** server health endpoints; `/tmp/rag-server-{name}-last-used` timestamp files; process port occupancy.
-**Writes:** `/tmp/rag-server-{name}-last-used` idle timestamps; spawns/kills server processes.
-**Called by:** embedder.py, sparse_embedder.py, reranker.py, workflow.py (lazy import for `index-dir` and `server` subcommands)
-**Calls out:** requests, subprocess
+**Purpose:** Centralized lifecycle manager for all three GPU servers — embedding (port 8081), reranker (8082), SPLADE (8083). Handles start, stop, restart, health check, and idle-timeout auto-stop. Watchdog runs as **detached subprocess** (via `_ensure_watchdog_process`) — survives the spawning CLI process exit through `start_new_session=True`. Single-instance enforced via PID lock file `~/.rag-locks/watchdog.pid`.
+**Reads:** server health endpoints; `~/.rag-locks/rag-server-{name}-last-used` timestamp files; `~/.rag-locks/watchdog.pid`; process port occupancy.
+**Writes:** `~/.rag-locks/rag-server-{name}-last-used` idle timestamps; `~/.rag-locks/watchdog.pid`; spawns/kills server processes; spawns watchdog subprocess.
+**Called by:** embedder.py, sparse_embedder.py, reranker.py, workflow.py (lazy import for `index-dir` and `server` subcommands), watchdog_main.py (`_watchdog_loop`).
+**Calls out:** httpx, subprocess.
 
-**Refactor candidate (351 LOC > 300-LOC threshold)** — no concrete pain-points today, tracked as known debt.
+---
+
+### watchdog_main.py (7 LOC)
+
+**Purpose:** Standalone watchdog entrypoint — invoked as `python -m src.rag.watchdog_main`. Imports server_manager and runs `_watchdog_loop()` directly. Spawned as detached process by `_ensure_watchdog_process()`; survives parent exit.
+**Reads:** indirect (via `_watchdog_loop`).
+**Writes:** indirect (via `stop`).
+**Called by:** subprocess invocation only — no Python imports.
+**Calls out:** server_manager (intra-package).
 
 ---
 
@@ -158,11 +166,12 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 |---|---|---|---|
 | PostgreSQL `documents` table | All indexed chunks with dense + sparse embeddings | db.py, search_primitives.py | indexer.py (insert/delete/schema), sync.py (delete via indexer primitives) |
 | PostgreSQL `indexed_files` table | Per-project (collection, document) → sha256 + last_indexed_at; sync.py's change-detection ledger | sync.py (diff against current file hashes) | sync.py (upsert/delete; auto-creates table on first run) |
-| `/tmp/rag-server-{name}-last-used` | Last-used timestamps for idle-timeout | server_manager.py (idle checker) | server_manager.py (ensure_ready) |
+| `~/.rag-locks/rag-server-{name}-last-used` | Last-used timestamps for idle-timeout | server_manager.py (`_watchdog_loop`), Monitor_CC `gpu_pane/pane.py` (countdown render) | server_manager.py (`touch_timestamp` via `ensure_ready`) |
+| `~/.rag-locks/watchdog.pid` | Detached watchdog process PID for ensure-singleton spawn | server_manager.py (`_ensure_watchdog_process`) | server_manager.py (`_ensure_watchdog_process`) |
 
 ## Gotchas
 
 - **splade_server.py has no Python import callers** — appears as dead code in any import grep but is the subprocess target launched by `server_manager.py`. Do not delete.
 - **retriever.py re-exports format_results / format_collections / format_documents** from `formatting.py`. `cli.py` imports these from `src.rag.retriever`, not `src.rag.formatting`. Keep the import in retriever.py's INFRASTRUCTURE or cli.py breaks.
 - **DEFAULT_QUERY_PREFIX** lives in `search_primitives.py`, not retriever.py — it moved with `embed_query()` during the retriever split refactor.
-- **server_manager.py 351 LOC** — exceeds the 300-LOC refactor threshold. No concrete pain-points today; tracked as known debt.
+- **server_manager.py 357 LOC** — over the 300-LOC threshold. Real pain-points starting to accumulate (watchdog process management, multi-source server-discovery requirements per Monitor_CC-dliw). Refactor when the watchdog-scope-expansion bead lands.
