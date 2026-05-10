@@ -1,6 +1,8 @@
 # INFRASTRUCTURE
 import argparse
 import json
+import math
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -12,9 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 import httpx
 
 import p1_retriever as _retriever
-from eval_config import BASELINE, SWEEP_RANGES
+from eval_config import BASELINE, COLLECTION, SWEEP_RANGES
 
-EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
+EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/health")
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
 RERANKER_HEALTH_URL = "http://localhost:8082/health"
 
@@ -29,6 +31,7 @@ PREFIX_NOOP_MODES = {"sparse", "bm25"}
 def run_baseline(collection: str, queries_path: str, config: dict) -> None:
     _check_servers([config["mode"]])
     queries = _load_queries(queries_path)
+    chunk_counts = _fetch_collection_chunk_counts(collection)
     print(f"Running baseline: {len(queries)} queries | mode={config['mode']} | top_k={config['top_k']}")
 
     query_results = []
@@ -39,6 +42,7 @@ def run_baseline(collection: str, queries_path: str, config: dict) -> None:
             "hits": hits,
             "doc_match": _check_document_match(entry["expected_documents"], hits),
             "snippet_match": _check_snippet_match(entry["expected_snippets"], hits),
+            "rank_metrics": _compute_rank_metrics(hits, entry["expected_documents"], chunk_counts, config["top_k"]),
         })
 
     _write_report(query_results, collection, config, label="baseline")
@@ -54,6 +58,7 @@ def run_sweep(collection: str, queries_path: str, param: str, base_config: dict)
     _check_servers(modes_in_sweep)
 
     queries = _load_queries(queries_path)
+    chunk_counts = _fetch_collection_chunk_counts(collection)
     print(f"Running sweep: {param} over {values} | {len(queries)} queries | collection={collection}")
 
     comparison_rows = []
@@ -67,12 +72,13 @@ def run_sweep(collection: str, queries_path: str, param: str, base_config: dict)
                 "hits": hits,
                 "doc_match": _check_document_match(entry["expected_documents"], hits),
                 "snippet_match": _check_snippet_match(entry["expected_snippets"], hits),
+                "rank_metrics": _compute_rank_metrics(hits, entry["expected_documents"], chunk_counts, config["top_k"]),
             })
 
         label = f"sweep_{param}_{val}"
         _write_report(query_results, collection, config, label=label, sweep_param=param)
-        avg_doc, avg_snip = _compute_avg_recalls(query_results)
-        comparison_rows.append((param, val, config["mode"], avg_doc, avg_snip))
+        avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k = _compute_avg_metrics(query_results)
+        comparison_rows.append((param, val, config["mode"], avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k))
 
     _write_sweep_comparison(comparison_rows, param, base_config)
 
@@ -81,7 +87,9 @@ def run_sweep(collection: str, queries_path: str, param: str, base_config: dict)
 
 # Check required servers are healthy based on modes
 def _check_servers(modes: list[str]) -> None:
-    checks = [("embedding (8081)", EMBEDDING_HEALTH_URL)]
+    checks = []
+    if any(m not in PREFIX_NOOP_MODES for m in modes):  # dense embedding needed for all except sparse/bm25
+        checks.append(("embedding (8081)", EMBEDDING_HEALTH_URL))
     if any(m in modes for m in ["sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank"]):
         checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
     if any("rerank" in m for m in modes):
@@ -172,6 +180,59 @@ def _check_snippet_match(expected_snippets: list[str], hits: list[dict]) -> list
     return results
 
 
+# Fetch per-document chunk counts for collection (needed for IDCG denominator and Recall@K)
+def _fetch_collection_chunk_counts(collection: str) -> dict[str, int]:
+    from p4_db import get_connection
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT document, COUNT(*) FROM documents WHERE collection = %s GROUP BY document",
+                (collection,)
+            )
+            return {row[0]: row[1] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+# Compute NDCG@K with binary relevance (rel=1 if hit.document in expected_docs_set)
+# DCG@k = Σ (2^rel_i - 1) / log2(i+1), IDCG = DCG of perfect ranking using total_relevant
+# Capped at 1.0: if the same document spans multiple ranks, DCG can technically exceed IDCG
+def _compute_ndcg_at_k(hits: list[dict], expected_docs_set: set, total_relevant: int, k: int) -> float:
+    rels = [1 if h.get("document") in expected_docs_set else 0 for h in hits[:k]]
+    dcg = sum(r / math.log2(i + 2) for i, r in enumerate(rels))
+    idcg = sum(1.0 / math.log2(i + 2) for i in range(min(total_relevant, k)))
+    return min(1.0, dcg / idcg) if idcg > 0 else 0.0
+
+
+# Compute MRR@K: 1/rank of first relevant hit in top K, 0 if none
+def _compute_mrr_at_k(hits: list[dict], expected_docs_set: set, k: int) -> float:
+    for rank, h in enumerate(hits[:k], 1):
+        if h.get("document") in expected_docs_set:
+            return 1.0 / rank
+    return 0.0
+
+
+# Compute Recall@K: chunks retrieved from expected docs in top K / total relevant chunks in collection
+def _compute_recall_at_k(hits: list[dict], expected_docs_set: set, total_relevant: int, k: int) -> float:
+    if total_relevant == 0:
+        return 0.0
+    retrieved_relevant = sum(1 for h in hits[:k] if h.get("document") in expected_docs_set)
+    return retrieved_relevant / total_relevant
+
+
+# Bundle NDCG@K, MRR@K, Recall@K for a single query
+def _compute_rank_metrics(hits: list[dict], expected_docs: list[str], chunk_counts: dict[str, int], k: int) -> dict:
+    expected_set = set(expected_docs)
+    total_relevant = sum(chunk_counts.get(d, 0) for d in expected_docs)
+    return {
+        "ndcg_at_k": _compute_ndcg_at_k(hits, expected_set, total_relevant, k),
+        "mrr_at_k": _compute_mrr_at_k(hits, expected_set, k),
+        "recall_at_k": _compute_recall_at_k(hits, expected_set, total_relevant, k),
+        "k": k,
+    }
+
+
 # Format rank list as compact string like "Rank 1, 2, 5" or "-"
 def _format_ranks(ranks: list[int]) -> str:
     if not ranks:
@@ -251,6 +312,19 @@ def _write_report(query_results: list[dict], collection: str, config: dict, labe
             status = f"Found in Rank {sm['rank']}" if sm["found"] else "MISSING"
             lines.append(f"- \"{sm['snippet']}\" — {status}")
 
+        rm = qr.get("rank_metrics")
+        if rm:
+            k = rm["k"]
+            lines += [
+                f"",
+                f"**Rank Metrics @{k}:**",
+                f"| Metric | Value |",
+                f"|--------|-------|",
+                f"| NDCG@{k} | {rm['ndcg_at_k']:.3f} |",
+                f"| MRR@{k} | {rm['mrr_at_k']:.3f} |",
+                f"| Recall@{k} (chunk-level) | {rm['recall_at_k']:.1%} |",
+            ]
+
         lines += [f"", f"---"]
 
     lines += _build_summary(query_results)
@@ -259,17 +333,30 @@ def _write_report(query_results: list[dict], collection: str, config: dict, labe
     print(f"Report: {report_path}")
 
 
-# Compute average doc and snippet recall across all query results
-def _compute_avg_recalls(query_results: list[dict]) -> tuple[float, float]:
+# Compute average doc recall, snippet recall, and rank metrics across all query results
+def _compute_avg_metrics(query_results: list[dict]) -> tuple[float, float, float, float, float]:
     doc_recalls = []
     snip_recalls = []
+    ndcg_vals = []
+    mrr_vals = []
+    recall_k_vals = []
     for qr in query_results:
         doc_match = qr["doc_match"]
         snippet_match = qr["snippet_match"]
+        rm = qr.get("rank_metrics", {})
         doc_recalls.append(sum(1 for d in doc_match if d["found"]) / len(doc_match) if doc_match else 0)
         snip_recalls.append(sum(1 for s in snippet_match if s["found"]) / len(snippet_match) if snippet_match else 0)
+        ndcg_vals.append(rm.get("ndcg_at_k", 0.0))
+        mrr_vals.append(rm.get("mrr_at_k", 0.0))
+        recall_k_vals.append(rm.get("recall_at_k", 0.0))
     total = len(query_results)
-    return (sum(doc_recalls) / total if total else 0, sum(snip_recalls) / total if total else 0)
+    return (
+        sum(doc_recalls) / total if total else 0,
+        sum(snip_recalls) / total if total else 0,
+        sum(ndcg_vals) / total if total else 0,
+        sum(mrr_vals) / total if total else 0,
+        sum(recall_k_vals) / total if total else 0,
+    )
 
 
 # Write sweep comparison MD report with all swept values + baseline fixed params
@@ -305,11 +392,11 @@ def _write_sweep_comparison(rows: list[tuple], param: str, base_config: dict) ->
 
     lines += [
         "",
-        f"| {param} | Mode | Doc Recall | Snippet Recall |",
-        f"|{'-'*len(param)}-|------|-----------|----------------|",
+        f"| {param} | Mode | Doc Recall | Snippet Recall | NDCG@K | MRR@K | Recall@K |",
+        f"|{'-'*len(param)}-|------|-----------|----------------|--------|-------|---------|",
     ]
-    for swept_param, val, mode, avg_doc, avg_snip in rows:
-        lines.append(f"| {val} | {mode} | {avg_doc:.0%} | {avg_snip:.0%} |")
+    for swept_param, val, mode, avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k in rows:
+        lines.append(f"| {val} | {mode} | {avg_doc:.0%} | {avg_snip:.0%} | {avg_ndcg:.3f} | {avg_mrr:.3f} | {avg_recall_k:.1%} |")
 
     report_path.write_text("\n".join(lines) + "\n")
     print(f"Sweep comparison: {report_path}")
@@ -320,6 +407,9 @@ def _build_summary(query_results: list[dict]) -> list[str]:
     total = len(query_results)
     doc_recalls = []
     snip_recalls = []
+    ndcg_vals = []
+    mrr_vals = []
+    recall_k_vals = []
     full_doc_match = 0
     full_snip_match = 0
     zero_snip_match = 0
@@ -329,12 +419,16 @@ def _build_summary(query_results: list[dict]) -> list[str]:
         entry = qr["entry"]
         doc_match = qr["doc_match"]
         snippet_match = qr["snippet_match"]
+        rm = qr.get("rank_metrics", {})
 
         doc_r = sum(1 for d in doc_match if d["found"]) / len(doc_match) if doc_match else 0
         snip_r = sum(1 for s in snippet_match if s["found"]) / len(snippet_match) if snippet_match else 0
 
         doc_recalls.append(doc_r)
         snip_recalls.append(snip_r)
+        ndcg_vals.append(rm.get("ndcg_at_k", 0.0))
+        mrr_vals.append(rm.get("mrr_at_k", 0.0))
+        recall_k_vals.append(rm.get("recall_at_k", 0.0))
 
         if doc_r == 1.0:
             full_doc_match += 1
@@ -345,14 +439,21 @@ def _build_summary(query_results: list[dict]) -> list[str]:
 
         qtype = entry.get("type", "unknown")
         if qtype not in type_stats:
-            type_stats[qtype] = {"count": 0, "doc_recalls": [], "snip_recalls": []}
+            type_stats[qtype] = {"count": 0, "doc_recalls": [], "snip_recalls": [], "ndcg_vals": [], "mrr_vals": [], "recall_k_vals": []}
         type_stats[qtype]["count"] += 1
         type_stats[qtype]["doc_recalls"].append(doc_r)
         type_stats[qtype]["snip_recalls"].append(snip_r)
+        type_stats[qtype]["ndcg_vals"].append(rm.get("ndcg_at_k", 0.0))
+        type_stats[qtype]["mrr_vals"].append(rm.get("mrr_at_k", 0.0))
+        type_stats[qtype]["recall_k_vals"].append(rm.get("recall_at_k", 0.0))
 
     avg_doc = sum(doc_recalls) / total if total else 0
     avg_snip = sum(snip_recalls) / total if total else 0
+    avg_ndcg = sum(ndcg_vals) / total if total else 0
+    avg_mrr = sum(mrr_vals) / total if total else 0
+    avg_recall_k = sum(recall_k_vals) / total if total else 0
     top_k_label = len(query_results[0]['hits']) if query_results else '?'
+    k_label = query_results[0]['rank_metrics']['k'] if query_results and query_results[0].get('rank_metrics') else top_k_label
 
     lines = [
         f"",
@@ -362,19 +463,25 @@ def _build_summary(query_results: list[dict]) -> list[str]:
         f"|--------|-------|",
         f"| Document Recall @{top_k_label} (avg) | {avg_doc:.0%} |",
         f"| Snippet Recall @{top_k_label} (avg) | {avg_snip:.0%} |",
+        f"| NDCG@{k_label} (avg) | {avg_ndcg:.3f} |",
+        f"| MRR@{k_label} (avg) | {avg_mrr:.3f} |",
+        f"| Recall@{k_label} chunk-level (avg) | {avg_recall_k:.1%} |",
         f"| Queries with 100% doc match | {full_doc_match}/{total} |",
         f"| Queries with 100% snippet match | {full_snip_match}/{total} |",
         f"| Queries with 0 snippet match | {zero_snip_match}/{total} |",
         f"",
         f"### By Query Type",
-        f"| Type | Count | Avg Doc Recall | Avg Snippet Recall |",
-        f"|------|-------|---------------|-------------------|",
+        f"| Type | Count | Avg Doc Recall | Avg Snippet Recall | Avg NDCG@{k_label} | Avg MRR@{k_label} | Avg Recall@{k_label} |",
+        f"|------|-------|---------------|-------------------|------|------|------|",
     ]
 
     for qtype, stats in sorted(type_stats.items()):
         avg_d = sum(stats["doc_recalls"]) / stats["count"]
         avg_s = sum(stats["snip_recalls"]) / stats["count"]
-        lines.append(f"| {qtype} | {stats['count']} | {avg_d:.0%} | {avg_s:.0%} |")
+        avg_n = sum(stats["ndcg_vals"]) / stats["count"]
+        avg_m = sum(stats["mrr_vals"]) / stats["count"]
+        avg_rk = sum(stats["recall_k_vals"]) / stats["count"]
+        lines.append(f"| {qtype} | {stats['count']} | {avg_d:.0%} | {avg_s:.0%} | {avg_n:.3f} | {avg_m:.3f} | {avg_rk:.1%} |")
 
     return lines
 
@@ -404,8 +511,8 @@ def _parse_overrides(override_list: list[str], base_config: dict) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate retrieval against ground truth documents and snippets")
-    parser.add_argument("--collection", default="RAG_MCP_test", help="Collection to query (default: RAG_MCP_test)")
-    parser.add_argument("--queries", default="dev/retrieval/queries_rag_mcp_test.json", help="Queries JSON path")
+    parser.add_argument("--collection", default=COLLECTION, help=f"Collection to query (default: {COLLECTION})")
+    parser.add_argument("--queries", default="dev/retrieval/queries_test_db.json", help="Queries JSON path")
     parser.add_argument("--baseline", action="store_true", help="Run single pass at BASELINE config values")
     parser.add_argument("--sweep", metavar="PARAM", help="Sweep PARAM over SWEEP_RANGES[PARAM]; others fixed at BASELINE")
     parser.add_argument("--override", metavar="key=val", action="append", help="Override a BASELINE key (repeatable)")

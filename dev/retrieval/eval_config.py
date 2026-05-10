@@ -1,8 +1,10 @@
 # INFRASTRUCTURE
 
+COLLECTION = "test_db"
+
 BASELINE = {
     "mode": "cc",
-    "top_k": 20,
+    "top_k": 12,
     "alpha": 0.8,
     "rrf_k": 60,
     "score_threshold": 0.0,
