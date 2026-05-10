@@ -38,7 +38,7 @@ def main():
     p.add_argument("query", help="Natural language search query")
     p.add_argument("collection", help="Collection to search in")
     p.add_argument("--top-k", dest="top_k", type=int, default=12,
-                   help="Number of results (20–50, default 20)")
+                   help="Number of results (default 12, max 12)")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard (e.g. 'arxiv_%%')")
 
@@ -47,7 +47,7 @@ def main():
     p.add_argument("query", help="Natural language search query")
     p.add_argument("collection", help="Collection to search in")
     p.add_argument("--top-k", dest="top_k", type=int, default=12,
-                   help="Number of results (20–50, default 20)")
+                   help="Number of results (default 12, max 12)")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
     p.add_argument("--no-rerank", dest="rerank", action="store_false", default=True,
@@ -58,7 +58,7 @@ def main():
     p.add_argument("query", help="Keywords (space = AND). Case insensitive, stems words.")
     p.add_argument("collection", help="Collection to search in")
     p.add_argument("--top-k", dest="top_k", type=int, default=12,
-                   help="Number of results (20–50, default 20)")
+                   help="Number of results (default 12, max 12)")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
 
