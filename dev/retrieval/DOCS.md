@@ -45,6 +45,13 @@ Config module for `A_retrieval_eval.py`. Defines `BASELINE` (single-run defaults
 
 **Purpose:** Evaluate retrieval quality against ground truth documents and snippets. Config-driven via `eval_config.py` — all parameters have BASELINE defaults and SWEEP_RANGES for systematic sweeps. Produces per-run reports with config header, per-query results, and aggregate summary. Sweep mode produces an additional comparison table across all swept values.
 
+**Metrics computed per query + aggregated:**
+- `doc_recall` (binary): expected_documents in top-K hits or not
+- `snippet_recall` (binary): expected_snippets as substring in any hit's content
+- `NDCG@K`: rank-aware, binary relevance (rel=1 if chunk.document ∈ expected_documents)
+- `MRR@K`: 1/rank of first relevant hit, 0 if none in top-K
+- `Recall@K` (chunk-level): retrieved_relevant / total_relevant_in_collection (via DB query for chunk-counts-per-document)
+
 **Prerequisites:** Embedding server (8081) always. SPLADE (8083) for sparse, hybrid, cc, cc+rerank, hybrid+rerank modes. Reranker (8082) for any mode containing "rerank".
 
 **Config file: `eval_config.py`**
@@ -185,26 +192,30 @@ Exactly one of `--baseline` or `--sweep PARAM` is required.
 
 ## Data Files
 
-### queries_rag_mcp_test.json
+### queries_test_db.json (active)
 
-20 queries (8 factual, 7 conceptual, 5 cross-document) with ground truth for the RAG_MCP_test collection. Used by `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`.
+17 queries with ground truth for the `test_db` collection. Default queries-path for `A_retrieval_eval.py`. Format: JSON object with `"queries"` array, each entry has `query`, `type`, `expected_documents`, `expected_snippets`. All snippets grep-verified in source MDs. Query-Mix ist faktual-lastig; conceptual/cross-document Coverage offen (worker-generated baseline, User-Inspection vor authoritative Eval-Execution empfohlen).
+
+### queries_rag_mcp_test.json (historical, retained for reference)
+
+20 queries (8 factual, 7 conceptual, 5 cross-document) for the deprecated `RAG_MCP_test` collection. Collection no longer indexed (April 30 data clean-slate). Nicht in current eval flow.
 
 ---
 
 ### Current Test Database State
 
-rag_test enthält RAG_MCP_test (28 Docs / 483 Chunks aus data/documents/RAG_MCP_test/, 1:1 mit Disk gespiegelt). Production-DB rag enthält wise2627 (3246 Chunks, alte Pipeline-Konfig 1000/200 + 4096d + SPLADE++). Fünf weitere Disk-Collections (searxng, FAUWingMaster, GoetheBWLMaster, linkedin, TradBot) sind nirgends indexiert.
+`rag_test` (Postgres) enthält die Collection `test_db` (250 Chunks aus 7 Reference Papers: RAGAS_Evaluation_Framework, RAG_Evaluation_Survey_2025, Pipeline_Optimization, Fusion_Functions_Hybrid_Retrieval, Qwen3_Embedding, SPLADE_v3, Rethinking_Chunk_Size_Long_Document — kopiert aus `data/documents/RAG_reference/` und neu indexiert für isolierte Eval). Production-DB `rag` enthält die Live-Collections (RAG-features, RAG-meta, RAG_reference, searxng_reference, Trading, Trading_internal). Strikte Trennung: Eval läuft gegen `rag_test`, prod-rag-cli läuft gegen `rag`.
 
 ### Query Coverage
 
-20 Queries verweisen auf 24 unique Dokumente, alle 24 sind in rag_test.RAG_MCP_test vorhanden (kein Drift). 4 indexierte Dokumente werden von keiner Query getestet — anthropic__docs__en__build-with-claude__embeddings.md, docs_haystack_deepset_ai__docs__advanced-rag-techniques.md, docs_together_ai__docs__building-a-rag-workflow.md, docs_together_ai__docs__embeddings-rag.md. Mögliche Distraktoren oder Coverage-Lücke.
+17 Queries in `queries_test_db.json` decken die 7 Reference Papers ab. Alle `expected_snippets` sind grep-verified gegen die Source-MDs. Query-Typen-Verteilung ist faktual-lastig (sehr spezifische Substring-Hits) — möglicher Bias der worker-generierten Baseline-Queries Richtung exact-match.
 
 ### Pipeline Coverage / Friction Boundary
 
-Was die Eval heute prüft: alle Retrieval-Knöpfe ohne Re-Indexing-Bedarf — Modi (dense/sparse/hybrid/cc/cc+rerank/hybrid+rerank), Fusion-Parameter (RRF K, CC α), MRL-Dimension via separates Script.
+Was die Eval heute prüft: alle Retrieval-Knöpfe ohne Re-Indexing-Bedarf — Modi (dense/sparse/hybrid/cc/cc+rerank/hybrid+rerank), Fusion-Parameter (RRF K, CC α), MRL-Dimension via separates Script, plus rank-aware Metriken (NDCG@K, MRR@K, Recall@K).
 
-Was die Eval nicht prüft trotz No-Re-Index-Möglichkeit: BM25/keyword (Code in src/rag/search_primitives.py vorhanden, nicht in p1_retriever.py exposed), top_k-Variation, score_threshold, query_prefix-Ablation.
+Was die Eval nicht prüft trotz No-Re-Index-Möglichkeit: BM25/keyword (Code in src/rag/search_primitives.py vorhanden, nicht in p1_retriever.py exposed — wait, BM25 IS jetzt in p1_retriever exposed via `retrieve_bm25`), top_k-Variation reduziert (Production-Clamp auf [12,12]), statistische Signifikanz-Tests, Latency-Tracking.
 
 Was die Eval nicht prüft weil Re-Index nötig: Chunking-Config, Dense-Embedding-Modell, Sparse-Embedding-Modell, Schema-Änderungen.
 
-Wichtig: Eval läuft auf RAG_MCP_test, Production läuft auf wise2627 — die Eval-Aussagen (CC α=0.8 optimal, Reranker schadet auf technischen Docs) basieren auf RAG_MCP-Inhalten und generalisieren nicht zwingend.
+Wichtig: Eval läuft auf `test_db` (7 reference papers, RAG-internes Methodologie-Material), Production läuft auf live-Collections in `rag`. Eval-Aussagen müssen durch DB-Erweiterung re-validiert werden — siehe `decisions/OldThemes/eval_suite/in_progress.md` für den Erweiterungspfad.
