@@ -777,8 +777,70 @@ def cli_server(args: list[str]) -> None:
     elif action == "list":
         _cli_list()
 
+    elif action == "tail":
+        n = 30
+        name_arg = None
+        i = 1
+        while i < len(args):
+            if args[i] == "-n" and i + 1 < len(args):
+                n = int(args[i + 1]); i += 2
+            elif args[i] in SERVERS:
+                name_arg = args[i]; i += 1
+            else:
+                i += 1
+        # Resolve log_path via state file (Box-aware: dynamic ports in log name).
+        log_paths: dict[str, Path] = {}
+        for sf in TIMESTAMP_DIR.glob("server-port-*.json"):
+            try:
+                st = json.loads(sf.read_text())
+                if st.get("name") and st.get("log_path"):
+                    log_paths[st["name"]] = Path(st["log_path"])
+            except (json.JSONDecodeError, OSError):
+                continue
+        names = [name_arg] if name_arg else list(SERVERS.keys())
+        for srv in names:
+            if len(names) > 1:
+                print(f"=== {srv} ===")
+            log_path = log_paths.get(srv)
+            if log_path is None or not log_path.exists():
+                print(f"  (no log — {srv} not running or never started)")
+            else:
+                for line in log_path.read_text().splitlines()[-n:]:
+                    print(line)
+            if len(names) > 1:
+                print()
+
+    elif action == "errors":
+        from collections import Counter
+        from datetime import datetime as _dt
+        today = "--today" in args
+        verbose = "--verbose" in args
+        if verbose:
+            entries = error_log.read_today() if today else error_log.read_all()
+            for e in reversed(entries):
+                ts = _dt.fromisoformat(e["ts"]).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                extras = " ".join(f"{k}={v}" for k, v in e.items()
+                                  if k not in {"ts", "server", "code", "msg"})
+                print(f"{ts} | {e['server']} | {e['code']} | {e['msg']}" + (f" | {extras}" if extras else ""))
+        else:
+            entries = error_log.read_today()
+            by_server: dict = {name: [] for name in SERVERS}
+            for e in entries:
+                by_server.setdefault(e["server"], []).append(e["code"])
+            printed = False
+            for srv, codes in by_server.items():
+                if not codes:
+                    continue
+                counts = Counter(codes)
+                detail = ", ".join(f"{code}×{cnt}" for code, cnt in counts.items())
+                n_word = "entry" if len(codes) == 1 else "entries"
+                print(f"{srv}: {len(codes)} {n_word} today ({detail})")
+                printed = True
+            if not printed:
+                print("No lifecycle entries today.")
+
     else:
-        print(f"Unknown action: {action}. Use: status, start, stop, restart, list")
+        print(f"Unknown action: {action}. Use: status, start, stop, restart, list, tail, errors")
 
 
 # Print table of all box-managed servers from state files
