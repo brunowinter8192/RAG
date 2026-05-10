@@ -2,80 +2,11 @@
 name: agent-rag-search
 ---
 
-# RAG CLI Tools — Reference
+# Agent RAG Search
 
-## CLI Invocation
-
-All tools are invoked via the `rag-cli` wrapper (installed at `~/.local/bin/rag-cli`, in PATH):
-
-```bash
-rag-cli <cmd> [args]
-```
-
-### Quick Reference — All 6 Tools
-
-```bash
-# Discovery
-rag-cli list_collections
-rag-cli list_documents my_collection
-rag-cli list_documents my_collection --document "arxiv_%"
-
-# Search
-rag-cli search_hybrid "transformer attention mechanism" my_collection --top-k 20
-rag-cli search_hybrid "cost function" my_collection --document "paper.md"
-rag-cli search_hybrid "query" my_collection --no-rerank   # faster, lower precision
-
-rag-cli search "semantic similarity" my_collection --top-k 30
-rag-cli search_keyword "learning_rate dropout" my_collection --top-k 20
-
-# Read
-rag-cli read_document my_collection paper.md 42
-rag-cli read_document my_collection paper.md 42 --before 2 --after 5
-```
-
-On error (import failure, DB connection refused): the CLI prints to stderr and exits non-zero. Check PostgreSQL (rag-postgres Docker container) and GPU servers are running via `start.sh`.
-
-# RAG CLI Tools — Reference (Detailed)
-
-## GPU Server Prerequisite
-
-GPU servers (llama-server, SPLADE) are required for search/index operations. The agent starts them automatically via the RAG project `start.sh` if not running.
-
-**RAG_PROJECT_ROOT Resolution (run BEFORE health check):**
-
-The plugin cache contains only code — `data/`, `llama.cpp/`, and `models/` live in the user's RAG project directory. Resolve the path in this order:
-
-```bash
-# 1. Read from plugin .env (fastest — set once by user)
-RAG_ROOT=$(grep "^RAG_PROJECT_ROOT=" "${CLAUDE_PLUGIN_ROOT}/.env" 2>/dev/null | cut -d'=' -f2)
-
-# 2. Fallback: locate via llama.cpp marker
-if [ -z "$RAG_ROOT" ]; then
-  RAG_ROOT=$(find ~/Documents -maxdepth 4 -type d -name "llama.cpp" 2>/dev/null | head -1 | xargs -I{} dirname {})
-fi
-
-# 3. Still empty → STOP
-if [ -z "$RAG_ROOT" ]; then
-  echo "RAG_PROJECT_ROOT not found. Add it to ${CLAUDE_PLUGIN_ROOT}/.env"
-  exit 1
-fi
-```
-
-Use `$RAG_ROOT/start.sh` (not `${CLAUDE_PLUGIN_ROOT}/start.sh`) to start GPU servers.
-Document fallback path: `$RAG_ROOT/data/documents/<collection>/` when collection not indexed.
-
-Read-only commands (`list_collections`, `list_documents`, `read_document`) don't need GPU servers — DB reads only. Search commands (`search`, `search_hybrid`, `search_keyword`) need the embedding server running.
-
-## Tools
-
-| Tool | Purpose |
-|------|---------|
-| search_hybrid | Hybrid search (vector + SPLADE + RRF fusion) — best default for large collections |
-| search | Semantic search over documents (pure vector) |
-| search_keyword | BM25 keyword search for exact terms |
-| read_document | Read continuous text from a position |
-| list_collections | List all indexed collections |
-| list_documents | List documents in a collection |
+Search-strategy reference for agent-driven retrieval over indexed document collections.
+CLI command surface and box mechanics are documented in tool-use rules; this file contains
+the search-strategy substance (workflow, techniques, parameter strategy, output protocol).
 
 ## Search Workflow
 
@@ -215,34 +146,6 @@ No parameters. Returns all collections with chunk counts.
 | collection | str | required | Collection name |
 | document | str | None | Filter by document name. `%` as wildcard |
 
-## Data Structure
-
-```
-data/documents/
-  {collection}/           <- Filter with collection="..."
-    raw/
-      {document}.md       <- Original from MinerU
-    {document}.md         <- Cleaned version (indexed)
-    chunks.json           <- Chunked for indexing
-```
-
-## Collection Management
-
-The MCP server has NO delete tool — deletion is a CLI operation.
-
-**Delete a collection (DB + Filesystem):**
-```bash
-rag-cli delete --collection "<name>"
-rm -rf <RAG-project-root>/data/documents/<name>
-```
-
-**Delete a single document within a collection:**
-```bash
-rag-cli delete --collection "<name>" --document "<doc.md>"
-```
-
-**Verify:** `rag-cli list_collections` after deletion (reads live from DB).
-
 ## Known Limitations
 
 - **GPU servers required** for search/index — MCP server alone only supports list/read operations
@@ -293,19 +196,6 @@ ALWAYS return concrete findings (quotes, chunk references, document paths). If u
 - **Flag figures/graphics** — if data is only in a figure: "The values are in Figure X, I can only read the text"
 - **No absolute negations from partial search** — NEVER say "X is not mentioned". Say: "Not found in the searched sections. Further search needed to be certain."
 - **No summaries as facts** — "7-114%" is WRONG if you only have "7.30% average" and "114% single example"
-
-## Persisted-Output Handling
-
-`rag-cli search*` results regularly exceed CC's inline tool-output limit and get persisted (`<persisted-output>` block, file path under `tool-results/<id>.txt`). Typical size: 30-50 KB for `--top-k 15-20` with rerank enabled.
-
-**Rule: read the persisted file FULLY in ONE Read call.** No offset/limit chunking, no incremental "first 100 lines, then more". A 50 KB persisted file is ~400-500 lines in `cat -n` format and fits well below Read's 2000-line default — one call covers it.
-
-```
-WRONG: Read(file_path=..., offset=0, limit=100) → Read(offset=100, limit=200) → ...
-RIGHT: Read(file_path=...)   # whole file, one call
-```
-
-If the persisted file is so large it won't fit (>200 KB / >2000 lines): the search itself was too broad. Re-issue with smaller `--top-k` or tighter query — don't paginate the read.
 
 ## When to Stop
 
