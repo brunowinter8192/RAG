@@ -11,6 +11,8 @@ from pathlib import Path
 
 import httpx
 
+from . import error_log
+
 LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 RAG_ROOT = Path(os.getenv("RAG_PROJECT_ROOT", str(Path(__file__).parent.parent.parent)))
@@ -108,7 +110,9 @@ def start(name: str) -> bool:
                 return False
             # Alive but unhealthy → stop and restart on a fresh port
             logging.warning(f"{name} alive on port {state['port']} but unhealthy, stopping for restart")
-            _stop_by_state(state, sf)
+            _stop_by_state(state, sf,
+                           caller="start",
+                           reason=f"alive but _check_health_port({state['port']}) returned False at start-time")
             break
 
     port = _resolve_port(cfg["default_port"])
@@ -169,7 +173,7 @@ def start(name: str) -> bool:
                 return True
         raise RuntimeError(f"Failed to start {name} after {timeout}s")
     except Exception:
-        _unlink_state_file(port)
+        _unlink_state_file(port, caller="start", reason=f"start({name}) failed: did not become healthy in {cfg['timeout']}s")
         raise
 
 
@@ -199,7 +203,7 @@ def stop(name: str) -> bool:
         remaining = find_all_pids_on_port(port)
         if not remaining:
             logging.info(f"{name} stopped")
-            _unlink_state_file(port)
+            _unlink_state_file(port, caller="stop", reason=f"stop({name}): exited cleanly after SIGTERM")
             return True
 
     for pid in find_all_pids_on_port(port):
@@ -208,7 +212,7 @@ def stop(name: str) -> bool:
             logging.warning(f"{name} force-killed (PID {pid})")
         except ProcessLookupError:
             pass
-    _unlink_state_file(port)
+    _unlink_state_file(port, caller="stop", reason=f"stop({name}): force-killed after 5s SIGTERM grace expired")
     return True
 
 
@@ -311,7 +315,7 @@ def start_arbitrary(model_path: str, port: int | None, mode: str, name: str | No
                 return True
         raise RuntimeError(f"Failed to start arbitrary server on port {port} after {timeout}s")
     except Exception:
-        _unlink_state_file(port)
+        _unlink_state_file(port, caller="start_arbitrary", reason=f"start_arbitrary({name or 'unnamed'}, port={port}) failed: did not become healthy in {timeout}s")
         raise
 
 
@@ -475,7 +479,9 @@ def _watchdog_tick() -> None:
         if idle > IDLE_TIMEOUT:
             label = state.get("name") or f"port-{port}"
             logging.info(f"Watchdog: {label} idle {idle:.0f}s, stopping")
-            _stop_by_state(state, state_file)
+            _stop_by_state(state, state_file,
+                           caller="watchdog",
+                           reason=f"idle {idle:.0f}s exceeds IDLE_TIMEOUT={IDLE_TIMEOUT}s (log {state['log_path']})")
 
 
 # Kill llama-server PIDs not registered in any state file (continuous orphan enforcement)
@@ -542,23 +548,38 @@ def _check_health_port(port: int, retries: int = 2, backoff_s: float = 0.3) -> b
     return False
 
 
-# SIGTERM → wait → SIGKILL a server described by its state dict; unlinks state file
-def _stop_by_state(state: dict, state_file: Path) -> None:
+# SIGTERM → wait → SIGKILL a server described by its state dict; unlinks state file.
+# caller + reason are LIFECYCLE EVIDENCE: every kill of a managed process must leave
+# a trail in error_log (server-name, port, pid, kill-method, who-asked, why).
+def _stop_by_state(state: dict, state_file: Path, *, caller: str, reason: str) -> None:
     pid, port = state["pid"], state["port"]
+    name = state.get("name") or f"port-{port}"
+
+    error_log.write(name, "stop_initiated", reason,
+                    pid=pid, port=port, caller=caller, state_file=str(state_file))
+
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
+        error_log.write(name, "stop_completed", "process already dead at SIGTERM",
+                        pid=pid, port=port, caller=caller, kill_method="not_required")
         state_file.unlink(missing_ok=True)
         return
+
     for _ in range(10):
         time.sleep(0.5)
         if not _pid_alive(pid):
+            error_log.write(name, "stop_completed", "exited cleanly after SIGTERM",
+                            pid=pid, port=port, caller=caller, kill_method="sigterm")
             state_file.unlink(missing_ok=True)
             return
+
     try:
         os.kill(pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
+    error_log.write(name, "stop_completed", "force-killed after 5s SIGTERM grace expired",
+                    pid=pid, port=port, caller=caller, kill_method="sigkill")
     state_file.unlink(missing_ok=True)
 
 
@@ -627,9 +648,21 @@ def _write_state_file(*, pid: int, port: int, model_path: str, model_name: str,
     return path
 
 
-# Remove state file for a port; safe if never written or already gone
-def _unlink_state_file(port: int) -> None:
+# Remove state file for a port; safe if never written or already gone.
+# caller + reason are LIFECYCLE EVIDENCE — every state-file removal logged
+# so any future "where did my server go?" investigation has a starting point.
+def _unlink_state_file(port: int, *, caller: str, reason: str) -> None:
     path = TIMESTAMP_DIR / f"server-port-{port}.json"
+    if path.exists():
+        try:
+            state = json.loads(path.read_text())
+            name = state.get("name") or f"port-{port}"
+            pid = state.get("pid")
+        except (json.JSONDecodeError, OSError):
+            name = f"port-{port}"
+            pid = None
+        error_log.write(name, "state_unlinked", reason,
+                        pid=pid, port=port, caller=caller, state_file=str(path))
     path.unlink(missing_ok=True)
 
 
@@ -691,7 +724,9 @@ def cli_server(args: list[str]) -> None:
                 return
             try:
                 state = json.loads(sf.read_text())
-                _stop_by_state(state, sf)
+                _stop_by_state(state, sf,
+                               caller="cli_server_stop",
+                               reason=f"user-requested stop via 'rag-cli server stop --port {port}'")
                 label = state.get("name") or f"port-{port}"
                 print(f"{label}: stopped")
             except Exception as e:
@@ -717,7 +752,9 @@ def cli_server(args: list[str]) -> None:
                 return
             try:
                 state = json.loads(sf.read_text())
-                _stop_by_state(state, sf)
+                _stop_by_state(state, sf,
+                               caller="cli_server_restart",
+                               reason=f"user-requested restart via 'rag-cli server restart --port {port}'")
                 preset_name = state.get("name")
                 if preset_name and preset_name in SERVERS:
                     start(preset_name)
