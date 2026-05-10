@@ -63,13 +63,17 @@ def main():
                    help="Filter by document name. %% as wildcard")
 
     # ── list_collections ──────────────────────────────────────────────────────
-    sub.add_parser("list_collections", help="List all indexed collections with chunk counts.")
+    p = sub.add_parser("list_collections", help="List all indexed collections with chunk counts.")
+    p.add_argument("--filter", default=None,
+                   help="Substring filter on collection name (case-insensitive, e.g. 'RAG' matches RAG-meta, RAG-features)")
 
     # ── list_documents ────────────────────────────────────────────────────────
     p = sub.add_parser("list_documents", help="List documents in a collection.")
     p.add_argument("collection", help="Collection name")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
+    p.add_argument("--filter", default=None,
+                   help="Substring filter on document name (case-insensitive)")
 
     # ── progress ──────────────────────────────────────────────────────────────
     p = sub.add_parser(
@@ -170,11 +174,11 @@ def _dispatch(args: argparse.Namespace) -> None:
         print(format_results(results))
 
     elif args.cmd == "list_collections":
-        results = list_collections_workflow()
+        results = list_collections_workflow(args.filter)
         print(format_collections(results))
 
     elif args.cmd == "list_documents":
-        results = list_documents_workflow(args.collection, args.document)
+        results = list_documents_workflow(args.collection, args.document, args.filter)
         print(format_documents(results))
 
     elif args.cmd == "progress":
