@@ -102,6 +102,11 @@ def main():
     p.add_argument("--overlap", type=int, default=400,
                    help="Overlap between chunks in chars (default 400)")
 
+    # ── server ────────────────────────────────────────────────────────────────
+    p = sub.add_parser("server", help="Manage RAG GPU servers (start/stop/restart/status/list).")
+    p.add_argument("server_args", nargs=argparse.REMAINDER,
+                   help="Subcommand and args (start|stop|restart|status|list ...)")
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
     args = parser.parse_args()
 
@@ -183,6 +188,10 @@ def main():
             print(f"             - {r}")
         print(f"  unchanged: {len(result['unchanged'])}")
         print(f"  total chunks indexed this run: {result['total_chunks_indexed']}")
+
+    elif args.cmd == "server":
+        from src.rag.server_manager import cli_server
+        cli_server(args.server_args)
 
     else:
         parser.error(f"Unknown command: {args.cmd}")

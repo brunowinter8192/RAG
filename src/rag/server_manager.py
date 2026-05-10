@@ -203,6 +203,85 @@ def restart(name: str) -> bool:
     return start(name)
 
 
+# Start an arbitrary llama-server (non-preset); mode must be 'embedding' or 'rerank'
+def start_arbitrary(model_path: str, port: int, mode: str, name: str | None = None) -> bool:
+    if mode not in {"embedding", "rerank"}:
+        raise ValueError(
+            f"mode must be 'embedding' or 'rerank' for arbitrary start (got '{mode}'). "
+            f"Use the 'splade' preset for SPLADE."
+        )
+
+    # Already managed and healthy → already running
+    state_file = TIMESTAMP_DIR / f"server-port-{port}.json"
+    if state_file.exists():
+        try:
+            existing = json.loads(state_file.read_text())
+            if _pid_alive(existing["pid"]) and _check_health_port(port):
+                label = existing.get("name") or f"port-{port}"
+                logging.info(f"Arbitrary start: {label} already running on port {port}")
+                return False
+        except (json.JSONDecodeError, KeyError, OSError):
+            pass
+        state_file.unlink(missing_ok=True)
+
+    pid = find_pid_on_port(port)
+    if pid is not None:
+        raise RuntimeError(f"Port {port} in use by PID {pid} (not managed by box). Stop it first.")
+
+    binary = Path(LLAMA_SERVER_PATH)
+    if not binary.exists():
+        raise RuntimeError(
+            f"llama-server not found at {binary}. "
+            f"Build it or set LLAMA_SERVER_PATH."
+        )
+
+    mode_flag = "--embedding" if mode == "embedding" else "--rerank"
+    cmd = [
+        LLAMA_SERVER_PATH, "-m", model_path,
+        mode_flag, "--host", "0.0.0.0", "--port", str(port),
+        "-ngl", "99",
+    ]
+    model_name = Path(model_path).stem
+    log_path = LOG_DIR / f"llama-port-{port}.log"
+
+    logging.info(f"Starting arbitrary {mode} server on port {port} ({model_name})...")
+
+    log_fh = open(log_path, "w")
+    proc = subprocess.Popen(cmd, stdout=log_fh, stderr=subprocess.STDOUT)
+    log_fh.close()
+
+    _write_state_file(
+        pid=proc.pid, port=port,
+        model_path=model_path, model_name=model_name,
+        mode=mode, name=name,
+        log_path=str(log_path),
+    )
+
+    timeout = 90
+    try:
+        for i in range(timeout):
+            time.sleep(1)
+            if _check_health_port(port):
+                actual_pid = find_pid_on_port(port)
+                if actual_pid is not None and actual_pid != proc.pid:
+                    _write_state_file(
+                        pid=actual_pid, port=port,
+                        model_path=model_path, model_name=model_name,
+                        mode=mode, name=name,
+                        log_path=str(log_path),
+                    )
+                label = name or f"port-{port}"
+                logging.info(
+                    f"Arbitrary server {label} started on port {port} "
+                    f"(PID {actual_pid or proc.pid}) after {i + 1}s"
+                )
+                return True
+        raise RuntimeError(f"Failed to start arbitrary server on port {port} after {timeout}s")
+    except Exception:
+        _unlink_state_file(port)
+        raise
+
+
 # Start all servers; returns name → 'started'|'already_running'|'error: ...'
 def start_all() -> dict[str, str]:
     results = {}
@@ -498,7 +577,21 @@ def cli_server(args: list[str]) -> None:
             print(f"{name:<12} {info['port']:<6} {status_str:<10} {pid_str:<8} {health_str}")
 
     elif action == "start":
-        if target:
+        if "--model" in args:
+            model_path = _parse_flag(args, "--model")
+            port_str = _parse_flag(args, "--port")
+            mode = _parse_flag(args, "--mode")
+            label_name = _parse_flag(args, "--name")
+            if not model_path or not port_str or not mode:
+                print("Error: --model, --port, and --mode are required for arbitrary start")
+                return
+            try:
+                started = start_arbitrary(model_path, int(port_str), mode, label_name)
+                label = label_name or f"port-{port_str}"
+                print(f"{label}: {'started' if started else 'already running'}")
+            except Exception as e:
+                print(f"Error: {e}")
+        elif target:
             try:
                 started = start(target)
                 print(f"{target}: {'started' if started else 'already running'}")
@@ -510,7 +603,24 @@ def cli_server(args: list[str]) -> None:
                 print(f"{name}: {result}")
 
     elif action == "stop":
-        if target:
+        if "--port" in args:
+            port_str = _parse_flag(args, "--port")
+            if not port_str:
+                print("Error: --port requires a value")
+                return
+            port = int(port_str)
+            sf = TIMESTAMP_DIR / f"server-port-{port}.json"
+            if not sf.exists():
+                print(f"No managed server on port {port}")
+                return
+            try:
+                state = json.loads(sf.read_text())
+                _stop_by_state(state, sf)
+                label = state.get("name") or f"port-{port}"
+                print(f"{label}: stopped")
+            except Exception as e:
+                print(f"Error: {e}")
+        elif target:
             stopped = stop(target)
             print(f"{target}: {'stopped' if stopped else 'not running'}")
         else:
@@ -519,7 +629,30 @@ def cli_server(args: list[str]) -> None:
                 print(f"{name}: {result}")
 
     elif action == "restart":
-        if target:
+        if "--port" in args:
+            port_str = _parse_flag(args, "--port")
+            if not port_str:
+                print("Error: --port requires a value")
+                return
+            port = int(port_str)
+            sf = TIMESTAMP_DIR / f"server-port-{port}.json"
+            if not sf.exists():
+                print(f"No managed server on port {port}")
+                return
+            try:
+                state = json.loads(sf.read_text())
+                _stop_by_state(state, sf)
+                preset_name = state.get("name")
+                if preset_name and preset_name in SERVERS:
+                    start(preset_name)
+                    print(f"{preset_name}: restarted")
+                else:
+                    start_arbitrary(state["model_path"], port, state["mode"], state.get("name"))
+                    label = state.get("name") or f"port-{port}"
+                    print(f"{label}: restarted")
+            except Exception as e:
+                print(f"Error: {e}")
+        elif target:
             restart(target)
             print(f"{target}: restarted")
         else:
@@ -528,5 +661,81 @@ def cli_server(args: list[str]) -> None:
             for name, result in results.items():
                 print(f"{name}: {result}")
 
+    elif action == "list":
+        _cli_list()
+
     else:
-        print(f"Unknown action: {action}. Use: status, start, stop, restart")
+        print(f"Unknown action: {action}. Use: status, start, stop, restart, list")
+
+
+# Print table of all box-managed servers from state files
+def _cli_list() -> None:
+    state_files = sorted(TIMESTAMP_DIR.glob("server-port-*.json"))
+    if not state_files:
+        print("No managed servers")
+        return
+
+    rows = []
+    for sf in state_files:
+        try:
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        log_path = Path(state.get("log_path", ""))
+        try:
+            idle_s = time.time() - log_path.stat().st_mtime
+            idle_str = _format_idle(idle_s)
+        except (FileNotFoundError, OSError):
+            idle_str = "?"
+        healthy = _check_health_port(state["port"])
+        rows.append({
+            "name":   state.get("name") or f"port-{state['port']}",
+            "mode":   state.get("mode", "?"),
+            "port":   state["port"],
+            "pid":    state["pid"],
+            "model":  state.get("model_name", "?"),
+            "idle":   idle_str,
+            "status": "healthy" if healthy else "unhealthy",
+        })
+
+    if not rows:
+        print("No managed servers")
+        return
+
+    w_name  = max(4, max(len(r["name"])  for r in rows))
+    w_mode  = max(4, max(len(r["mode"])  for r in rows))
+    w_port  = 5
+    w_pid   = max(3, max(len(str(r["pid"])) for r in rows))
+    w_model = max(5, max(len(r["model"]) for r in rows))
+    w_idle  = max(4, max(len(r["idle"])  for r in rows))
+
+    header = (
+        f"{'NAME':<{w_name}}  {'MODE':<{w_mode}}  {'PORT':<{w_port}}  "
+        f"{'PID':<{w_pid}}  {'MODEL':<{w_model}}  {'IDLE':<{w_idle}}  STATUS"
+    )
+    print(header)
+    print("-" * len(header))
+    for r in rows:
+        print(
+            f"{r['name']:<{w_name}}  {r['mode']:<{w_mode}}  {r['port']:<{w_port}}  "
+            f"{r['pid']:<{w_pid}}  {r['model']:<{w_model}}  {r['idle']:<{w_idle}}  {r['status']}"
+        )
+
+
+# Format idle seconds as 'Xm YYs' (< 1h) or 'Xh YYm' (>= 1h)
+def _format_idle(seconds: float) -> str:
+    s = int(seconds)
+    if s < 3600:
+        m, sec = divmod(s, 60)
+        return f"{m}m {sec:02d}s"
+    h, rem = divmod(s, 3600)
+    return f"{h}h {rem // 60:02d}m"
+
+
+# Get value of --flag from an args list; returns None if not found
+def _parse_flag(args: list[str], flag: str) -> str | None:
+    try:
+        idx = args.index(flag)
+        return args[idx + 1]
+    except (ValueError, IndexError):
+        return None
