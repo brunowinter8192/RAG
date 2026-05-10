@@ -474,7 +474,7 @@ def _purge_orphans() -> None:
 def pgrep_llama_server() -> list[int]:
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "llama-server"],
+            ["pgrep", "-x", "llama-server"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
