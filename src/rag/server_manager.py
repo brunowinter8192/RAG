@@ -97,6 +97,8 @@ def start(name: str) -> bool:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
     cfg = SERVERS[name]
+    error_log.write(name, "start_initiated", f"start({name}) called",
+                    caller="start", model_path=cfg["model_path"], default_port=cfg["default_port"])
 
     # Check for live state file with this name — single-instance enforcement
     for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
@@ -110,6 +112,9 @@ def start(name: str) -> bool:
                 return False
             # Alive but unhealthy → stop and restart on a fresh port
             logging.warning(f"{name} alive on port {state['port']} but unhealthy, stopping for restart")
+            error_log.write(name, "single_instance_alive_replaced",
+                            f"existing {name} alive on port {state['port']} (PID {state['pid']}) but unhealthy — replacing",
+                            caller="start", existing_pid=state["pid"], existing_port=state["port"])
             _stop_by_state(state, sf,
                            caller="start",
                            reason=f"alive but _check_health_port({state['port']}) returned False at start-time")
@@ -166,10 +171,14 @@ def start(name: str) -> bool:
                         mode=cfg["mode"], name=name,
                         log_path=str(log_path),
                     )
+                final_pid = actual_pid or proc.pid
                 logging.info(
                     f"{name} started on port {port} "
-                    f"(PID {actual_pid or proc.pid}) after {i + 1}s"
+                    f"(PID {final_pid}) after {i + 1}s"
                 )
+                error_log.write(name, "start_succeeded",
+                                f"{name} healthy on port {port} after {i + 1}s",
+                                caller="start", pid=final_pid, port=port, elapsed_s=i + 1)
                 return True
         raise RuntimeError(f"Failed to start {name} after {timeout}s")
     except Exception:
@@ -295,6 +304,10 @@ def start_arbitrary(model_path: str, port: int | None, mode: str, name: str | No
     )
 
     timeout = 90
+    label_for_log = name or f"port-{port}"
+    error_log.write(label_for_log, "start_initiated",
+                    f"start_arbitrary({label_for_log}, port={port}) called",
+                    caller="start_arbitrary", model_path=model_path, mode=mode)
     try:
         for i in range(timeout):
             time.sleep(1)
@@ -307,11 +320,14 @@ def start_arbitrary(model_path: str, port: int | None, mode: str, name: str | No
                         mode=mode, name=name,
                         log_path=str(log_path),
                     )
-                label = name or f"port-{port}"
+                final_pid = actual_pid or proc.pid
                 logging.info(
-                    f"Arbitrary server {label} started on port {port} "
-                    f"(PID {actual_pid or proc.pid}) after {i + 1}s"
+                    f"Arbitrary server {label_for_log} started on port {port} "
+                    f"(PID {final_pid}) after {i + 1}s"
                 )
+                error_log.write(label_for_log, "start_succeeded",
+                                f"{label_for_log} healthy on port {port} after {i + 1}s",
+                                caller="start_arbitrary", pid=final_pid, port=port, elapsed_s=i + 1)
                 return True
         raise RuntimeError(f"Failed to start arbitrary server on port {port} after {timeout}s")
     except Exception:
@@ -466,6 +482,11 @@ def _watchdog_tick() -> None:
             continue
         pid, port = state["pid"], state["port"]
         if not _pid_alive(pid):
+            name = state.get("name") or f"port-{port}"
+            error_log.write(name, "watchdog_unlinked_dead",
+                            f"state file claimed PID {pid} on port {port} but process is dead — auto-unlinking stale state",
+                            caller="watchdog", pid=pid, port=port,
+                            state_file=str(state_file))
             state_file.unlink(missing_ok=True)
             continue
         if not _check_health_port(port):
@@ -509,12 +530,17 @@ def _purge_orphans() -> None:
         if not still:
             break
         orphan_pids = still
+    sigkilled: list[int] = []
     for pid in orphan_pids:
         try:
             os.kill(pid, signal.SIGKILL)
+            sigkilled.append(pid)
         except ProcessLookupError:
             pass
     logging.info(f"Watchdog purge: killed {n_orphans} orphan llama-server PID(s)")
+    error_log.write("orphan", "watchdog_killed_orphan",
+                    f"purge killed {n_orphans} unregistered llama-server PID(s)",
+                    caller="watchdog", n_pids=n_orphans, sigkilled=sigkilled)
 
 
 # Return PIDs of all running llama-server processes via pgrep -x (exact comm match)
