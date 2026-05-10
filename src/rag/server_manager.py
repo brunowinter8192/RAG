@@ -323,21 +323,123 @@ def _ensure_watchdog_process() -> None:
     logging.info(f"Watchdog process spawned (PID {p.pid}, idle timeout: {IDLE_TIMEOUT}s)")
 
 
-# Background loop that stops servers idle beyond IDLE_TIMEOUT (old SERVERS-dict impl — Phase 2 replaces)
+# Background loop: purge orphans on entry, then tick idle-stop logic every WATCHDOG_INTERVAL
 def _watchdog_loop() -> None:
+    _purge_orphans()
     while True:
         time.sleep(WATCHDOG_INTERVAL)
-        now = time.time()
-        for name, cfg in SERVERS.items():
-            if not check_health(name):
-                continue
-            last_used = get_last_used(name)
-            if last_used == 0:
-                continue
-            idle_seconds = now - last_used
-            if idle_seconds > IDLE_TIMEOUT:
-                logging.info(f"Watchdog: {name} idle for {idle_seconds:.0f}s (>{IDLE_TIMEOUT}s), stopping")
-                stop(name)
+        _watchdog_tick()
+
+
+# Per-tick: purge orphans, then idle-stop any server whose log hasn't been touched > IDLE_TIMEOUT
+def _watchdog_tick() -> None:
+    _purge_orphans()
+    now = time.time()
+    for state_file in TIMESTAMP_DIR.glob("server-port-*.json"):
+        try:
+            state = json.loads(state_file.read_text())
+        except (json.JSONDecodeError, FileNotFoundError, OSError):
+            continue
+        pid, port = state["pid"], state["port"]
+        if not _pid_alive(pid):
+            state_file.unlink(missing_ok=True)
+            continue
+        if not _check_health_port(port):
+            continue
+        log = Path(state["log_path"])
+        try:
+            idle = now - log.stat().st_mtime
+        except FileNotFoundError:
+            logging.warning(f"Watchdog: log missing at {log}, skipping idle check")
+            continue
+        if idle > IDLE_TIMEOUT:
+            label = state.get("name") or f"port-{port}"
+            logging.info(f"Watchdog: {label} idle {idle:.0f}s, stopping")
+            _stop_by_state(state, state_file)
+
+
+# Kill llama-server PIDs not registered in any state file (continuous orphan enforcement)
+def _purge_orphans() -> None:
+    registered_pids: set[int] = set()
+    for sf in TIMESTAMP_DIR.glob("server-port-*.json"):
+        try:
+            registered_pids.add(json.loads(sf.read_text())["pid"])
+        except (json.JSONDecodeError, FileNotFoundError, KeyError, OSError):
+            continue
+    live_pids = set(pgrep_llama_server())
+    orphan_pids = live_pids - registered_pids
+    if not orphan_pids:
+        return
+    n_orphans = len(orphan_pids)
+    for pid in orphan_pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        time.sleep(0.5)
+        still = {p for p in orphan_pids if _pid_alive(p)}
+        if not still:
+            break
+        orphan_pids = still
+    for pid in orphan_pids:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    logging.info(f"Watchdog purge: killed {n_orphans} orphan llama-server PID(s)")
+
+
+# Return PIDs of all running llama-server processes via pgrep
+def pgrep_llama_server() -> list[int]:
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "llama-server"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return [int(p) for p in result.stdout.strip().split("\n") if p.strip()]
+    except Exception:
+        pass
+    return []
+
+
+# Health check by port (no SERVERS lookup — works for preset and arbitrary servers)
+def _check_health_port(port: int) -> bool:
+    try:
+        return httpx.get(f"http://localhost:{port}/health", timeout=2.0).status_code == 200
+    except Exception:
+        return False
+
+
+# SIGTERM → wait → SIGKILL a server described by its state dict; unlinks state file
+def _stop_by_state(state: dict, state_file: Path) -> None:
+    pid, port = state["pid"], state["port"]
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        state_file.unlink(missing_ok=True)
+        return
+    for _ in range(10):
+        time.sleep(0.5)
+        if not _pid_alive(pid):
+            state_file.unlink(missing_ok=True)
+            return
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    state_file.unlink(missing_ok=True)
+
+
+# Return True if the process is alive (os.kill(pid, 0) succeeds)
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
 
 
 # Write ~/.rag-locks/server-port-{port}.json with box state immediately after Popen
