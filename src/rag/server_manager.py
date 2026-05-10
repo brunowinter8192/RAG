@@ -29,31 +29,65 @@ WATCHDOG_INTERVAL = 30
 WATCHDOG_PID_FILE = Path.home() / ".rag-locks" / "watchdog.pid"
 
 LLAMA_SERVER_PATH = os.getenv("LLAMA_SERVER_PATH", str(RAG_ROOT / "llama.cpp/build/bin/llama-server"))
-EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-8B-Q8_0.gguf"))
-EMBEDDING_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
-RERANKER_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
-RERANKER_PORT = int(os.getenv("RERANKER_PORT", "8082"))
-SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
+EMBEDDING_8B_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-8B-Q8_0.gguf"))
+EMBEDDING_06B_MODEL_PATH = os.getenv("EMBEDDING_06B_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-0.6B-Q8_0.gguf"))
+RERANKER_06B_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
+RERANKER_8B_MODEL_PATH = os.getenv("RERANKER_8B_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Reranker-8B-Q8_0.gguf"))
 SPLADE_MODEL = "naver/splade-v3"
 
+EMBEDDING_8B_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
+EMBEDDING_06B_PORT = int(os.getenv("EMBEDDING_06B_PORT", "8084"))
+RERANKER_06B_PORT = int(os.getenv("RERANKER_PORT", "8082"))
+RERANKER_8B_PORT = int(os.getenv("RERANKER_8B_PORT", "8085"))
+SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
+
+# Insertion order matters: when client calls find_server_url("embedding") and
+# multiple variants are running, the FIRST matching entry in iteration order
+# wins. Keep the canonical default for each class FIRST.
+#
+# default=True → started by `rag-cli server start` without args + by ensure_ready
+#                for search/index workflows. Non-default variants are visible as
+#                presets but only start when explicitly named.
 SERVERS = {
-    "embedding": {
-        "default_port": EMBEDDING_PORT,
-        "model_path": EMBEDDING_MODEL_PATH,
+    "embedding-8b": {
+        "default_port": EMBEDDING_8B_PORT,
+        "model_path": EMBEDDING_8B_MODEL_PATH,
         "mode": "embedding",
         "type": "llama",
         "extra_flags": ["-ngl", "99", "-c", "2048", "-np", "1", "-b", "4096", "-ub", "4096"],
         "timeout": 90,
         "required_for": ["search", "index"],
+        "default": True,
     },
-    "reranker": {
-        "default_port": RERANKER_PORT,
-        "model_path": RERANKER_MODEL_PATH,
+    "embedding-0.6b": {
+        "default_port": EMBEDDING_06B_PORT,
+        "model_path": EMBEDDING_06B_MODEL_PATH,
+        "mode": "embedding",
+        "type": "llama",
+        "extra_flags": ["-ngl", "99", "-c", "2048", "-np", "1", "-b", "4096", "-ub", "4096"],
+        "timeout": 90,
+        "required_for": ["search", "index"],
+        "default": False,
+    },
+    "reranker-0.6b": {
+        "default_port": RERANKER_06B_PORT,
+        "model_path": RERANKER_06B_MODEL_PATH,
         "mode": "rerank",
         "type": "llama",
         "extra_flags": ["-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096"],
         "timeout": 90,
         "required_for": ["rerank"],
+        "default": True,
+    },
+    "reranker-8b": {
+        "default_port": RERANKER_8B_PORT,
+        "model_path": RERANKER_8B_MODEL_PATH,
+        "mode": "rerank",
+        "type": "llama",
+        "extra_flags": ["-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096"],
+        "timeout": 90,
+        "required_for": ["rerank"],
+        "default": False,
     },
     "splade": {
         "default_port": SPLADE_PORT,
@@ -63,11 +97,20 @@ SERVERS = {
         "uvicorn_app": "src.rag.splade_server:app",
         "timeout": 60,
         "required_for": ["search", "index"],
+        "default": True,
     },
 }
 
 # Preset names — arbitrary starts may not collide with these
 _PRESET_NAMES: frozenset[str] = frozenset(SERVERS.keys())
+
+# Map class-name (embedding / reranker / splade) → list of preset variant names,
+# in default-first order. Used by find_server_url() prefix-match for backward
+# compatibility with client calls find_server_url("embedding") etc.
+_CLASS_MAP: dict[str, list[str]] = {}
+for _n, _c in SERVERS.items():
+    _CLASS_MAP.setdefault(_c["mode"] if _c["mode"] != "rerank" else "reranker", []).append(_n)
+# splade class name matches its mode already; keep insertion order = default first
 
 
 # ORCHESTRATOR
@@ -335,10 +378,25 @@ def start_arbitrary(model_path: str, port: int | None, mode: str, name: str | No
         raise
 
 
-# Start all servers; returns name → 'started'|'already_running'|'error: ...'
+# Resolve a class-name (embedding / reranker / splade) to the default variant preset name.
+# Returns the input unchanged if not a class name.
+def _resolve_class_to_default(name: str) -> str:
+    variants = _CLASS_MAP.get(name)
+    if not variants:
+        return name
+    for v in variants:
+        if SERVERS[v].get("default"):
+            return v
+    return variants[0]  # fallback: first in insertion order
+
+
+# Start all default servers (one per class); non-default variants must be started by name.
+# Returns name → 'started'|'already_running'|'error: ...'
 def start_all() -> dict[str, str]:
     results = {}
-    for name in SERVERS:
+    for name, cfg in SERVERS.items():
+        if not cfg.get("default"):
+            continue
         try:
             started = start(name)
             results[name] = "started" if started else "already_running"
@@ -347,7 +405,8 @@ def start_all() -> dict[str, str]:
     return results
 
 
-# Stop all servers; returns name → 'stopped'|'not_running'
+# Stop ALL servers (both default and non-default), regardless of whether they're running.
+# Returns name → 'stopped'|'not_running'
 def stop_all() -> dict[str, str]:
     results = {}
     for name in SERVERS:
@@ -356,64 +415,100 @@ def stop_all() -> dict[str, str]:
     return results
 
 
-# Ensure server(s) for a name or operation are running, starting if needed
+# Ensure server(s) for a name, class-name, or operation are running, starting if needed.
+# Class-name calls (e.g. ensure_ready("embedding")) ensure the default variant.
 def ensure_ready(target: str) -> None:
-    # Direct server name
+    # Direct preset name
     if target in SERVERS:
         if not check_health(target):
             start(target)
         _ensure_watchdog_process()
         return
 
-    # Operation-based lookup
+    # Class name → default variant
+    if target in _CLASS_MAP:
+        preset = _resolve_class_to_default(target)
+        # If ANY variant of this class is already healthy, we're done.
+        for v in _CLASS_MAP[target]:
+            if check_health(v):
+                _ensure_watchdog_process()
+                return
+        # Otherwise start the default variant.
+        start(preset)
+        _ensure_watchdog_process()
+        return
+
+    # Operation-based lookup — only consider DEFAULT variants per class.
     if target == "search_rerank":
         needed_ops = ["search", "rerank"]
     else:
         needed_ops = [target]
 
-    needed_servers = set()
+    needed_servers: set[str] = set()
     for op in needed_ops:
         for name, cfg in SERVERS.items():
-            if op in cfg["required_for"]:
+            if op in cfg["required_for"] and cfg.get("default"):
                 needed_servers.add(name)
 
     for name in needed_servers:
-        if not check_health(name):
-            start(name)
+        # Skip if any variant of this class is already healthy.
+        cls = "reranker" if SERVERS[name]["mode"] == "rerank" else SERVERS[name]["mode"]
+        if any(check_health(v) for v in _CLASS_MAP.get(cls, [name])):
+            continue
+        start(name)
 
     _ensure_watchdog_process()
 
 
 # FUNCTIONS
 
-# Return http://localhost:{port} for the (unique) state file with state['name'] == name
+# Return http://localhost:{port} for a running server matching name.
+# Match strategy:
+#   1. Exact match wins (e.g. find_server_url("embedding-8b")).
+#   2. Class-prefix fallback for legacy callers: find_server_url("embedding")
+#      → returns the FIRST running variant in SERVERS insertion order
+#      (i.e. the default variant if it's running, else next).
+# Client modules (embedder.py / reranker.py / sparse_embedder.py) call with
+# class-name strings — the prefix path keeps them working without changes
+# when SERVERS holds multiple variants per class.
 def find_server_url(name: str) -> str | None:
-    matches = []
+    states_by_name: dict[str, dict] = {}
     for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
         try:
             state = json.loads(sf.read_text())
         except (json.JSONDecodeError, OSError):
             continue
-        if state.get("name") == name:
-            matches.append(state)
-    if not matches:
-        return None
-    if len(matches) > 1:
-        ports = [s.get("port") for s in matches]
-        logging.error(
-            f"BUG: multiple state files with name={name!r} on ports {ports}; "
-            f"picking port {matches[0]['port']}. Clean up via `rag-cli server list`."
-        )
-    return f"http://localhost:{matches[0]['port']}"
+        sn = state.get("name")
+        if sn:
+            states_by_name[sn] = state
+
+    # 1. Exact match
+    if name in states_by_name:
+        return f"http://localhost:{states_by_name[name]['port']}"
+
+    # 2. Class-prefix fallback: iterate variants in SERVERS insertion order,
+    #    return first one that's running.
+    variants = _CLASS_MAP.get(name, [])
+    for v in variants:
+        if v in states_by_name:
+            return f"http://localhost:{states_by_name[v]['port']}"
+
+    return None
 
 
-# Check if a server responds; looks up actual port via state file, falls back to default
+# Check if a server responds; looks up actual port via state file, falls back to default.
+# Accepts preset name OR class name (embedding / reranker / splade) — class falls back to
+# default variant's default_port when nothing is running.
 def check_health(name: str) -> bool:
     url = find_server_url(name)
     if url:
         port = int(url.split(":")[-1])
-    else:
+    elif name in SERVERS:
         port = SERVERS[name]["default_port"]
+    elif name in _CLASS_MAP:
+        port = SERVERS[_resolve_class_to_default(name)]["default_port"]
+    else:
+        return False
     try:
         resp = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
         return resp.status_code == 200
@@ -865,8 +960,32 @@ def cli_server(args: list[str]) -> None:
             if not printed:
                 print("No lifecycle entries today.")
 
+    elif action == "presets":
+        as_json = "--json" in args
+        if as_json:
+            import json as _json
+            payload = []
+            for name, cfg in SERVERS.items():
+                payload.append({
+                    "name": name,
+                    "mode": cfg["mode"],
+                    "model_path": cfg["model_path"],
+                    "default_port": cfg["default_port"],
+                    "default": cfg.get("default", False),
+                    "type": cfg["type"],
+                    "required_for": cfg["required_for"],
+                })
+            print(_json.dumps(payload, indent=2))
+        else:
+            print(f"{'NAME':<18} {'MODE':<10} {'PORT':<6} {'DEF':<4} MODEL")
+            print("-" * 100)
+            for name, cfg in SERVERS.items():
+                model_short = cfg["model_path"].rsplit("/", 1)[-1]
+                default_mark = "yes" if cfg.get("default") else "-"
+                print(f"{name:<18} {cfg['mode']:<10} {cfg['default_port']:<6} {default_mark:<4} {model_short}")
+
     else:
-        print(f"Unknown action: {action}. Use: status, start, stop, restart, list, tail, errors")
+        print(f"Unknown action: {action}. Use: status, start, stop, restart, list, tail, errors, presets")
 
 
 # Print table of all box-managed servers from state files
