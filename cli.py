@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import signal
 import sys
 
 # Ensure src.rag.* imports resolve regardless of working directory
@@ -18,7 +19,14 @@ from src.rag.retriever import (
 )
 
 
+def _shutdown(sig: int, _frame: object) -> None:
+    sys.exit(128 + sig)
+
+
 def main():
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
     parser = argparse.ArgumentParser(
         prog="cli.py",
         description="RAG CLI — semantic, hybrid, and keyword search over indexed document collections."
@@ -89,6 +97,13 @@ def main():
     p.add_argument("--remove-source", action="store_true", default=False,
                    help="Also remove source file(s) from data/documents/<collection>/. Requires --collection. With --document: removes the .md (plus raw/<document> if present). Without --document: removes the entire collection directory.")
 
+    # ── status ────────────────────────────────────────────────────────────────
+    sub.add_parser(
+        "status",
+        help="Show lock state, GPU server health, and Postgres reachability. "
+             "Always works regardless of lock state — no DB query."
+    )
+
     # ── update_docs ───────────────────────────────────────────────────────────
     p = sub.add_parser(
         "update_docs",
@@ -103,13 +118,39 @@ def main():
                    help="Overlap between chunks in chars (default 400)")
 
     # ── server ────────────────────────────────────────────────────────────────
-    p = sub.add_parser("server", help="Manage RAG GPU servers (start/stop/restart/status/list).")
-    p.add_argument("server_args", nargs=argparse.REMAINDER,
-                   help="Subcommand and args (start|stop|restart|status|list ...)")
+    p = sub.add_parser("server", help="Manage GPU servers (status/start/stop/restart/tail/errors/list)")
+    p.add_argument("server_args", nargs=argparse.REMAINDER, default=["status"],
+                   help="action [server_name] [flags] — start|stop|restart|status|list|tail|errors")
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
     args = parser.parse_args()
 
+    if args.cmd == "status":
+        from src.rag.status import gather, format_status
+        print(format_status(gather()))
+        return
+
+    if args.cmd == "server":
+        from src.rag.server_manager import cli_server
+        cli_server(args.server_args)
+        return
+
+    from src.rag.lock import acquire as _lock_acquire, LockBusyError as _LockBusyError
+    _lock_args = {k: v for k, v in vars(args).items() if v is not None and k != "cmd"}
+    try:
+        _lock_ctx = _lock_acquire(args.cmd, _lock_args)
+        _lock_ctx.__enter__()
+    except _LockBusyError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        _dispatch(args)
+    finally:
+        _lock_ctx.__exit__(None, None, None)
+
+
+def _dispatch(args: argparse.Namespace) -> None:
     if args.cmd == "search":
         results = search_workflow(
             args.query, args.top_k, args.collection, args.document
@@ -194,7 +235,7 @@ def main():
         cli_server(args.server_args)
 
     else:
-        parser.error(f"Unknown command: {args.cmd}")
+        raise SystemExit(f"Unknown command: {args.cmd}")
 
 
 if __name__ == "__main__":
