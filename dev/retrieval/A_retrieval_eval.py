@@ -2,6 +2,7 @@
 import argparse
 import json
 import math
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -13,9 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 import httpx
 
 import p1_retriever as _retriever
-from eval_config import BASELINE, SWEEP_RANGES
+from eval_config import BASELINE, COLLECTION, SWEEP_RANGES
 
-EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
+EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/health")
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
 RERANKER_HEALTH_URL = "http://localhost:8082/health"
 
@@ -510,8 +511,8 @@ def _parse_overrides(override_list: list[str], base_config: dict) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate retrieval against ground truth documents and snippets")
-    parser.add_argument("--collection", default="RAG_MCP_test", help="Collection to query (default: RAG_MCP_test)")
-    parser.add_argument("--queries", default="dev/retrieval/queries_rag_mcp_test.json", help="Queries JSON path")
+    parser.add_argument("--collection", default=COLLECTION, help=f"Collection to query (default: {COLLECTION})")
+    parser.add_argument("--queries", default="dev/retrieval/queries_test_db.json", help="Queries JSON path")
     parser.add_argument("--baseline", action="store_true", help="Run single pass at BASELINE config values")
     parser.add_argument("--sweep", metavar="PARAM", help="Sweep PARAM over SWEEP_RANGES[PARAM]; others fixed at BASELINE")
     parser.add_argument("--override", metavar="key=val", action="append", help="Override a BASELINE key (repeatable)")

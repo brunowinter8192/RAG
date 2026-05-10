@@ -1,5 +1,7 @@
 # INFRASTRUCTURE
 
+COLLECTION = "test_db"
+
 BASELINE = {
     "mode": "cc",
     "top_k": 12,

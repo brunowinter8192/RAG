@@ -1,0 +1,150 @@
+{
+  "collection": "test_db",
+  "description": "17 queries over 7 RAG-reference papers (RAGAS, RAG_Evaluation_Survey_2025, Pipeline_Optimization, Fusion_Functions_Hybrid_Retrieval, Qwen3_Embedding, SPLADE_v3, Rethinking_Chunk_Size_Long_Document). All snippets grep-verified in source MDs.",
+  "queries": [
+    {
+      "query": "What MRR@10 does SPLADE-v3 achieve on the MS MARCO dev set?",
+      "type": "factual",
+      "expected_documents": ["SPLADE_v3.md"],
+      "expected_snippets": [
+        "gets more than 40 MRR @ 10 on the MS MARCO dev set",
+        "SPLADE-v3 | 40.2 | 72.3 | 75.4"
+      ]
+    },
+    {
+      "query": "What two distillation losses does SPLADE-v3 combine during training and what are their respective weights?",
+      "type": "factual",
+      "expected_documents": ["SPLADE_v3.md"],
+      "expected_snippets": [
+        "\u03bb_KL = 1 for KL-Div, \u03bb_MSE = 0.05 for MarginMSE"
+      ]
+    },
+    {
+      "query": "What Acc@3 does Qwen3-Embedding-8B achieve compared to GTE-large in the pipeline optimization study?",
+      "type": "factual",
+      "expected_documents": ["Pipeline_Optimization.md"],
+      "expected_snippets": [
+        "Qwen3-Embedding-8B/4096 achieves Top-3 accuracy \u2248 0.571 versus 0.412 for GTElarge/1024"
+      ]
+    },
+    {
+      "query": "By how many percentage points does adding a BGE cross-encoder reranker improve Acc@3 for the GTE-large pipeline?",
+      "type": "factual",
+      "expected_documents": ["Pipeline_Optimization.md"],
+      "expected_snippets": [
+        "Adding BGE cross-encoder to GTE-large pipeline raises Acc @ 3 from 0.412 to 0.506",
+        "9.4 percentage point gain"
+      ]
+    },
+    {
+      "query": "How does reducing chunk size from 2000 to 512 characters affect GTE-large retrieval accuracy?",
+      "type": "factual",
+      "expected_documents": ["Pipeline_Optimization.md"],
+      "expected_snippets": [
+        "Reducing chunk size from 2000 to 512 characters raises GTE-large accuracy from 0.412 to 0.460"
+      ]
+    },
+    {
+      "query": "What three quality dimensions does RAGAS evaluate in RAG systems?",
+      "type": "conceptual",
+      "expected_documents": ["RAGAS_Evaluation_Framework.md"],
+      "expected_snippets": [
+        "faithfulness (i.e. is the answer grounded in the retrieved context), answer relevance (i.e. does the answer address the question) and context relevance"
+      ]
+    },
+    {
+      "query": "How does RAGAS estimate faithfulness without requiring human-annotated ground truth?",
+      "type": "conceptual",
+      "expected_documents": ["RAGAS_Evaluation_Framework.md"],
+      "expected_snippets": [
+        "we first use an LLM to extract a set of statements"
+      ]
+    },
+    {
+      "query": "What is the definition of Recall@K as given in the RAG Evaluation Survey 2025?",
+      "type": "factual",
+      "expected_documents": ["RAG_Evaluation_Survey_2025.md"],
+      "expected_snippets": [
+        "Recall @ K is the portion of relevant instances that have been retrieved over the total amount of relevant cases, considering only the top k results."
+      ]
+    },
+    {
+      "query": "How does the RAG Evaluation Survey 2025 distinguish between rank-based and non-rank-based retrieval metrics?",
+      "type": "conceptual",
+      "expected_documents": ["RAG_Evaluation_Survey_2025.md"],
+      "expected_snippets": [
+        "The non-rank-based metrics typically evaluate binary outcomes, that is, whether an item is relevant or not, without taking into account the item's position in a ranked list.",
+        "The rank-based metrics focuse on the sequential presentation of relevant items, assigning greater significance to the positioning of these items within the ranking list."
+      ]
+    },
+    {
+      "query": "Which embedding model architecture benefits more from larger chunk sizes — decoder-based or encoder-based — according to the Rethinking Chunk Size paper?",
+      "type": "conceptual",
+      "expected_documents": ["Rethinking_Chunk_Size_Long_Document.md"],
+      "expected_snippets": [
+        "Stella is a decoder-based model, whereas Snowflake is encoder-based",
+        "Stella demonstrates stronger performance at larger chunk sizes (512-1024 tokens), improving recall @ 1 by 5- 8% compared to Snowflake in long-document datasets"
+      ]
+    },
+    {
+      "query": "What chunk size achieves the highest recall@1 in SQuAD and why does the dataset favor small chunks?",
+      "type": "factual",
+      "expected_documents": ["Rethinking_Chunk_Size_Long_Document.md"],
+      "expected_snippets": [
+        "64-token chunks yield the highest recall @ 1 which is 64.1%"
+      ]
+    },
+    {
+      "query": "What MTEB Multilingual score does Qwen3-Embedding-8B achieve and which proprietary model does it surpass?",
+      "type": "factual",
+      "expected_documents": ["Qwen3_Embedding.md"],
+      "expected_snippets": [
+        "Qwen3-8B-Embedding attains a score of 70.58 on the MTEB Multilingual benchmark",
+        "surpassing the previous state-of-the-art proprietary embedding model, Gemini-Embedding"
+      ]
+    },
+    {
+      "query": "How many synthetic training pairs did the Qwen3 Embedding pipeline generate in total?",
+      "type": "factual",
+      "expected_documents": ["Qwen3_Embedding.md"],
+      "expected_snippets": [
+        "approximately 150 million pairs of multi-task weak supervision training data"
+      ]
+    },
+    {
+      "query": "What does the Fusion Functions paper find about how RRF generalizes to out-of-domain datasets compared to convex combination?",
+      "type": "conceptual",
+      "expected_documents": ["Fusion_Functions_Hybrid_Retrieval.md"],
+      "expected_snippets": [
+        "a tuned RRF generalizes poorly to out-of-domain datasets",
+        "convex combination outperforms RRF in in-domain and out-of-domain settings"
+      ]
+    },
+    {
+      "query": "Why is score normalization applied before convex combination fusion in hybrid retrieval?",
+      "type": "conceptual",
+      "expected_documents": ["Fusion_Functions_Hybrid_Retrieval.md"],
+      "expected_snippets": [
+        "because lexical scores (e.g., BM25) and semantic scores (e.g., dot product) may be unbounded, often they are normalized with min-max scaling"
+      ]
+    },
+    {
+      "query": "How do SPLADE-v3 and the Rethinking Chunk Size paper each evaluate retrieval quality — what datasets and evaluation approaches do they use?",
+      "type": "cross-document",
+      "expected_documents": ["SPLADE_v3.md", "Rethinking_Chunk_Size_Long_Document.md"],
+      "expected_snippets": [
+        "meta-analysis over more than 40 query sets",
+        "recall @ k trends for different chunk sizes and embedding models"
+      ]
+    },
+    {
+      "query": "Both RAGAS and the RAG Evaluation Survey 2025 address evaluation without relying solely on human annotations — what approaches do they each describe?",
+      "type": "cross-document",
+      "expected_documents": ["RAGAS_Evaluation_Framework.md", "RAG_Evaluation_Survey_2025.md"],
+      "expected_snippets": [
+        "reference-free evaluation of Retrieval Augmented Generation",
+        "LLM-based evaluation methods"
+      ]
+    }
+  ]
+}
