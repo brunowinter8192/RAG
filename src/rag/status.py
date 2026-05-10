@@ -1,10 +1,11 @@
 # INFRASTRUCTURE
+import json
+import time
 from datetime import datetime, timezone
-
-import httpx
+from pathlib import Path
 
 from .lock import read as read_lock
-from .server_manager import SERVERS, get_last_used, get_port
+from .server_manager import SERVERS, TIMESTAMP_DIR, status as box_status
 
 
 # ORCHESTRATOR
@@ -83,30 +84,42 @@ def _lock_status() -> dict:
 
 
 def _server_status() -> dict:
+    """Bridge to Box server_manager.status() — adds last_used (log-mtime based) per server."""
+    box = box_status()  # {name: {running, pid, port, healthy}}
+    log_paths = _state_log_paths()
     result = {}
-    for name in SERVERS:
-        port = None
-        running = False
-        try:
-            port = get_port(name)
-            running = True
-        except RuntimeError:
-            pass
-        healthy = False
-        if running:
-            try:
-                resp = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
-                healthy = resp.status_code == 200
-            except Exception:
-                pass
-        last_used = _format_last_used(get_last_used(name))
+    for name, info in box.items():
+        log_path = log_paths.get(name)
+        last_used_secs = _log_idle_seconds(log_path) if log_path else None
         result[name] = {
-            "running": running,
-            "healthy": healthy,
-            "port": port,
-            "last_used": last_used,
+            "running": info["running"],
+            "healthy": info["healthy"],
+            "port": info["port"],
+            "last_used": _format_last_used(last_used_secs),
         }
     return result
+
+
+def _state_log_paths() -> dict[str, Path]:
+    """Map server name → log_path from state files in TIMESTAMP_DIR."""
+    out: dict[str, Path] = {}
+    for sf in TIMESTAMP_DIR.glob("server-port-*.json"):
+        try:
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        name = state.get("model_name") or state.get("name")
+        log = state.get("log_path")
+        if name and log:
+            out[name] = Path(log)
+    return out
+
+
+def _log_idle_seconds(log_path: Path) -> float | None:
+    try:
+        return time.time() - log_path.stat().st_mtime
+    except (FileNotFoundError, OSError):
+        return None
 
 
 def _postgres_status() -> dict:
@@ -142,13 +155,11 @@ def _elapsed(iso: str) -> str:
         return "?"
 
 
-def _format_last_used(ts: float) -> str:
-    if ts == 0:
+def _format_last_used(secs: float | None) -> str:
+    """Format seconds-since-last-activity. None or negative → empty string."""
+    if secs is None or secs < 0:
         return ""
-    import time
-    secs = int(time.time() - ts)
-    if secs < 0:
-        secs = 0
+    secs = int(secs)
     mins, s = divmod(secs, 60)
     hrs, m = divmod(mins, 60)
     if hrs:
