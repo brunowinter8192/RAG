@@ -1,12 +1,13 @@
 # INFRASTRUCTURE
 import logging
 import math
+import os
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_URL = "http://localhost:8081/v1/embeddings"
+EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8081/v1/embeddings")
 EMBEDDING_MODEL = "Qwen3-Embedding-8B"
 MAX_CHARS = 4000 * 3
 MRL_DIMS = 1024

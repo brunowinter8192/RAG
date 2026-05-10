@@ -1,5 +1,6 @@
 # INFRASTRUCTURE
 import argparse
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,7 @@ import p1_chunker as _chunker
 import p5_indexer as _indexer
 import p4_db as _db
 
-EMBEDDING_HEALTH_URL = "http://localhost:8081/health"
+EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/health")
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
 VECTOR_DIM = 1024
 
