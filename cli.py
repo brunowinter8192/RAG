@@ -217,18 +217,25 @@ def _dispatch(args: argparse.Namespace) -> None:
             chunk_size=args.chunk_size,
             overlap=args.overlap,
         )
-        print(f"Collection: {result['collection']}")
-        print(f"  added:     {len(result['added'])}")
-        for r in result['added']:
-            print(f"             + {r}")
-        print(f"  updated:   {len(result['updated'])}")
-        for r in result['updated']:
-            print(f"             ~ {r}")
-        print(f"  removed:   {len(result['removed'])}")
-        for r in result['removed']:
-            print(f"             - {r}")
-        print(f"  unchanged: {len(result['unchanged'])}")
-        print(f"  total chunks indexed this run: {result['total_chunks_indexed']}")
+        # Multi-collection result: dict keyed by name, values are per-collection dicts.
+        # Single-collection result: flat dict with "collection" key (backward-compat).
+        per_collection = (
+            result.values() if "collection" not in result
+            else [result]
+        )
+        for r in per_collection:
+            print(f"Collection: {r['collection']}")
+            print(f"  added:     {len(r['added'])}")
+            for f in r['added']:
+                print(f"             + {f}")
+            print(f"  updated:   {len(r['updated'])}")
+            for f in r['updated']:
+                print(f"             ~ {f}")
+            print(f"  removed:   {len(r['removed'])}")
+            for f in r['removed']:
+                print(f"             - {f}")
+            print(f"  unchanged: {len(r['unchanged'])}")
+            print(f"  total chunks indexed this run: {r['total_chunks_indexed']}")
 
     elif args.cmd == "server":
         from src.rag.server_manager import cli_server
