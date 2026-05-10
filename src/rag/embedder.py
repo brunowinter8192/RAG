@@ -7,7 +7,7 @@ from typing import Union
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready
+from .server_manager import ensure_ready, find_server_url
 
 load_dotenv()
 
@@ -20,7 +20,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8081/v1/embeddings")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "Qwen3-Embedding-8B")
 MAX_TOKENS = 4000
 CHARS_PER_TOKEN = 3
@@ -39,6 +38,19 @@ def embed_workflow(texts: Union[str, list[str]], prefix: str | None = None) -> l
 
 # FUNCTIONS
 
+# Resolve embedding URL: env override → state-file discovery → error
+def _embedding_url() -> str:
+    env = os.getenv("EMBEDDING_URL")
+    if env:
+        return env
+    base = find_server_url("embedding")
+    if not base:
+        raise RuntimeError(
+            "Embedding server not running. Start with `rag-cli server start embedding`."
+        )
+    return f"{base}/v1/embeddings"
+
+
 # Truncate text to approximate max tokens
 def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
     max_chars = max_tokens * CHARS_PER_TOKEN
@@ -53,7 +65,7 @@ def generate_embeddings(texts: list[str], prefix: str | None = None) -> list[lis
     if prefix:
         texts = [f"{prefix}{t}" for t in texts]
     response = httpx.post(
-        EMBEDDING_URL,
+        _embedding_url(),
         json={"input": texts, "model": EMBEDDING_MODEL},
         timeout=300.0
     )

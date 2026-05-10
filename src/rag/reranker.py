@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready
+from .server_manager import ensure_ready, find_server_url
 
 load_dotenv()
 
@@ -18,8 +18,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-
-RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8082/v1/rerank")
 
 
 # ORCHESTRATOR
@@ -38,10 +36,23 @@ def rerank_workflow(query: str, documents: list[dict], top_k: int) -> list[dict]
 
 # FUNCTIONS
 
+# Resolve reranker URL: env override → state-file discovery → error
+def _rerank_url() -> str:
+    env = os.getenv("RERANKER_URL")
+    if env:
+        return env
+    base = find_server_url("reranker")
+    if not base:
+        raise RuntimeError(
+            "Reranker server not running. Start with `rag-cli server start reranker`."
+        )
+    return f"{base}/v1/rerank"
+
+
 # Rerank documents against query via llama-server API
 def rerank_documents(query: str, contents: list[str]) -> list[dict]:
     response = httpx.post(
-        RERANKER_URL,
+        _rerank_url(),
         json={
             "query": query,
             "documents": contents,
