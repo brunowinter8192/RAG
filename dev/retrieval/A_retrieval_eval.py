@@ -180,13 +180,16 @@ def _check_snippet_match(expected_snippets: list[str], hits: list[dict]) -> list
 
 
 # Fetch per-document chunk counts for collection (needed for IDCG denominator and Recall@K)
-# Uses src.rag.db (production 'rag' database via .env), not p4_db (rag_test dev database)
 def _fetch_collection_chunk_counts(collection: str) -> dict[str, int]:
-    from src.rag import db as _db
-    conn = _db.get_connection(purpose="read")
+    from p4_db import get_connection
+    conn = get_connection()
     try:
-        docs = _db.query_documents(conn, collection)
-        return {d["document"]: d["chunks"] for d in docs}
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT document, COUNT(*) FROM documents WHERE collection = %s GROUP BY document",
+                (collection,)
+            )
+            return {row[0]: row[1] for row in cur.fetchall()}
     finally:
         conn.close()
 
