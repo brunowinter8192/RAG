@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -35,41 +36,36 @@ SPLADE_MODEL = "naver/splade-v3"
 
 SERVERS = {
     "embedding": {
-        "port": EMBEDDING_PORT,
-        "health_url": f"http://localhost:{EMBEDDING_PORT}/health",
-        "cmd": [
-            LLAMA_SERVER_PATH,
-            "-m", EMBEDDING_MODEL_PATH,
-            "--embedding", "--host", "0.0.0.0", "--port", str(EMBEDDING_PORT),
-            "-ngl", "99", "-c", "2048", "-np", "1", "-b", "4096", "-ub", "4096",
-        ],
+        "default_port": EMBEDDING_PORT,
+        "model_path": EMBEDDING_MODEL_PATH,
+        "mode": "embedding",
+        "type": "llama",
+        "extra_flags": ["-ngl", "99", "-c", "2048", "-np", "1", "-b", "4096", "-ub", "4096"],
         "timeout": 90,
         "required_for": ["search", "index"],
     },
     "reranker": {
-        "port": RERANKER_PORT,
-        "health_url": f"http://localhost:{RERANKER_PORT}/health",
-        "cmd": [
-            LLAMA_SERVER_PATH,
-            "-m", RERANKER_MODEL_PATH,
-            "--rerank", "--host", "0.0.0.0", "--port", str(RERANKER_PORT),
-            "-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096",
-        ],
+        "default_port": RERANKER_PORT,
+        "model_path": RERANKER_MODEL_PATH,
+        "mode": "rerank",
+        "type": "llama",
+        "extra_flags": ["-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096"],
         "timeout": 90,
         "required_for": ["rerank"],
     },
     "splade": {
-        "port": SPLADE_PORT,
-        "health_url": f"http://localhost:{SPLADE_PORT}/health",
-        "cmd": [
-            str(RAG_ROOT / "venv/bin/python"), "-m", "uvicorn",
-            "src.rag.splade_server:app", "--host", "0.0.0.0", "--port", str(SPLADE_PORT),
-        ],
-        "cwd": str(RAG_ROOT),
+        "default_port": SPLADE_PORT,
+        "model_path": SPLADE_MODEL,
+        "mode": "splade",
+        "type": "uvicorn",
+        "uvicorn_app": "src.rag.splade_server:app",
         "timeout": 60,
         "required_for": ["search", "index"],
     },
 }
+
+# Preset names — arbitrary starts may not collide with these
+_PRESET_NAMES: frozenset[str] = frozenset(SERVERS.keys())
 
 
 # ORCHESTRATOR
@@ -78,60 +74,78 @@ SERVERS = {
 def status() -> dict[str, dict]:
     result = {}
     for name, cfg in SERVERS.items():
-        pid = find_pid_on_port(cfg["port"])
+        url = find_server_url(name)
+        if url:
+            port = int(url.split(":")[-1])
+        else:
+            port = cfg["default_port"]
+        pid = find_pid_on_port(port)
         result[name] = {
             "running": pid is not None,
             "pid": pid,
-            "port": cfg["port"],
-            "healthy": check_health(name) if pid else False,
+            "port": port,
+            "healthy": _check_health_port(port) if pid else False,
         }
     return result
 
 
-# Start a preset server; log-redirected, state file written immediately after Popen
+# Start a preset server; resolves port dynamically, writes state file immediately after Popen
 def start(name: str) -> bool:
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
     cfg = SERVERS[name]
-    pid = find_pid_on_port(cfg["port"])
-    if pid is not None:
-        if check_health(name):
-            logging.info(f"{name} already running on port {cfg['port']} (PID {pid})")
-            return False
-        logging.warning(f"{name} port {cfg['port']} occupied by PID {pid} but unhealthy, killing")
-        stop(name)
 
-    binary = Path(cfg["cmd"][0])
-    if not binary.exists():
-        raise RuntimeError(
-            f"Cannot start {name}: {binary} not found. "
-            f"Start GPU servers from the RAG project: cd <RAG_ROOT> && ./start.sh"
-        )
+    # Check for live state file with this name — single-instance enforcement
+    for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
+        try:
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, FileNotFoundError, OSError):
+            continue
+        if state.get("name") == name and _pid_alive(state["pid"]):
+            if _check_health_port(state["port"]):
+                logging.info(f"{name} already running on port {state['port']} (PID {state['pid']})")
+                return False
+            # Alive but unhealthy → stop and restart on a fresh port
+            logging.warning(f"{name} alive on port {state['port']} but unhealthy, stopping for restart")
+            _stop_by_state(state, sf)
+            break
 
-    logging.info(f"Starting {name} on port {cfg['port']}...")
-    cwd = cfg.get("cwd", None)
+    port = _resolve_port(cfg["default_port"])
 
-    # Splade writes via Python logging to splade_server.log — do not redirect stdout
-    if name == "splade":
+    if cfg["type"] == "llama":
+        binary = Path(LLAMA_SERVER_PATH)
+        if not binary.exists():
+            raise RuntimeError(
+                f"Cannot start {name}: {binary} not found. "
+                f"cd <RAG_ROOT> && ./start.sh"
+            )
+        cmd = _build_llama_cmd(cfg["model_path"], port, cfg["mode"], cfg["extra_flags"])
+        log_path = LOG_DIR / f"llama-port-{port}.log"
+        log_fh = open(log_path, "w")
+        log_stderr = subprocess.STDOUT
+        cwd = None
+        model_name = Path(cfg["model_path"]).stem
+    else:  # uvicorn (splade)
+        venv_python = str(RAG_ROOT / "venv/bin/python")
+        if not Path(venv_python).exists():
+            raise RuntimeError(f"Cannot start {name}: {venv_python} not found.")
+        cmd = _build_uvicorn_cmd(cfg["uvicorn_app"], port)
         log_path = LOG_DIR / "splade_server.log"
         log_fh = subprocess.DEVNULL
         log_stderr = subprocess.DEVNULL
-    else:
-        log_path = LOG_DIR / f"llama-port-{cfg['port']}.log"
-        log_fh = open(log_path, "w")
-        log_stderr = subprocess.STDOUT
+        cwd = str(RAG_ROOT)
+        model_name = cfg["model_path"]
 
-    proc = subprocess.Popen(cfg["cmd"], stdout=log_fh, stderr=log_stderr, cwd=cwd)
+    logging.info(f"Starting {name} on port {port}...")
+    proc = subprocess.Popen(cmd, stdout=log_fh, stderr=log_stderr, cwd=cwd)
     if log_fh is not subprocess.DEVNULL:
         log_fh.close()  # parent closes; child retains its fd copy
 
-    model_path, model_name = _extract_model_info(cfg["cmd"], name)
     _write_state_file(
-        pid=proc.pid, port=cfg["port"],
-        model_path=model_path, model_name=model_name,
-        mode=_mode_for_preset(name),
-        name=name,
+        pid=proc.pid, port=port,
+        model_path=cfg["model_path"], model_name=model_name,
+        mode=cfg["mode"], name=name,
         log_path=str(log_path),
     )
 
@@ -139,40 +153,41 @@ def start(name: str) -> bool:
     try:
         for i in range(timeout):
             time.sleep(1)
-            if check_health(name):
-                actual_pid = find_pid_on_port(cfg["port"])
-                # Rare on macOS: shell-wrapped cmd may have a different listening PID than proc.pid
+            if _check_health_port(port):
+                actual_pid = find_pid_on_port(port)
                 if actual_pid is not None and actual_pid != proc.pid:
                     _write_state_file(
-                        pid=actual_pid, port=cfg["port"],
-                        model_path=model_path, model_name=model_name,
-                        mode=_mode_for_preset(name),
-                        name=name,
+                        pid=actual_pid, port=port,
+                        model_path=cfg["model_path"], model_name=model_name,
+                        mode=cfg["mode"], name=name,
                         log_path=str(log_path),
                     )
                 logging.info(
-                    f"{name} started on port {cfg['port']} "
+                    f"{name} started on port {port} "
                     f"(PID {actual_pid or proc.pid}) after {i + 1}s"
                 )
                 return True
         raise RuntimeError(f"Failed to start {name} after {timeout}s")
     except Exception:
-        _unlink_state_file(cfg["port"])
+        _unlink_state_file(port)
         raise
 
 
-# Stop a server; kills ALL processes on the port; unlinks state file on success
+# Stop a preset server; finds actual port via state file, falls back to default port
 def stop(name: str) -> bool:
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
     cfg = SERVERS[name]
-    pids = find_all_pids_on_port(cfg["port"])
+    url = find_server_url(name)
+    port = int(url.split(":")[-1]) if url else cfg["default_port"]
+
+    pids = find_all_pids_on_port(port)
     if not pids:
-        logging.info(f"{name} not running on port {cfg['port']}")
+        logging.info(f"{name} not running on port {port}")
         return False
 
-    logging.info(f"Stopping {name} (PIDs {pids}) on port {cfg['port']}...")
+    logging.info(f"Stopping {name} (PIDs {pids}) on port {port}...")
     for pid in pids:
         try:
             os.kill(pid, signal.SIGTERM)
@@ -181,19 +196,19 @@ def stop(name: str) -> bool:
 
     for _ in range(10):
         time.sleep(0.5)
-        remaining = find_all_pids_on_port(cfg["port"])
+        remaining = find_all_pids_on_port(port)
         if not remaining:
             logging.info(f"{name} stopped")
-            _unlink_state_file(cfg["port"])
+            _unlink_state_file(port)
             return True
 
-    for pid in find_all_pids_on_port(cfg["port"]):
+    for pid in find_all_pids_on_port(port):
         try:
             os.kill(pid, signal.SIGKILL)
             logging.warning(f"{name} force-killed (PID {pid})")
         except ProcessLookupError:
             pass
-    _unlink_state_file(cfg["port"])
+    _unlink_state_file(port)
     return True
 
 
@@ -203,15 +218,34 @@ def restart(name: str) -> bool:
     return start(name)
 
 
-# Start an arbitrary llama-server (non-preset); mode must be 'embedding' or 'rerank'
-def start_arbitrary(model_path: str, port: int, mode: str, name: str | None = None) -> bool:
+# Start an arbitrary llama-server; port is optional (None → fully dynamic)
+def start_arbitrary(model_path: str, port: int | None, mode: str, name: str | None = None) -> bool:
     if mode not in {"embedding", "rerank"}:
         raise ValueError(
             f"mode must be 'embedding' or 'rerank' for arbitrary start (got '{mode}'). "
             f"Use the 'splade' preset for SPLADE."
         )
 
-    # Already managed and healthy → already running
+    # Name collision check — must come before port resolution
+    if name is not None:
+        if name in _PRESET_NAMES:
+            raise ValueError(
+                f"Name {name!r} is a preset name; use `rag-cli server start {name}` instead."
+            )
+        for sf in TIMESTAMP_DIR.glob("server-port-*.json"):
+            try:
+                state = json.loads(sf.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+            if state.get("name") == name and _pid_alive(state["pid"]):
+                raise ValueError(
+                    f"Name {name!r} already in use by server on port {state['port']}. "
+                    f"Choose a different --name or stop the existing server first."
+                )
+
+    port = _resolve_port(port)
+
+    # Check for existing managed server on this port
     state_file = TIMESTAMP_DIR / f"server-port-{port}.json"
     if state_file.exists():
         try:
@@ -231,8 +265,7 @@ def start_arbitrary(model_path: str, port: int, mode: str, name: str | None = No
     binary = Path(LLAMA_SERVER_PATH)
     if not binary.exists():
         raise RuntimeError(
-            f"llama-server not found at {binary}. "
-            f"Build it or set LLAMA_SERVER_PATH."
+            f"llama-server not found at {binary}. Build it or set LLAMA_SERVER_PATH."
         )
 
     mode_flag = "--embedding" if mode == "embedding" else "--rerank"
@@ -333,14 +366,39 @@ def ensure_ready(target: str) -> None:
 
 # FUNCTIONS
 
-# Check if a server responds to its health endpoint
+# Return http://localhost:{port} for the (unique) state file with state['name'] == name
+def find_server_url(name: str) -> str | None:
+    matches = []
+    for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
+        try:
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if state.get("name") == name:
+            matches.append(state)
+    if not matches:
+        return None
+    if len(matches) > 1:
+        ports = [s.get("port") for s in matches]
+        logging.error(
+            f"BUG: multiple state files with name={name!r} on ports {ports}; "
+            f"picking port {matches[0]['port']}. Clean up via `rag-cli server list`."
+        )
+    return f"http://localhost:{matches[0]['port']}"
+
+
+# Check if a server responds; looks up actual port via state file, falls back to default
 def check_health(name: str) -> bool:
-    cfg = SERVERS[name]
+    url = find_server_url(name)
+    if url:
+        port = int(url.split(":")[-1])
+    else:
+        port = SERVERS[name]["default_port"]
     try:
-        resp = httpx.get(cfg["health_url"], timeout=2.0)
+        resp = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
         return resp.status_code == 200
     except Exception as e:
-        logging.warning(f"Health check failed: {e}")
+        logging.warning(f"Health check failed for {name} on port {port}: {e}")
         return False
 
 
@@ -453,7 +511,7 @@ def _purge_orphans() -> None:
     logging.info(f"Watchdog purge: killed {n_orphans} orphan llama-server PID(s)")
 
 
-# Return PIDs of all running llama-server processes via pgrep
+# Return PIDs of all running llama-server processes via pgrep -x (exact comm match)
 def pgrep_llama_server() -> list[int]:
     try:
         result = subprocess.run(
@@ -504,6 +562,45 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+# OS-assigned free port via socket(0)+bind+close
+def _allocate_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
+
+# Return default_port if free, else allocate dynamic; None → always dynamic
+def _resolve_port(default_port: int | None) -> int:
+    if default_port is None:
+        return _allocate_port()
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', default_port))
+            return default_port
+    except OSError:
+        dynamic = _allocate_port()
+        logging.info(f"Default port {default_port} busy, using dynamic port {dynamic}")
+        return dynamic
+
+
+# Build llama-server cmd for a given model, port, mode, and extra flags
+def _build_llama_cmd(model_path: str, port: int, mode: str, extra_flags: list[str]) -> list[str]:
+    mode_flag = "--embedding" if mode == "embedding" else "--rerank"
+    return [
+        LLAMA_SERVER_PATH, "-m", model_path,
+        mode_flag, "--host", "0.0.0.0", "--port", str(port),
+        *extra_flags,
+    ]
+
+
+# Build uvicorn cmd for a given app and port
+def _build_uvicorn_cmd(uvicorn_app: str, port: int) -> list[str]:
+    return [
+        str(RAG_ROOT / "venv/bin/python"), "-m", "uvicorn",
+        uvicorn_app, "--host", "0.0.0.0", "--port", str(port),
+    ]
+
+
 # Write ~/.rag-locks/server-port-{port}.json with box state immediately after Popen
 def _write_state_file(*, pid: int, port: int, model_path: str, model_name: str,
                       mode: str, name: str | None, log_path: str) -> Path:
@@ -525,20 +622,6 @@ def _write_state_file(*, pid: int, port: int, model_path: str, model_name: str,
 def _unlink_state_file(port: int) -> None:
     path = TIMESTAMP_DIR / f"server-port-{port}.json"
     path.unlink(missing_ok=True)
-
-
-# Extract (model_path, model_name) from a preset's cmd list
-def _extract_model_info(cmd: list[str], name: str) -> tuple[str, str]:
-    if name == "splade":
-        return SPLADE_MODEL, SPLADE_MODEL
-    # llama-server presets: cmd[0]=binary, cmd[1]="-m", cmd[2]=model_path
-    model_path = cmd[2]
-    return model_path, Path(model_path).stem
-
-
-# Map preset name to mode string stored in state file
-def _mode_for_preset(name: str) -> str:
-    return {"embedding": "embedding", "reranker": "rerank", "splade": "splade"}.get(name, "unknown")
 
 
 # Handle 'workflow.py server' / 'rag-cli server' subcommand
@@ -565,12 +648,13 @@ def cli_server(args: list[str]) -> None:
             port_str = _parse_flag(args, "--port")
             mode = _parse_flag(args, "--mode")
             label_name = _parse_flag(args, "--name")
-            if not model_path or not port_str or not mode:
-                print("Error: --model, --port, and --mode are required for arbitrary start")
+            if not model_path or not mode:
+                print("Error: --model and --mode are required for arbitrary start")
                 return
+            port = int(port_str) if port_str else None
             try:
-                started = start_arbitrary(model_path, int(port_str), mode, label_name)
-                label = label_name or f"port-{port_str}"
+                started = start_arbitrary(model_path, port, mode, label_name)
+                label = label_name or (f"port-{port}" if port else "dynamic")
                 print(f"{label}: {'started' if started else 'already running'}")
             except Exception as e:
                 print(f"Error: {e}")
