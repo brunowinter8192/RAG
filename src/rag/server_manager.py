@@ -184,8 +184,8 @@ def start(name: str) -> bool:
             raise RuntimeError(f"Cannot start {name}: {venv_python} not found.")
         cmd = _build_uvicorn_cmd(cfg["uvicorn_app"], port)
         log_path = LOG_DIR / "splade_server.log"
-        log_fh = subprocess.DEVNULL
-        log_stderr = subprocess.DEVNULL
+        log_fh = open(log_path, "w")
+        log_stderr = subprocess.STDOUT
         cwd = str(RAG_ROOT)
         model_name = cfg["model_path"]
 
