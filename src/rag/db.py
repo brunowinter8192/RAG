@@ -60,25 +60,35 @@ def add_document_filter(where_clauses: list, where_params: list, document: str):
     where_params.append(document)
 
 
-# Query all collections with chunk counts
-def query_collections(conn) -> list[dict]:
+# Query all collections with chunk counts. filter: case-insensitive substring match on name.
+def query_collections(conn, filter: str | None = None) -> list[dict]:
+    where_clauses = []
+    where_params = []
+    if filter:
+        where_clauses.append("collection ILIKE %s")
+        where_params.append(f"%{filter}%")
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT collection, COUNT(*) as chunk_count
             FROM documents
+            {where_sql}
             GROUP BY collection
             ORDER BY collection
-        """)
+        """, where_params)
         rows = cur.fetchall()
     return [{"collection": row[0], "chunks": row[1]} for row in rows]
 
 
 # Query all documents in a collection with chunk counts
-def query_documents(conn, collection: str, document: str | None = None) -> list[dict]:
+def query_documents(conn, collection: str, document: str | None = None, filter: str | None = None) -> list[dict]:
     where_clauses = ["collection = %s"]
     where_params = [collection]
     if document:
         add_document_filter(where_clauses, where_params, document)
+    if filter:
+        where_clauses.append("document ILIKE %s")
+        where_params.append(f"%{filter}%")
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT document, COUNT(*) as chunk_count

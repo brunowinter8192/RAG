@@ -43,17 +43,17 @@ def search_workflow(
     return results
 
 
-def list_collections_workflow() -> list[dict]:
+def list_collections_workflow(filter: str | None = None) -> list[dict]:
     conn = get_connection()
-    results = query_collections(conn)
+    results = query_collections(conn, filter)
     conn.close()
     return results
 
 
-def list_documents_workflow(collection: str, document: str | None = None) -> list[dict]:
+def list_documents_workflow(collection: str, document: str | None = None, filter: str | None = None) -> list[dict]:
     conn = get_connection()
     validate_collection(conn, collection)
-    results = query_documents(conn, collection, document)
+    results = query_documents(conn, collection, document, filter)
     conn.close()
     return results
 
