@@ -1,4 +1,5 @@
 # INFRASTRUCTURE
+import json
 import logging
 import os
 import signal
@@ -30,6 +31,7 @@ EMBEDDING_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
 RERANKER_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
 RERANKER_PORT = int(os.getenv("RERANKER_PORT", "8082"))
 SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
+SPLADE_MODEL = "naver/splade-v3"
 
 SERVERS = {
     "embedding": {
@@ -86,7 +88,7 @@ def status() -> dict[str, dict]:
     return result
 
 
-# Start a server; returns True if started, False if already running
+# Start a preset server; log-redirected, state file written immediately after Popen
 def start(name: str) -> bool:
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
@@ -109,25 +111,57 @@ def start(name: str) -> bool:
 
     logging.info(f"Starting {name} on port {cfg['port']}...")
     cwd = cfg.get("cwd", None)
-    subprocess.Popen(
-        cfg["cmd"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        cwd=cwd,
+
+    # Splade writes via Python logging to splade_server.log — do not redirect stdout
+    if name == "splade":
+        log_path = LOG_DIR / "splade_server.log"
+        log_fh = subprocess.DEVNULL
+        log_stderr = subprocess.DEVNULL
+    else:
+        log_path = LOG_DIR / f"llama-port-{cfg['port']}.log"
+        log_fh = open(log_path, "w")
+        log_stderr = subprocess.STDOUT
+
+    proc = subprocess.Popen(cfg["cmd"], stdout=log_fh, stderr=log_stderr, cwd=cwd)
+    if log_fh is not subprocess.DEVNULL:
+        log_fh.close()  # parent closes; child retains its fd copy
+
+    model_path, model_name = _extract_model_info(cfg["cmd"], name)
+    _write_state_file(
+        pid=proc.pid, port=cfg["port"],
+        model_path=model_path, model_name=model_name,
+        mode=_mode_for_preset(name),
+        name=name,
+        log_path=str(log_path),
     )
 
     timeout = cfg["timeout"]
-    for i in range(timeout):
-        time.sleep(1)
-        if check_health(name):
-            pid = find_pid_on_port(cfg["port"])
-            logging.info(f"{name} started on port {cfg['port']} (PID {pid}) after {i+1}s")
-            return True
+    try:
+        for i in range(timeout):
+            time.sleep(1)
+            if check_health(name):
+                actual_pid = find_pid_on_port(cfg["port"])
+                # Rare on macOS: shell-wrapped cmd may have a different listening PID than proc.pid
+                if actual_pid is not None and actual_pid != proc.pid:
+                    _write_state_file(
+                        pid=actual_pid, port=cfg["port"],
+                        model_path=model_path, model_name=model_name,
+                        mode=_mode_for_preset(name),
+                        name=name,
+                        log_path=str(log_path),
+                    )
+                logging.info(
+                    f"{name} started on port {cfg['port']} "
+                    f"(PID {actual_pid or proc.pid}) after {i + 1}s"
+                )
+                return True
+        raise RuntimeError(f"Failed to start {name} after {timeout}s")
+    except Exception:
+        _unlink_state_file(cfg["port"])
+        raise
 
-    raise RuntimeError(f"Failed to start {name} after {timeout}s")
 
-
-# Stop a server; kills ALL processes on the port; returns True if stopped, False if not running
+# Stop a server; kills ALL processes on the port; unlinks state file on success
 def stop(name: str) -> bool:
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
@@ -150,6 +184,7 @@ def stop(name: str) -> bool:
         remaining = find_all_pids_on_port(cfg["port"])
         if not remaining:
             logging.info(f"{name} stopped")
+            _unlink_state_file(cfg["port"])
             return True
 
     for pid in find_all_pids_on_port(cfg["port"]):
@@ -158,6 +193,7 @@ def stop(name: str) -> bool:
             logging.warning(f"{name} force-killed (PID {pid})")
         except ProcessLookupError:
             pass
+    _unlink_state_file(cfg["port"])
     return True
 
 
@@ -251,13 +287,13 @@ def find_all_pids_on_port(port: int) -> list[int]:
     return []
 
 
-# Write last-used timestamp for a server to a temp file
+# Write last-used timestamp for a server to a temp file (migration compat — kept for GPU pane)
 def touch_timestamp(name: str) -> None:
     ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
     ts_file.write_text(str(time.time()))
 
 
-# Read last-used timestamp for a server; returns 0.0 if never used
+# Read last-used timestamp for a server; returns 0.0 if never used (migration compat)
 def get_last_used(name: str) -> float:
     ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
     try:
@@ -287,7 +323,7 @@ def _ensure_watchdog_process() -> None:
     logging.info(f"Watchdog process spawned (PID {p.pid}, idle timeout: {IDLE_TIMEOUT}s)")
 
 
-# Background loop that stops servers idle beyond IDLE_TIMEOUT
+# Background loop that stops servers idle beyond IDLE_TIMEOUT (old SERVERS-dict impl — Phase 2 replaces)
 def _watchdog_loop() -> None:
     while True:
         time.sleep(WATCHDOG_INTERVAL)
@@ -304,7 +340,44 @@ def _watchdog_loop() -> None:
                 stop(name)
 
 
-# Handle 'workflow.py server' subcommand
+# Write ~/.rag-locks/server-port-{port}.json with box state immediately after Popen
+def _write_state_file(*, pid: int, port: int, model_path: str, model_name: str,
+                      mode: str, name: str | None, log_path: str) -> Path:
+    state = {
+        "pid": pid, "port": port,
+        "model_path": model_path, "model_name": model_name,
+        "mode": mode,
+        "start_time": time.time(),
+        "log_path": log_path,
+        "name": name,
+    }
+    path = TIMESTAMP_DIR / f"server-port-{port}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2))
+    return path
+
+
+# Remove state file for a port; safe if never written or already gone
+def _unlink_state_file(port: int) -> None:
+    path = TIMESTAMP_DIR / f"server-port-{port}.json"
+    path.unlink(missing_ok=True)
+
+
+# Extract (model_path, model_name) from a preset's cmd list
+def _extract_model_info(cmd: list[str], name: str) -> tuple[str, str]:
+    if name == "splade":
+        return SPLADE_MODEL, SPLADE_MODEL
+    # llama-server presets: cmd[0]=binary, cmd[1]="-m", cmd[2]=model_path
+    model_path = cmd[2]
+    return model_path, Path(model_path).stem
+
+
+# Map preset name to mode string stored in state file
+def _mode_for_preset(name: str) -> str:
+    return {"embedding": "embedding", "reranker": "rerank", "splade": "splade"}.get(name, "unknown")
+
+
+# Handle 'workflow.py server' / 'rag-cli server' subcommand
 def cli_server(args: list[str]) -> None:
     if not args:
         args = ["status"]
