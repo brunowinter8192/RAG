@@ -76,6 +76,16 @@ Organized per decision file. Decision files without external sources (architectu
 
 ---
 
+## eval01 — Methodology
+
+### Indexed
+- **RAGAS_Evaluation_Framework** — RAG_reference collection
+- **RAG_Evaluation_Survey_2025** — RAG_reference collection
+- **Pipeline_Optimization** — arxiv 2511.22240 (see index01)
+- **Fusion_Functions_Hybrid_Retrieval** — dl.acm 10.1145/3596512 (see retrieval03)
+
+---
+
 ## Decisions Without External Sources
 
 retrieval02 (Search primitives), delivery01 (MCP tools), box_architecture, infra01 (Connection management), infra02 (Lock and status), OldThemes — code-level / architectural decisions, no external research consulted.

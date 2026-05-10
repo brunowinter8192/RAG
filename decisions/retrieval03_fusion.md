@@ -13,28 +13,6 @@
 
 ## Evidenz
 
-### SearXNG (30 queries, 26088 chunks — technical docs, 2026-03-18)
-
-| Retriever | NDCG@3 | NDCG@10 | Recall@10 |
-|---|---|---|---|
-| Dense (full) | **0.4479** | **0.5619** | **0.6833** |
-| Hybrid (RRF K=60) | 0.2469 | 0.3666 | 0.5167 |
-| Hybrid+Rerank | 0.3967 | 0.5052 | 0.6444 |
-| Sparse (SPLADE++) | 0.0000 | 0.0000 | 0.0000 |
-
-**Hybrid is WORSE than Dense alone.** SPLADE is completely out-of-domain on technical docs (zero matches in 26k chunks). RRF fusion degrades the Dense ranking by mixing in noise. Reranker partially recovers Hybrid (0.247→0.397 NDCG@3) but still worse than pure Dense.
-
-### Qwen3 Paper (15 queries, 66 chunks — academic text, 2026-03-18)
-
-| Retriever | NDCG@3 | NDCG@10 | Recall@10 |
-|---|---|---|---|
-| Dense (full) | 0.3605 | 0.5102 | 0.7333 |
-| Hybrid (RRF K=60) | 0.4168 | 0.5369 | 0.8000 |
-| **Hybrid+Rerank** | **0.5538** | **0.6620** | **0.8556** |
-| Sparse (SPLADE++) | 0.4273 | 0.5273 | 0.7333 |
-
-On academic text, Hybrid outperforms Dense on Recall@10 (0.80 vs 0.73). Hybrid+Rerank is best overall. SPLADE contributes meaningfully on in-domain text.
-
 ### RAG_MCP Fusion Sweep (20 queries, 483 chunks — mixed academic+technical, 2026-04-08)
 
 | Mode | Params | Doc Recall @10 | Snippet Recall @10 |
