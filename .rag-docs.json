@@ -1,0 +1,10 @@
+{
+  "collection": "RAG-meta",
+  "include": [
+    "CLAUDE.md",
+    "DOCS.md",
+    "decisions/**/*.md",
+    "src/**/DOCS.md",
+    "dev/**/DOCS.md"
+  ]
+}
