@@ -31,7 +31,7 @@ def search_workflow(
     document: str | None = None
 ) -> list[dict]:
     top_k = max(top_k, 12)
-    top_k = min(top_k, 50)
+    top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
@@ -90,7 +90,7 @@ def search_hybrid_workflow(
     rerank: bool = False
 ) -> list[dict]:
     top_k = max(top_k, 12)
-    top_k = min(top_k, 50)
+    top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
@@ -116,7 +116,7 @@ def search_keyword_workflow(
     document: str | None = None
 ) -> list[dict]:
     top_k = max(top_k, 12)
-    top_k = min(top_k, 50)
+    top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
