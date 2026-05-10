@@ -1,10 +1,19 @@
 {
-  "collection": "RAG-meta",
-  "include": [
-    "CLAUDE.md",
-    "DOCS.md",
-    "decisions/**/*.md",
-    "src/**/DOCS.md",
-    "dev/**/DOCS.md"
+  "collections": [
+    {
+      "name": "RAG-meta",
+      "include": [
+        "CLAUDE.md",
+        "DOCS.md",
+        "decisions/*.md",
+        "sources/*.md",
+        "src/**/DOCS.md",
+        "dev/**/DOCS.md"
+      ]
+    },
+    {
+      "name": "RAG-features",
+      "include": ["decisions/OldThemes/**/*.md"]
+    }
   ]
 }

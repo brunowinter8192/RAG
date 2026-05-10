@@ -1,7 +1,9 @@
 # INFRASTRUCTURE
 """Project doc indexing — manifest-driven sync with hash-based change detection.
 
-Each project that wants its docs indexed places a `.rag-docs.json` at its root:
+Each project that wants its docs indexed places a `.rag-docs.json` at its root.
+
+Single-collection format (legacy, still supported):
 
     {
       "collection": "Trading_internal",
@@ -13,10 +15,25 @@ Each project that wants its docs indexed places a `.rag-docs.json` at its root:
       ]
     }
 
+Multi-collection format:
+
+    {
+      "collections": [
+        {"name": "Trading_internal", "include": ["decisions/*.md", "CLAUDE.md"]},
+        {"name": "Trading_archive",  "include": ["archive/**/*.md"]}
+      ]
+    }
+
+Detection: presence of "collections" key → multi-collection. Else: single-collection.
+
 `sync_docs_workflow(project_root)` reads the manifest, expands the globs,
 hashes every matched file, diffs against the `indexed_files` table in
 postgres, and performs only the necessary add/update/remove operations.
 Unchanged files are skipped — no embedder calls.
+
+Return value:
+  Single-collection: flat dict with collection, added, updated, removed, unchanged, total_chunks_indexed.
+  Multi-collection:  dict keyed by collection name, each value is the per-collection flat dict.
 """
 
 import hashlib
@@ -54,17 +71,14 @@ def sync_docs_workflow(
     chunk_size: int = 2000,
     overlap: int = 400,
 ) -> dict:
-    """Sync project docs into RAG collection per `.rag-docs.json` manifest.
+    """Sync project docs into RAG collection(s) per `.rag-docs.json` manifest.
 
-    Returns a result dict:
-        {
-          "collection": str,
-          "added": list[str],
-          "updated": list[str],
-          "removed": list[str],
-          "unchanged": list[str],
-          "total_chunks_indexed": int,
-        }
+    Single-collection manifest → returns flat result dict (backward-compatible):
+        {"collection": str, "added": [...], "updated": [...],
+         "removed": [...], "unchanged": [...], "total_chunks_indexed": int}
+
+    Multi-collection manifest → returns dict keyed by collection name:
+        {"col_a": {flat result dict}, "col_b": {flat result dict}, ...}
     """
     project_root = Path(project_root).expanduser().resolve()
 
@@ -72,14 +86,44 @@ def sync_docs_workflow(
         raise FileNotFoundError(f"Project root not found: {project_root}")
 
     manifest = read_manifest(project_root)
-    collection = manifest["collection"]
-    includes = manifest["include"]
-
-    files = expand_globs(project_root, includes)
 
     conn = get_connection(purpose="ddl")
     ensure_schema(conn)
     ensure_indexed_files_table(conn)
+
+    if "collections" in manifest:
+        results = {}
+        for entry in manifest["collections"]:
+            name = entry["name"]
+            includes = entry["include"]
+            results[name] = _sync_one_collection(
+                conn, project_root, name, includes, chunk_size, overlap
+            )
+        conn.close()
+        return results
+
+    # Single-collection (legacy) path
+    collection = manifest["collection"]
+    includes = manifest["include"]
+    result = _sync_one_collection(
+        conn, project_root, collection, includes, chunk_size, overlap
+    )
+    conn.close()
+    return result
+
+
+# FUNCTIONS
+
+# Sync a single collection — hash diff + embed new/updated + delete removed
+def _sync_one_collection(
+    conn,
+    project_root: Path,
+    collection: str,
+    includes: list[str],
+    chunk_size: int,
+    overlap: int,
+) -> dict:
+    files = expand_globs(project_root, includes)
 
     db_hashes = get_db_hashes(conn, collection)
     current_hashes = {rel: compute_hash(path) for rel, path in files.items()}
@@ -118,8 +162,6 @@ def sync_docs_workflow(
         delete_chunks(conn, collection, rel)
         delete_indexed_file(conn, collection, rel)
 
-    conn.close()
-
     logging.info(
         f"sync_docs {collection}: +{len(added)} ~{len(updated)} -{len(removed)} ={len(unchanged)} "
         f"({total_chunks} chunks indexed)"
@@ -135,9 +177,7 @@ def sync_docs_workflow(
     }
 
 
-# FUNCTIONS
-
-# Read and validate .rag-docs.json
+# Read and validate .rag-docs.json — accepts single-collection and multi-collection formats
 def read_manifest(project_root: Path) -> dict:
     path = project_root / MANIFEST_NAME
     if not path.is_file():
@@ -146,9 +186,28 @@ def read_manifest(project_root: Path) -> dict:
             f"Create one with: {{\"collection\": \"<name>\", \"include\": [\"<glob>\", ...]}}"
         )
     data = json.loads(path.read_text())
+
+    if "collections" in data:
+        # Multi-collection format
+        if not isinstance(data["collections"], list) or not data["collections"]:
+            raise ValueError(
+                f"Manifest 'collections' must be a non-empty list: {path}"
+            )
+        for i, entry in enumerate(data["collections"]):
+            if not isinstance(entry.get("name"), str) or not entry["name"]:
+                raise ValueError(
+                    f"Manifest collections[{i}] must have a non-empty 'name': {path}"
+                )
+            if not isinstance(entry.get("include"), list) or not entry["include"]:
+                raise ValueError(
+                    f"Manifest collections[{i}] must have a non-empty 'include' list: {path}"
+                )
+        return data
+
+    # Single-collection format (legacy)
     if "collection" not in data or "include" not in data:
         raise ValueError(
-            f"Manifest must have 'collection' and 'include' keys: {path}"
+            f"Manifest must have 'collection' and 'include' keys (or 'collections' for multi): {path}"
         )
     if not isinstance(data["collection"], str) or not data["collection"]:
         raise ValueError(f"Manifest 'collection' must be a non-empty string: {path}")
