@@ -309,7 +309,6 @@ def ensure_ready(target: str) -> None:
     if target in SERVERS:
         if not check_health(target):
             start(target)
-        touch_timestamp(target)
         _ensure_watchdog_process()
         return
 
@@ -328,7 +327,6 @@ def ensure_ready(target: str) -> None:
     for name in needed_servers:
         if not check_health(name):
             start(name)
-        touch_timestamp(name)
 
     _ensure_watchdog_process()
 
@@ -364,21 +362,6 @@ def find_all_pids_on_port(port: int) -> list[int]:
     except Exception as e:
         logging.warning(f"PID lookup failed: {e}")
     return []
-
-
-# Write last-used timestamp for a server to a temp file (migration compat — kept for GPU pane)
-def touch_timestamp(name: str) -> None:
-    ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
-    ts_file.write_text(str(time.time()))
-
-
-# Read last-used timestamp for a server; returns 0.0 if never used (migration compat)
-def get_last_used(name: str) -> float:
-    ts_file = TIMESTAMP_DIR / f"rag-server-{name}-last-used"
-    try:
-        return float(ts_file.read_text().strip())
-    except (FileNotFoundError, ValueError):
-        return 0
 
 
 # Spawn detached watchdog process if not already running; PID tracked in WATCHDOG_PID_FILE
