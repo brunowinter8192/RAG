@@ -43,11 +43,17 @@ SOURCE_ROOT_FILES = ["cli.py", "workflow.py", "start.sh"]
 
 # Symbol check: OldThemes documents historical/superseded state; removed identifiers
 # appear there intentionally. Only scan current-state docs for symbol existence.
-SYMBOL_SCAN_EXCLUDES = {"decisions/OldThemes"}
+SYMBOL_SCAN_EXCLUDES = {"decisions/OldThemes", ".claude/worktrees"}
 
 # Path check: OldThemes is historical context — intentionally references artifacts
 # (scripts, paths) that were never committed or were later renamed/removed.
-PATH_SCAN_EXCLUDES = {"decisions/OldThemes"}
+# .claude/worktrees contains sibling worktrees whose DOCS.md files are not part of
+# this project's canonical doc surface.
+PATH_SCAN_EXCLUDES = {"decisions/OldThemes", ".claude/worktrees"}
+
+# Doc collection: paths excluded from all three checks at the file-walk level.
+# Covers LOC-Drift (Check 2) which has no per-check exclusion filter.
+DOC_SCAN_EXCLUDES = {".claude/worktrees"}
 
 # Runtime-only file extensions — gitignored, never checked in the worktree
 RUNTIME_SKIP_EXTENSIONS = {".log", ".flock", ".pid", ".jsonl"}
@@ -118,9 +124,13 @@ def collect_doc_files(root: Path) -> list[Path]:
     result: list[Path] = []
     for pattern in DOC_GLOBS:
         for p in sorted(root.glob(pattern)):
-            if p not in seen:
-                seen.add(p)
-                result.append(p)
+            if p in seen:
+                continue
+            rel = str(p.relative_to(root))
+            if any(rel.startswith(exc) for exc in DOC_SCAN_EXCLUDES):
+                continue
+            seen.add(p)
+            result.append(p)
     return result
 
 
