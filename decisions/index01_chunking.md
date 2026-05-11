@@ -45,7 +45,7 @@ Systematic evaluation of fixed-size chunking across 6 QA datasets with 2 embeddi
 
 **Relevance to IST:** Qwen3-Embedding-8B is a Qwen2-based causal decoder with 32k context — architecturally same family as Stella. The decoder advantage at 512-1024 tokens directly applies. Our 2000-char setting (~500 tokens) sits squarely in the optimal range for this model family.
 
-### Chunking Eval (dev/indexing/chunking_eval/)
+### Chunking Eval (ad-hoc, script not committed)
 
 5-Doc subset sweep on RAG_MCP: 6 variants (A-F, 500-1500 chars). **Result: all variants Recall@3/5/10 = 1.000.** Corpus too small to discriminate — needs larger benchmark dataset.
 
@@ -61,7 +61,7 @@ Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwe
 
 **Keep:** `2000 chars / 400 overlap` — primary anchor: Rethinking_Chunk_Size_Long_Document shows decoder models (Qwen2-basis family, architecturally identical to Qwen3-Embedding-8B) benefit from 512-1024 token chunks, with Recall@1 gains of +5-8% vs encoder models at this range. 2000 chars ≈ 500 tokens sits squarely in the optimal range for this model family. Supporting: Pipeline_Optimization reranker bridges ~50% of any remaining 2000→512 char gap. Community consensus: 500-1000 tokens for decoder models. Validated via A_chunking_stats: 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket. Recursive character split with default separators sufficient — semantic chunking not worth the complexity (multiple Reddit threads confirm).
 
-**Keep:** Recursive character split with hierarchical separators (`\n\n` → `\n` → `. ` → `! ` → `? ` → ` `)
+**Keep:** Recursive character split with hierarchical separators (`\n\n` → `\n` → `. ` → `! ` → `? ` → ` `). Validated via `dev/indexing/A_chunking_stats.py` (report: `dev/indexing/A_chunking_stats_reports/stats_RAG_MCP_20260407_171958.md`): 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket.
 
 ## Offene Fragen
 

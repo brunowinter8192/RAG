@@ -14,8 +14,8 @@
 |------|---------|
 | `rag.flock` | Held-open file descriptor for `fcntl.flock(LOCK_EX | LOCK_NB)`. Mutex. |
 | `rag.lock` | JSON details — `{pid, command, args, started_at, status, progress, heartbeat}` |
-| `rag-server-<name>.last_used` | Per-GPU-server last-use timestamp (read by idle-watchdog) |
-| `rag-server-<name>.port` | Per-GPU-server port file (see `infra03_dynamic_ports.md`) |
+
+GPU server state (ports, PIDs, idle tracking) → see `box_architecture.md` IST and `server_manager.py`.
 
 **Acquire pattern (from `cli.py:main`):**
 
@@ -102,7 +102,7 @@ Postgres-side: `psycopg2.connect(connect_timeout=2)` independent of `db.get_conn
 
 - **Cross-machine locks** — irrelevant on personal-use single machine. If RAG ever runs distributed (multi-host indexing), the lockfile approach wouldn't work. Would need DB-backed advisory lock (`pg_advisory_lock`) or external service (Redis SETNX). Defer until distributed actually happens.
 - **Sub-second progress updates** — current heartbeat is 30s, progress per-document. For large documents (>1000 chunks), per-chunk progress would be more responsive. Cost: lockfile write per chunk (~30 writes/sec at peak indexer rate). atomic tmp+rename can sustain this but adds noise to filesystem syslog. Defer until operators report wanting it.
-- **`status` showing GPU server STARTED-AT** — currently shows last_used. Adding started_at would let operators see "this server has been running 4 hours, healthy". Trivial addition if requested.
+- **`status` showing GPU server STARTED-AT** — currently shows idle time (derived from log file mtime). Adding started_at would let operators see "this server has been running 4 hours, healthy". Trivial addition if requested.
 
 ## Quellen
 

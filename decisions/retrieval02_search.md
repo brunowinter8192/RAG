@@ -2,7 +2,7 @@
 
 ## Status Quo (IST)
 
-**Code:** `src/rag/retriever.py:search_vectors()`, `splade_search()`, `bm25_search()`
+**Code:** `src/rag/search_primitives.py:search_vectors()`, `splade_search()`, `bm25_search()` (called via `retriever.py` imports)
 **Dense Search:** pgvector cosine distance (`embedding <=> query::vector`)
 **Sparse Search:** pgvector sparsevec cosine distance (`sparse_embedding <=> query::sparsevec`)
 **BM25 Search:** PostgreSQL tsvector full-text search (`ts_rank`)

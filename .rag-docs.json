@@ -3,7 +3,6 @@
     {
       "name": "RAG-meta",
       "include": [
-        "CLAUDE.md",
         "DOCS.md",
         "decisions/*.md",
         "sources/*.md",

@@ -21,6 +21,9 @@ Schema is created automatically by `p4_db.py:ensure_schema()` on first use.
 
 ## Documentation Tree
 
-- [cleanup/DOCS.md](cleanup/DOCS.md) — Web markdown cleanup scripts (per-collection)
 - [indexing/DOCS.md](indexing/DOCS.md) — Indexing pipeline modules and scripts
 - [retrieval/DOCS.md](retrieval/DOCS.md) — Retrieval pipeline modules and scripts
+
+## persisted_output_probe/
+
+Single-session probe (2026-05-10) for calibrating the CLI persisted-output threshold. `report.md` contains findings. No reusable scripts — probe purpose fulfilled.

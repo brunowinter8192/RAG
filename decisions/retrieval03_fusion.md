@@ -35,6 +35,9 @@
 
 **CC α=0.8 is best without reranking** (highest Snippet Recall). RRF is K-insensitive on this collection. CC+Rerank and Hybrid+Rerank converge to same result (reranker normalizes input). Reranker adds +4pp Doc Recall but costs -1pp Snippet Recall and adds ~2s latency per query.
 
+Script: pre-A_retrieval_eval.py eval harness (not committed to repo — non-reproducible; data preserved in report).
+Report: `dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448.md`
+
 ## Recommendation (SOLL)
 
 - **Keep:** CC α=0.8 (Convex Combination with min-max normalization). CC outperforms RRF on Snippet Recall (+3pp) while matching Doc Recall. Based on Bruch et al. 2023 ("An Analysis of Fusion Functions for Hybrid Retrieval"), confirmed on RAG_MCP collection (2026-04-08, re-confirmed 2026-04-28). `cc_fusion` is the active default; `rrf_fusion` retained in `fusion.py` as reference.
@@ -49,6 +52,5 @@
 ## Quellen
 
 - Anthropic contextual-retrieval (RRF for hybrid retrieval)
-- RAG Collection: Pipeline_Optimization_Paper (two-stage retrieval findings)
+- RAG Collection: Pipeline_Optimization (two-stage retrieval findings)
 - Bruch et al. 2023 "An Analysis of Fusion Functions for Hybrid Retrieval" (ACM TOIS, arXiv:2210.11934)
-- RAG_MCP Fusion Sweep (dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448.md)
