@@ -1,7 +1,5 @@
 # Project Visualization Layer (Abstract System Topology)
 
-Bead: RAG-wh1 — created 2026-04-27, closed 2026-05-11
-
 ## Background
 
 Working with a complex AI system through a CLI interface requires maintaining a mental model of how components relate. The current tooling (code, decisions/, DOCS.md) is text-linear — no representation of the abstract topology: which modules call which, how decision files map to code paths, how data collections relate to queries, how skills connect to workflows.
@@ -55,7 +53,7 @@ If a source artifact is not auto-parseable it is excluded. No hand-maintained no
 
 Concept, tool-choice, and Custom-Layer Plan B fully documented. Implementation not started.
 
-**dep-tree probe attempt:** `brew install dep-tree` failed — SSL certificate error (`curl` could not verify the ghcr.io Bottle). Fallback paths (`npm install -g @gabotechs/dep-tree`, direct GitHub release binary) were not pursued. Bead explicitly deferred in favor of eval preparation (RAG-dqr).
+**dep-tree probe attempt:** `brew install dep-tree` failed — SSL certificate error (`curl` could not verify the ghcr.io Bottle). Fallback paths (`npm install -g @gabotechs/dep-tree`, direct GitHub release binary) were not pursued. Deferred in favor of eval preparation.
 
 ## Reopen Path
 

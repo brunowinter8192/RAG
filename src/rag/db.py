@@ -51,13 +51,11 @@ def validate_collection(conn, collection: str):
         raise ValueError(f"Collection '{collection}' not found. Available: {', '.join(existing)}")
 
 
-# Add document filter clause (LIKE if value contains %, else exact match)
-def add_document_filter(where_clauses: list, where_params: list, document: str):
-    if '%' in document:
-        where_clauses.append("document LIKE %s")
-    else:
-        where_clauses.append("document = %s")
-    where_params.append(document)
+# Add document filter clause (LIKE if value contains %, else exact match).
+# Returns new (where_clauses, where_params) lists — does not mutate arguments.
+def add_document_filter(where_clauses: list, where_params: list, document: str) -> tuple[list, list]:
+    clause = "document LIKE %s" if '%' in document else "document = %s"
+    return where_clauses + [clause], where_params + [document]
 
 
 # Query all collections with chunk counts. filter: case-insensitive substring match on name.
@@ -85,7 +83,7 @@ def query_documents(conn, collection: str, document: str | None = None, filter: 
     where_clauses = ["collection = %s"]
     where_params = [collection]
     if document:
-        add_document_filter(where_clauses, where_params, document)
+        where_clauses, where_params = add_document_filter(where_clauses, where_params, document)
     if filter:
         where_clauses.append("document ILIKE %s")
         where_params.append(f"%{filter}%")

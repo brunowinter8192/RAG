@@ -1,9 +1,9 @@
-# Delivery (CLI Tools via agent-rag-search Skill)
+# Delivery (rag-cli direct)
 
 ## Status Quo (IST)
 
 - RAG retrieval tools exposed as CLI subcommands in `cli.py`, wrapped by `rag-cli` at `~/.local/bin/rag-cli` (in PATH)
-- Consumed by Claude Code via the `agent-rag-search` Skill (`skills/agent-rag-search/SKILL.md`)
+- Consumed directly via rag-cli (wrapper at `~/.local/bin/rag-cli` in $PATH) — no Skill or MCP layer
 - PostgreSQL required for all operations; GPU servers auto-started on demand by `server_manager.py`
 - `list_collections`, `list_documents`, `read_document` work without GPU servers; search subcommands require GPU servers
 - Direct CLI integration — no server process required for session start

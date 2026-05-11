@@ -84,8 +84,8 @@ SWEEP_RANGES = {
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--collection` | `RAG_MCP_test` | Collection name to query |
-| `--queries` | `dev/retrieval/queries_rag_mcp_test.json` | Queries JSON path |
+| `--collection` | `test_db` | Collection name to query |
+| `--queries` | `dev/retrieval/queries_test_db.json` | Queries JSON path |
 | `--baseline` | — | Single run at BASELINE config (+ any `--override`) |
 | `--sweep PARAM` | — | Sweep `PARAM` over `SWEEP_RANGES[PARAM]`; others fixed at BASELINE |
 | `--override key=val` | — | Override one BASELINE key; repeatable |

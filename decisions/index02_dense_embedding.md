@@ -33,6 +33,8 @@
 
 ### MRL Dimension Sweep (Qwen3_Embedding_Paper, 15 queries, 53 chunks)
 
+Script: `dev/retrieval/A_mrl_sweep.py`. Report: `dev/retrieval/A_mrl_sweep_reports/mrl_sweep_20260407_215137.md`.
+
 | Dims | NDCG@3 | NDCG@10 | Recall@10 |
 |------|--------|---------|-----------|
 | 256 | 0.4641 | 0.6152 | 0.8444 |
@@ -44,6 +46,8 @@
 256d outperforms 4096d on this small dataset (66 chunks). Validated on larger collection below.
 
 ### MRL Dimension Sweep (searxng, 30 queries, 26088 chunks)
+
+Script: `dev/retrieval/A_mrl_sweep.py`. Report: same `mrl_sweep_20260407_215137.md` (multi-collection run).
 
 | Dims | NDCG@3 | NDCG@10 | Recall@10 |
 |------|--------|---------|-----------|
@@ -59,7 +63,7 @@
 
 Method: Corpus embeddings loaded from DB (no re-embedding), MRL truncation + L2 renormalization in numpy. Query embeddings via llama-server.
 
-### Server Config Benchmark (dev/indexing_benchmark/benchmark.py)
+### Server Config Benchmark (historical benchmark, script no longer in repo)
 
 | Config | 32 chunks | Notes |
 |--------|-----------|-------|

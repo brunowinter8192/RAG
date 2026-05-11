@@ -2,7 +2,7 @@
 
 ## Status Quo (IST)
 
-**Code:** `src/rag/retriever.py:embed_query()`
+**Code:** `src/rag/search_primitives.py:embed_query()` (imported by `retriever.py`)
 **Dense:** Same model as indexing (Qwen3-Embedding-8B), with instruct prefix
 **Sparse:** Same model as indexing (SPLADE++), no prefix
 **Prefix:** `Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: `

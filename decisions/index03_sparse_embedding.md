@@ -21,7 +21,7 @@
 
 Sparse is 45% weaker than Dense. Hybrid is WORSE than Dense alone because SPLADE anti-correlates with correct relevance — its false positives displace Dense's correct results in RRF.
 
-### Root Cause Analysis (dev/retrieval_eval/analysis/splade_findings.md)
+### Root Cause Analysis (ad-hoc investigation, notes preserved inline)
 
 1. **Domain mismatch:** SPLADE++ trained on MS-MARCO (web search). SearXNG corpus is YAML configs, Python API docs, code blocks — completely out-of-domain.
 2. **Low activation:** Queries produce only 35-51 non-zero SPLADE dimensions (expected 100-300 on in-domain text).
@@ -49,11 +49,11 @@ Sparse performed better on the small academic paper dataset — in-domain for MS
 
 ## Offene Fragen
 
-- **nnz-Corruption Bug (Bead RAG-bj2):** SPLADE server produces 14k-30k nnz after 8h+ uptime (normal: 100-200). Restart fixes immediately. Root cause unknown — MPS numerical drift is strongest hypothesis. `max_active_dims=256` safety-net prevents pgvector crashes but doesn't explain the cause. Investigation: `dev/indexing/splade_truncation/`.
+- **nnz-Corruption Bug:** SPLADE server produces 14k-30k nnz after 8h+ uptime (normal: 100-200). Restart fixes immediately. Root cause unknown — MPS numerical drift is strongest hypothesis. `max_active_dims=256` safety-net prevents pgvector crashes but doesn't explain the cause.
 - SPLADE v3 (naver/splade-v3): Better out-of-domain performance? Requires separate library (`pip install splade`), not sentence-transformers compatible.
 - Should we drop Sparse entirely for technical docs? BM25 (already in pgvector via tsvector) might be sufficient.
 - Domain-specific SPLADE fine-tuning: Is it worth the effort?
-- SPLADE server async (Bead RAG-aoj): Single worker blocks concurrent requests. Not critical if Sparse is dropped.
+- SPLADE server async: Single worker blocks concurrent requests. Not critical if Sparse is dropped.
 
 ## Quellen
 
