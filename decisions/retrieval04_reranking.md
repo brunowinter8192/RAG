@@ -7,7 +7,7 @@
 **Server:** llama-server on port 8082, `--rerank -c 32768`
 **Trigger:** Only when `rerank=True` in `search_hybrid_workflow()`. Default is `rerank=False`.
 **Candidates:** Top 50 RRF candidates re-scored, top_k returned
-**Score Filter:** Results below 0.3 cross-encoder score filtered out
+**Score Filter:** Results with score == 0 excluded; `rerank_workflow` internal `[:top_k]` handles selection (no global threshold)
 
 Auto-started on first use (same lifecycle pattern as embedding server).
 
@@ -33,8 +33,15 @@ Reranker adds +4pp Doc Recall but costs -1pp Snippet Recall. CC+Rerank = Hybrid+
 - **Keep:** `rerank=False` as default — reranker hurts on technical docs (-8.5pp NDCG@3), which is the dominant collection type. CC+Rerank tested on RAG_MCP: +4pp Doc Recall, -1pp Snippet Recall — trade-off rejected.
 - **Keep:** Qwen3-Reranker-0.6B model — adequate for academic text (+19.3pp NDCG@3)
 - **Pending:** Domain-dependent rerank config (auto-enable for academic collections, disable for technical docs)
-- **Pending:** Score threshold calibration (0.3 is unvalidated)
 - **Pending:** Larger reranker model (4B/8B) evaluation
+
+### CLI Default + Threshold Changes 2026-05-11
+
+**CLI default flip (commit `f6fecc8`):** `cli.py` `search_hybrid` flag changed from `--no-rerank` (default=True) to `--rerank` (default=False). CLI default now matches `search_hybrid_workflow(rerank: bool = False)` function signature and the SOLL statement "Keep rerank=False as default". Previous CLI-vs-Decision inconsistency resolved.
+
+**Post-rerank score threshold removed (commit `1d80fd4`):** Hard 0.3 threshold eliminated. `rerank_workflow` internal `[:top_k]` handles candidate selection; only exact score == 0 excluded via inline list comprehension. Threshold calibration Pending item removed — no longer applicable for the rerank path.
+
+**`DENSE_SCORE_THRESHOLD = 0.01`** (`retriever.py:24`): named noise-floor constant for dense and hybrid no-rerank paths. Value is unverified — calibration pending RAG-dqr eval-execution (score-threshold sweep across query types and collections).
 
 ## Offene Fragen
 
