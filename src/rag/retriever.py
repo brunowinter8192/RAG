@@ -21,7 +21,6 @@ DEFAULT_TOP_K = 5
 HYBRID_CANDIDATES = 50
 RERANK_CANDIDATES = 50
 DENSE_SCORE_THRESHOLD = 0.01    # noise floor; was 0.5 (unverified Haiku heuristic)
-RERANK_SCORE_THRESHOLD = 0.3    # post-rerank; cross-encoder score scale (unverified, flagged in decisions/retrieval04_reranking.md as Pending)
 
 
 # ORCHESTRATOR
@@ -101,7 +100,7 @@ def search_hybrid_workflow(
     results = cc_fusion(vector_results, keyword_results, rrf_top)
     if rerank:
         results = rerank_workflow(query, results, top_k)
-        results = filter_by_score(results, RERANK_SCORE_THRESHOLD)
+        results = [r for r in results if r['score'] > 0]
     else:
         results = filter_by_score(results, DENSE_SCORE_THRESHOLD)
     conn.close()
