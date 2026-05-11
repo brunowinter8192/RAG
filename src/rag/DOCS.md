@@ -130,13 +130,53 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_manager.py (1061 LOC)
+### server_manager.py (68 LOC)
 
-**Purpose:** Centralized lifecycle manager for all five GPU server presets (embedding-8b, embedding-0.6b, reranker-0.6b, reranker-8b, splade) plus arbitrary llama-server instances. Handles start, stop, restart, health check, idle-timeout auto-stop, orphan purge, and `rag-cli server` CLI surface. Port discovery via `_resolve_port` (tries default port; falls back to kernel-allocated ephemeral). Watchdog runs as **detached subprocess** (via `_ensure_watchdog_process`) — survives the spawning CLI process exit through `start_new_session=True`. Single-instance enforced via PID lock file `~/.rag-locks/watchdog.pid`.
-**Reads:** server health endpoints (`/health`); `~/.rag-locks/server-port-{N}.json` state files (pid, port, model, log_path); `~/.rag-locks/watchdog.pid`; log file mtimes (for idle computation).
-**Writes:** `~/.rag-locks/server-port-{N}.json` (written after Popen, unlinked on stop); `~/.rag-locks/watchdog.pid`; spawns/kills server processes; spawns watchdog subprocess; delegates structured errors to `error_log`.
+**Purpose:** Thin coordinator. Defines `ensure_ready` (composes lifecycle + watchdog) and re-exports the full public surface from the four sub-modules below so all callers remain unchanged. All server logic lives in the sub-modules.
+**Reads:** (via sub-modules)
+**Writes:** (via sub-modules)
 **Called by:** embedder.py, sparse_embedder.py, reranker.py, workflow.py (lazy import for `index-dir` and `server` subcommands), cli.py (lazy import for `server` subcommand), sync.py (`ensure_ready` before embed), indexer.py (lazy import of `RAG_ROOT`), status.py, watchdog_main.py (`_watchdog_loop`).
-**Calls out:** httpx, subprocess.
+**Calls out:** server_utils, server_lifecycle, watchdog, server_cli (intra-package).
+
+---
+
+### server_utils.py (266 LOC)
+
+**Purpose:** Shared constants + process utilities used by all server sub-modules. Contains the SERVERS preset dict, all path/port constants, `_CLASS_MAP`, and the eight process primitives (`find_pid_on_port`, `find_all_pids_on_port`, `pgrep_llama_server`, `_check_health_port`, `_stop_by_state`, `_pid_alive`, `_allocate_port`, `_resolve_port`) plus state-file I/O helpers (`_write_state_file`, `_unlink_state_file`). Dependency root — no imports from other server sub-modules.
+**Reads:** env vars (RAG_PROJECT_ROOT, LLAMA_SERVER_PATH, port overrides, IDLE_TIMEOUT); `lsof`/`pgrep` subprocess; httpx `/health` endpoints; `~/.rag-locks/server-port-{N}.json` (state file reads in `_stop_by_state`, `_unlink_state_file`).
+**Writes:** `~/.rag-locks/server-port-{N}.json` (via `_write_state_file`, `_unlink_state_file`); kills processes (via `_stop_by_state`); `src/rag/logs/server_manager.log` (logging.basicConfig target).
+**Called by:** server_lifecycle.py, watchdog.py, server_cli.py, server_manager.py.
+**Calls out:** httpx, subprocess, error_log.
+
+---
+
+### server_lifecycle.py (395 LOC)
+
+**Purpose:** Start/stop/restart logic for preset and arbitrary servers, plus state query functions. Manages single-instance enforcement, health polling on startup, port resolution, and process command construction. Provides `find_server_url` and `check_health` used by embedder/reranker/sparse_embedder callers.
+**Reads:** `~/.rag-locks/server-port-{N}.json` state files (via `find_server_url`, `start` single-instance check); httpx `/health` endpoints (via `check_health`).
+**Writes:** spawns server processes (via `start`, `start_arbitrary`); state files via server_utils helpers.
+**Called by:** server_manager.py (re-exports), server_cli.py, watchdog.py (imports `_stop_by_state` indirectly via server_utils).
+**Calls out:** httpx, subprocess, server_utils (constants + primitives), error_log.
+
+---
+
+### watchdog.py (118 LOC)
+
+**Purpose:** Watchdog subprocess management and idle-timeout enforcement. `_ensure_watchdog_process` spawns a detached singleton process; `_watchdog_loop` runs inside it (via `watchdog_main.py`). Per-tick: purges unregistered llama-server orphans, idle-stops servers whose log file mtime exceeds `IDLE_TIMEOUT`.
+**Reads:** `~/.rag-locks/server-port-{N}.json` state files; log file mtimes; `~/.rag-locks/watchdog.pid`.
+**Writes:** kills orphan/idle server processes (via `_stop_by_state`); `~/.rag-locks/watchdog.pid`.
+**Called by:** server_manager.py (re-exports `_ensure_watchdog_process`, `_watchdog_loop`); watchdog_main.py (runs `_watchdog_loop`).
+**Calls out:** server_utils (constants + `_stop_by_state` + `_pid_alive` + `_check_health_port` + `pgrep_llama_server`), error_log.
+
+---
+
+### server_cli.py (286 LOC)
+
+**Purpose:** CLI surface for `rag-cli server` / `workflow.py server`. Dispatches status, start, stop, restart, list, tail, errors, and presets subcommands. Formats tabular output for terminal display.
+**Reads:** `~/.rag-locks/server-port-{N}.json` state files; log files (for `tail` and idle display); error_log (for `errors` subcommand).
+**Writes:** stdout only.
+**Called by:** cli.py (lazy import), workflow.py (lazy import).
+**Calls out:** server_utils (SERVERS, TIMESTAMP_DIR, `_stop_by_state`, `_check_health_port`), server_lifecycle (start, stop, restart, start_all, stop_all, start_arbitrary, status), error_log.
 
 ---
 
@@ -185,7 +225,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 **Purpose:** Append structured error entries to `src/rag/logs/errors.jsonl`; O_APPEND write is POSIX-atomic for writes under PIPE_BUF, no locking needed.
 **Reads:** nothing (write-only).
 **Writes:** `src/rag/logs/errors.jsonl` (one JSON line per error event).
-**Called by:** server_manager.py
+**Called by:** server_utils.py, server_lifecycle.py, watchdog.py, server_cli.py
 **Calls out:** (none — stdlib only: json, pathlib)
 
 ---
@@ -206,8 +246,8 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 |---|---|---|---|
 | PostgreSQL `documents` table | All indexed chunks with dense + sparse embeddings | db.py, search_primitives.py | indexer.py (insert/delete/schema), sync.py (delete via indexer primitives) |
 | PostgreSQL `indexed_files` table | Per-project (collection, document) → sha256 + last_indexed_at; sync.py's change-detection ledger | sync.py (diff against current file hashes) | sync.py (upsert/delete; auto-creates table on first run) |
-| `~/.rag-locks/server-port-{N}.json` | Per-process GPU server state (pid, port, model_path, model_name, mode, log_path, start_time, name); idle computed from `log_path` mtime | server_manager.py (`_watchdog_tick`, `_purge_orphans`, `find_server_url`, `box_status`), status.py | server_manager.py (`start` — written after Popen; unlinked on `stop`) |
-| `~/.rag-locks/watchdog.pid` | Detached watchdog process PID for ensure-singleton spawn | server_manager.py (`_ensure_watchdog_process`) | server_manager.py (`_ensure_watchdog_process`) |
+| `~/.rag-locks/server-port-{N}.json` | Per-process GPU server state (pid, port, model_path, model_name, mode, log_path, start_time, name); idle computed from `log_path` mtime | server_lifecycle.py (`find_server_url`, `start` single-instance check), watchdog.py (`_watchdog_tick`, `_purge_orphans`), status.py | server_utils.py (`_write_state_file` — written after Popen; `_unlink_state_file` / `_stop_by_state` — unlinked on stop) |
+| `~/.rag-locks/watchdog.pid` | Detached watchdog process PID for ensure-singleton spawn | watchdog.py (`_ensure_watchdog_process`) | watchdog.py (`_ensure_watchdog_process`) |
 | `~/.rag-locks/rag.flock` + `rag.lock` | Global RAG mutex (flock fd) + JSON details (pid, command, started_at, heartbeat, progress) | lock.py, status.py | lock.py (`acquire`, `heartbeat`, `update_progress`) |
 
 ## Gotchas
@@ -216,4 +256,4 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 - **server_lock.py has no Python import callers** — verify dead code status before removing; may be planned for future concurrent-request serialization.
 - **retriever.py re-exports format_results / format_collections / format_documents** from `formatting.py`. `cli.py` imports these from `src.rag.retriever`, not `src.rag.formatting`. Keep the import in retriever.py's INFRASTRUCTURE or cli.py breaks.
 - **DEFAULT_QUERY_PREFIX** lives in `search_primitives.py`, not retriever.py — it moved with `embed_query()` during the retriever split refactor.
-- **server_manager.py 1061 LOC** — well over the 400-LOC hard ceiling. Refactor candidate: watchdog loop (`_watchdog_loop`, `_watchdog_tick`, `_purge_orphans`), CLI surface (`cli_server`), and box state I/O (`_write_state_file`, `_read_state_files`) are natural extraction boundaries.
+- **error_log.py** is called by server_utils.py, server_lifecycle.py, watchdog.py, and server_cli.py (previously only server_manager.py — update any grepping for callers accordingly).
