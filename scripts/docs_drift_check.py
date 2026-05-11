@@ -45,16 +45,21 @@ SOURCE_ROOT_FILES = ["cli.py", "workflow.py", "start.sh"]
 # appear there intentionally. Only scan current-state docs for symbol existence.
 SYMBOL_SCAN_EXCLUDES = {"decisions/OldThemes"}
 
+# Path check: OldThemes is historical context — intentionally references artifacts
+# (scripts, paths) that were never committed or were later renamed/removed.
+PATH_SCAN_EXCLUDES = {"decisions/OldThemes"}
+
 # Runtime-only file extensions — gitignored, never checked in the worktree
-RUNTIME_SKIP_EXTENSIONS = {".log", ".flock", ".pid"}
+RUNTIME_SKIP_EXTENSIONS = {".log", ".flock", ".pid", ".jsonl"}
 
 # LOC heading pattern: ### module.py (N LOC)
 LOC_HEADING = re.compile(r"^###\s+([\w.-]+\.py)\s+\((\d+)\s+LOC\)")
 
 # Path-like token: requires at least one directory component, allows * wildcards
+# jsonl included so errors.jsonl is matched whole (not truncated to errors.json)
 PATH_PATTERN = re.compile(
     r"(?:[a-zA-Z0-9_.*-]+/)+[a-zA-Z0-9_.*-]+"
-    r"(?:\.(?:py|md|json|sh|yaml|yml|txt))?"
+    r"(?:\.(?:py|md|json|jsonl|sh|yaml|yml|txt))?"
     r"(?::\d+)?"
 )
 
@@ -145,7 +150,8 @@ def _should_skip_path(raw: str, root: Path, doc_dir: Path) -> bool:
         return True
     if "{" in raw:  # template variable (e.g. server-port-{N}.json)
         return True
-    path_part = re.sub(r":\d+$", "", raw)  # strip :line_anchor
+    # Strip colon-anchored suffixes: :embed_query(), :parallel_embed, :24, etc.
+    path_part = re.sub(r"(\.[a-zA-Z]{2,5}):.*$", r"\1", raw)
     ext = Path(path_part.split("*")[0]).suffix.lower()
     if ext in RUNTIME_SKIP_EXTENSIONS:
         return True
@@ -160,16 +166,29 @@ def check_path_existence(doc_files: list[Path], root: Path) -> list[tuple]:
     """Check 1 — referenced file/dir paths exist on disk."""
     findings: list[tuple] = []
     for doc in doc_files:
+        rel = str(doc.relative_to(root))
+        # Skip OldThemes — historical docs intentionally reference removed/renamed artifacts
+        if any(rel.startswith(exc) for exc in PATH_SCAN_EXCLUDES):
+            continue
+
         in_fence = False
         for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
             in_fence = _toggle_fence(line, in_fence)
             if in_fence:
                 continue
 
-            # Collect candidates: backtick-quoted strings + bare PATH_PATTERN matches
-            candidates: list[str] = re.findall(r"`([^`]+)`", line)
-            for m in PATH_PATTERN.finditer(line):
-                candidates.append(m.group(0))
+            # Backtick-only extraction: apply PATH_PATTERN inside each backtick string.
+            # Avoids FPs from prose, shell commands, template paths, and absolute endpoints.
+            candidates: list[str] = []
+            for bt in re.findall(r"`([^`]+)`", line):
+                if bt.startswith("~/"):  # user-home reference, not project-local
+                    continue
+                if "<" in bt:  # template path (e.g. eval_<label>_<ts>.md)
+                    continue
+                if re.search(r"\s\([A-Z][A-Za-z_]+\)\s*$", bt):  # cross-project marker
+                    continue
+                for m in PATH_PATTERN.finditer(bt):
+                    candidates.append(m.group(0))
 
             seen: set[str] = set()
             for raw in candidates:
@@ -179,10 +198,12 @@ def check_path_existence(doc_files: list[Path], root: Path) -> list[tuple]:
                 seen.add(raw)
                 if not PATH_PATTERN.search(raw):
                     continue
+                if raw.startswith("/"):  # absolute HTTP endpoint paths (/v1/embeddings)
+                    continue
                 if _should_skip_path(raw, root, doc.parent):
                     continue
 
-                path_str = re.sub(r":\d+$", "", raw)
+                path_str = re.sub(r"(\.[a-zA-Z]{2,5}):.*$", r"\1", raw)
                 rel_doc = str(doc.relative_to(root))
 
                 if "*" in path_str:
@@ -246,6 +267,8 @@ def check_symbol_existence(
 
             for sym in ALL_CAPS_RE.findall(line):
                 if sym in whitelist or sym in checked:
+                    continue
+                if sym.endswith("_"):  # prefix pattern (e.g. POSTGRES_*), not a constant
                     continue
                 checked.add(sym)
                 if not re.search(rf"\b{re.escape(sym)}\b", source_text):

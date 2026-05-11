@@ -98,6 +98,22 @@ DOCS
 # RAG_MCP is a collection name used in query files and docs prose
 RAG_MCP
 
+# --- SQL keywords mentioned in code-block examples or prose ---
+DATABASE
+DROP
+INSERT
+UPDATE
+DELETE
+
+# --- HTTP methods in prose ---
+POST
+GET
+PUT
+
+# --- Industry acronyms in prose ---
+SOTA
+NLP
+
 # --- External library functions referenced in docs but not in this project's source ---
 # sentence-transformers method invoked via encode() parameter, not defined here
 select_max_active_dims
