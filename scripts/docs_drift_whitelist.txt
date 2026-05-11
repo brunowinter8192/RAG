@@ -113,6 +113,9 @@ PUT
 # --- Industry acronyms in prose ---
 SOTA
 NLP
+ML
+AI
+NLU
 
 # --- External library functions referenced in docs but not in this project's source ---
 # sentence-transformers method invoked via encode() parameter, not defined here

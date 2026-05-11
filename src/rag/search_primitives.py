@@ -30,7 +30,7 @@ def search_vectors(
         where_clauses.append("collection = %s")
         where_params.append(collection)
     if document:
-        add_document_filter(where_clauses, where_params, document)
+        where_clauses, where_params = add_document_filter(where_clauses, where_params, document)
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
     params = [query_vector] + where_params + [query_vector, top_k]
@@ -98,7 +98,7 @@ def _bm25_query(
         where_clauses.append("collection = %s")
         where_params.append(collection)
     if document:
-        add_document_filter(where_clauses, where_params, document)
+        where_clauses, where_params = add_document_filter(where_clauses, where_params, document)
 
     where_sql = " AND ".join(where_clauses)
     params = [tsquery] + where_params + [top_k]
@@ -142,7 +142,7 @@ def splade_search(conn, query: str, top_k: int, collection: str | None = None, d
         where_clauses.append("collection = %s")
         where_params.append(collection)
     if document:
-        add_document_filter(where_clauses, where_params, document)
+        where_clauses, where_params = add_document_filter(where_clauses, where_params, document)
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
     params = [sparsevec] + where_params + [sparsevec, top_k]
