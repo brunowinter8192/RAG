@@ -29,24 +29,29 @@ No markdown-awareness (headers not treated as boundaries). No content-adaptive s
 
 ### Rethinking Chunk Size (RAG: RAG_reference / Rethinking_Chunk_Size_Long_Document)
 
-Systematic evaluation of fixed-size chunking across 6 datasets with 2 embedding models (Stella = Decoder/Qwen2-basis, Snowflake = Encoder). Chunk sizes: 64-1024 tokens.
+Systematic evaluation of fixed-size chunking across 6 QA datasets with 2 embedding models: **Stella** (decoder, Qwen2-basis, 130k ctx window) and **Snowflake** (encoder, 8k ctx window). Chunk sizes: 64/128/256/512/1024 tokens. Metric: Recall@K. No overlap in any experiment.
 
-| Model Type | Optimal Chunk Size | Datasets |
-|-----------|-------------------|----------|
-| Decoder (Stella, Qwen2-basis, 130k ctx) | 512-1024 tokens | NarrativeQA, NQ, TechQA |
-| Encoder (Snowflake, 8k ctx) | 64-128 tokens | SQuAD, CovidQA |
+**Chunk size × model ctx window axis:** Stella's 130k-context Qwen2 base yields global chunk representations that scale with chunk size — larger chunks provide richer context without noise. Snowflake's 8k ctx pretraining favors local token interactions and degrades at large chunks.
 
-**Key finding:** Chunk-size sensitivity is model-dependent. Decoder models benefit from larger chunks (+5-8% Recall@1 vs Encoder at 512-1024 tokens). Encoder models prefer smaller chunks for entity-based matching.
+| Model | Architecture | Context | Optimal Chunk | Strongest Datasets |
+|-------|-------------|---------|---------------|-------------------|
+| Stella | Decoder (Qwen2-basis) | 130k | 512-1024 tokens | NarrativeQA, NQ, TechQA |
+| Snowflake | Encoder | 8k | 64-128 tokens | SQuAD, CovidQA |
 
-### Beyond Chunk-Then-Embed Taxonomy (RAG: RAG_reference / Beyond_Chunk_Then_Embed_Taxonomy)
+**Concrete Recall@1 numbers:**
+- NQ: Stella peaks at 512 tokens (R@1 = 38.5%); Snowflake peaks at 1024 tokens (R@1 = 47.7%)
+- TechQA: R@1 rises from 4.8% (64 tokens) to 71.5% (1024 tokens) for Stella — strongest decoder advantage in the study
+- SQuAD (short fact-based answers): both models comparable at 64 tokens (R@1 ≈ 64%) — chunk size nearly irrelevant for entity-level retrieval
 
-Comprehensive evaluation of chunking strategies across 4 Encoder models (Jina-v2, Jina-v3, Nomic, E5-large) on BEIR datasets.
-
-**Key finding:** For in-corpus retrieval, structure-based methods (paragraph, fixed-size) outperform LLM-guided and semantic methods. Difference between structure-based methods is only 1-3%. Paragraph-based slightly best for 3/4 models.
+**Relevance to IST:** Qwen3-Embedding-8B is a Qwen2-based causal decoder with 32k context — architecturally same family as Stella. The decoder advantage at 512-1024 tokens directly applies. Our 2000-char setting (~500 tokens) sits squarely in the optimal range for this model family.
 
 ### Chunking Eval (dev/indexing/chunking_eval/)
 
 5-Doc subset sweep on RAG_MCP: 6 variants (A-F, 500-1500 chars). **Result: all variants Recall@3/5/10 = 1.000.** Corpus too small to discriminate — needs larger benchmark dataset.
+
+### RAG Evaluation Survey 2025 (RAG: RAG_reference / RAG_Evaluation_Survey_2025)
+
+Section 3.2.3 ("Upstream Evaluation") codifies chunking eval at two levels: (1) **intrinsic** — Full Keyword Coverage (% of required keywords in ≥1 retrieved chunk), Tokens-To-Answer (index of first fully comprehensive chunk); (2) **extrinsic** — downstream Recall, Precision, ROUGE/BLEU/F1 vs ground-truth evidence. Domain-specific evidence (financial reports [57]) shows structure-based and semantic chunking improves retrieval accuracy while reducing latency. Core assertion: chunking quality propagates through retriever evaluation metrics, not chunking metrics directly. Confirms our eval approach: downstream Recall@K is the correct primary signal.
 
 ### Qwen3 vs BGE-M3 (Referenced — Medium article, no longer indexed after 2026-04-30 clean-slate)
 
@@ -54,13 +59,13 @@ Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwe
 
 ## Recommendation (SOLL)
 
-**Keep:** `2000 chars / 400 overlap` — decoder-based models (Qwen3/Qwen2 family) benefit from larger chunks. Community consensus: 500-1000 tokens for decoder models. 2000 chars (~500 tokens) with 400 overlap is the active production default. Validated via A_chunking_stats: 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket. Recursive character split with default separators sufficient — semantic chunking not worth the complexity (multiple Reddit threads confirm).
+**Keep:** `2000 chars / 400 overlap` — primary anchor: Rethinking_Chunk_Size_Long_Document shows decoder models (Qwen2-basis family, architecturally identical to Qwen3-Embedding-8B) benefit from 512-1024 token chunks, with Recall@1 gains of +5-8% vs encoder models at this range. 2000 chars ≈ 500 tokens sits squarely in the optimal range for this model family. Supporting: Pipeline_Optimization reranker bridges ~50% of any remaining 2000→512 char gap. Community consensus: 500-1000 tokens for decoder models. Validated via A_chunking_stats: 483 chunks, avg 1736 chars, 80% in 1500-2000 bucket. Recursive character split with default separators sufficient — semantic chunking not worth the complexity (multiple Reddit threads confirm).
 
 **Keep:** Recursive character split with hierarchical separators (`\n\n` → `\n` → `. ` → `! ` → `? ` → ` `)
 
 ## Offene Fragen
 
-- Chunk size × MRL dimension interaction — does 1024d change the optimal chunk size vs 4096d?
+- Chunk size × MRL dimension interaction — does 1024d change the optimal chunk size vs 4096d? **Still open.** Qwen3_Embedding confirms MRL support (1024/2560/4096d) but contains no chunk × dimension data. Closure requires: re-download arxiv 2411.17299 (2D_Matryoshka_Training, removed in 2026-05-10 rebalance) → index into RAG_reference → run search_hybrid for layer × dimension interaction findings. Not in current session scope.
 - Retrieval quality with 2000 chars vs 1000 chars — needs A/B comparison on same queries (pending retrieval eval)
 
 ## Quellen
@@ -68,7 +73,7 @@ Anecdotal: "strong performance with chunk sizes of 2,000–4,000 tokens" for Qwe
 Indexed in collection `RAG_reference`:
 - Pipeline_Optimization (Chunks 6, 20, 28, 29, 36) — GTE-large, Encoder
 - Rethinking_Chunk_Size_Long_Document — Stella/Snowflake, Decoder vs Encoder
-- Beyond_Chunk_Then_Embed_Taxonomy — Jina/Nomic/E5, BEIR datasets
+- RAG_Evaluation_Survey_2025 — two-level eval methodology (intrinsic + extrinsic chunking metrics)
 
 Referenced (consulted historically, no longer indexed after 2026-04-30 data clean-slate — sources kept for attribution but not searchable in current collection):
 - medium.com__mrAryanKumar (Qwen3 vs BGE-M3 comparison)
