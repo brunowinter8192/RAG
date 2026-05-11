@@ -32,7 +32,6 @@ def search_workflow(
     collection: str | None = None,
     document: str | None = None
 ) -> list[dict]:
-    top_k = max(top_k, 12)
     top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
@@ -91,7 +90,6 @@ def search_hybrid_workflow(
     document: str | None = None,
     rerank: bool = False
 ) -> list[dict]:
-    top_k = max(top_k, 12)
     top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
@@ -117,7 +115,6 @@ def search_keyword_workflow(
     collection: str | None = None,
     document: str | None = None
 ) -> list[dict]:
-    top_k = max(top_k, 12)
     top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
