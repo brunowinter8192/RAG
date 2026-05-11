@@ -18,10 +18,9 @@ GPU pane (Monitor_CC) reads state files: 3 fixed preset rows always visible plus
 
 ## Recommendation (SOLL)
 
-Box architecture is the production state. Future evolution: dynamic ports (Bead Monitor_CC-rsk1) replaces fixed default ports with socket(0)-allocated ports + state-file-based service discovery. Default ports become hints with dynamic fallback on collision.
+Box architecture is the production state. Future evolution: dynamic ports replaces fixed default ports with socket(0)-allocated ports + state-file-based service discovery. Default ports become hints with dynamic fallback on collision.
 
 ## Quellen
 
-- Bead Monitor_CC-dliw — original problem statement and Phase B implementation.
 - `dev/watchdog_scope/proposal_phaseA_v2.md` — full architecture spec, NQ1-NQ6.
 - `~/.claude/shared-rules/global/tool-use.md` `#### RAG CLI` — operational rules in tool-use.

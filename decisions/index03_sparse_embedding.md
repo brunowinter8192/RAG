@@ -49,11 +49,11 @@ Sparse performed better on the small academic paper dataset — in-domain for MS
 
 ## Offene Fragen
 
-- **nnz-Corruption Bug (Bead RAG-bj2):** SPLADE server produces 14k-30k nnz after 8h+ uptime (normal: 100-200). Restart fixes immediately. Root cause unknown — MPS numerical drift is strongest hypothesis. `max_active_dims=256` safety-net prevents pgvector crashes but doesn't explain the cause. Investigation: `dev/indexing/splade_truncation/`.
+- **nnz-Corruption Bug:** SPLADE server produces 14k-30k nnz after 8h+ uptime (normal: 100-200). Restart fixes immediately. Root cause unknown — MPS numerical drift is strongest hypothesis. `max_active_dims=256` safety-net prevents pgvector crashes but doesn't explain the cause.
 - SPLADE v3 (naver/splade-v3): Better out-of-domain performance? Requires separate library (`pip install splade`), not sentence-transformers compatible.
 - Should we drop Sparse entirely for technical docs? BM25 (already in pgvector via tsvector) might be sufficient.
 - Domain-specific SPLADE fine-tuning: Is it worth the effort?
-- SPLADE server async (Bead RAG-aoj): Single worker blocks concurrent requests. Not critical if Sparse is dropped.
+- SPLADE server async: Single worker blocks concurrent requests. Not critical if Sparse is dropped.
 
 ## Quellen
 

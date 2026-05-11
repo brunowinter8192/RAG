@@ -44,7 +44,7 @@ Report: `dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448
 
 **Post-rerank score threshold removed (commit `1d80fd4`):** Hard 0.3 threshold eliminated. `rerank_workflow` internal `[:top_k]` handles candidate selection; only exact score == 0 excluded via inline list comprehension. Threshold calibration Pending item removed — no longer applicable for the rerank path.
 
-**`DENSE_SCORE_THRESHOLD = 0.01`** (`retriever.py:24`): named noise-floor constant for dense and hybrid no-rerank paths. Value is unverified — calibration pending RAG-dqr eval-execution (score-threshold sweep across query types and collections).
+**`DENSE_SCORE_THRESHOLD = 0.01`** (`retriever.py:24`): named noise-floor constant for dense and hybrid no-rerank paths. Value is unverified — calibration pending dedicated score-threshold eval (sweep across query types and collections).
 
 ## Offene Fragen
 
