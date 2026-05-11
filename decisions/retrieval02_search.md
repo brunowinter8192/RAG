@@ -27,7 +27,7 @@ At current scale (~7000 chunks across all collections), sequential scan is fast 
 
 ## Recommendation (SOLL)
 
-Pending — HNSW evaluation blocked on MRL migration (Bead RAG-dp3).
+Pending — HNSW evaluation blocked on MRL migration.
 
 ## Offene Fragen
 

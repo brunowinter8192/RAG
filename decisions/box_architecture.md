@@ -12,16 +12,15 @@ GPU pane (Monitor_CC) reads state files: 3 fixed preset rows always visible plus
 
 ## Evidenz
 
-- Live-probe verified llama-server logs 8 lines per inference request to stdout (slot status + srv log), `/health` is silent. mtime updates per request, /health does NOT trigger updates. See `dev/watchdog_scope/proposal_phaseA_v2.md` NQ3 for the probe.
+- Live-probe verified llama-server logs 8 lines per inference request to stdout (slot status + srv log), `/health` is silent. mtime updates per request, /health does NOT trigger updates. See `dev/watchdog_scope/proposal_phaseA_v2.md (Monitor_CC)` NQ3 for the probe.
 - Splade `logging.info(f"Encoded {len(req.input)} texts")` in `splade_server.py:47` writes per-request line to `splade_server.log`. Same idle mechanism applies.
 - pgrep `-x` (exact comm match) avoids false-positives from processes mentioning "llama-server" in argv (e.g. workers with prompt text containing the string). Tested via `pgrep -x llama-server` returning empty when no real llama-server runs.
 
 ## Recommendation (SOLL)
 
-Box architecture is the production state. Future evolution: dynamic ports (Bead Monitor_CC-rsk1) replaces fixed default ports with socket(0)-allocated ports + state-file-based service discovery. Default ports become hints with dynamic fallback on collision.
+Box architecture is the production state. Future evolution: dynamic ports replaces fixed default ports with socket(0)-allocated ports + state-file-based service discovery. Default ports become hints with dynamic fallback on collision.
 
 ## Quellen
 
-- Bead Monitor_CC-dliw — original problem statement and Phase B implementation.
-- `dev/watchdog_scope/proposal_phaseA_v2.md` — full architecture spec, NQ1-NQ6.
+- `dev/watchdog_scope/proposal_phaseA_v2.md (Monitor_CC)` — full architecture spec, NQ1-NQ6.
 - `~/.claude/shared-rules/global/tool-use.md` `#### RAG CLI` — operational rules in tool-use.
