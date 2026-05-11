@@ -50,8 +50,8 @@ def main():
                    help="Number of results (default 12, max 12)")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
-    p.add_argument("--no-rerank", dest="rerank", action="store_false", default=True,
-                   help="Disable cross-encoder reranking (faster, lower precision)")
+    p.add_argument("--rerank", dest="rerank", action="store_true", default=False,
+                   help="Enable cross-encoder reranking (slower, higher precision)")
 
     # ── search_keyword ────────────────────────────────────────────────────────
     p = sub.add_parser("search_keyword", help="BM25 keyword search for exact terms.")
