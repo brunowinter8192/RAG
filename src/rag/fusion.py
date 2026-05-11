@@ -28,18 +28,20 @@ def rrf_fusion(vector_results: list[dict], keyword_results: list[dict], top_k: i
 
 # Fuse two ranked result lists using Convex Combination with min-max normalization
 def cc_fusion(vector_results: list[dict], keyword_results: list[dict], top_k: int, alpha: float = CC_ALPHA) -> list[dict]:
-    max_vec = max((r['score'] for r in vector_results), default=0.0)
-    max_kw = max((r['score'] for r in keyword_results), default=0.0)
-
     scores = {}
     chunks = {}
 
-    if max_vec > 0:
+    if vector_results:
+        max_vec = max(r['score'] for r in vector_results)
+        min_vec = min(r['score'] for r in vector_results)
+        range_vec = max_vec - min_vec
         for r in vector_results:
             key = (r['collection'], r['document'], r['chunk_index'])
-            scores[key] = alpha * (r['score'] / max_vec)
+            norm = (r['score'] - min_vec) / range_vec if range_vec > 0 else 1.0
+            scores[key] = alpha * norm
             chunks[key] = r
 
+    max_kw = max((r['score'] for r in keyword_results), default=0.0)
     if max_kw > 0:
         for r in keyword_results:
             key = (r['collection'], r['document'], r['chunk_index'])
