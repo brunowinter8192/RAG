@@ -21,7 +21,7 @@
 
 Sparse is 45% weaker than Dense. Hybrid is WORSE than Dense alone because SPLADE anti-correlates with correct relevance — its false positives displace Dense's correct results in RRF.
 
-### Root Cause Analysis (dev/retrieval_eval/analysis/splade_findings.md)
+### Root Cause Analysis (ad-hoc investigation, notes preserved inline)
 
 1. **Domain mismatch:** SPLADE++ trained on MS-MARCO (web search). SearXNG corpus is YAML configs, Python API docs, code blocks — completely out-of-domain.
 2. **Low activation:** Queries produce only 35-51 non-zero SPLADE dimensions (expected 100-300 on in-domain text).
