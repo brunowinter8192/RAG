@@ -33,12 +33,14 @@ EMBEDDING_8B_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", str(RAG_ROOT / "mode
 EMBEDDING_06B_MODEL_PATH = os.getenv("EMBEDDING_06B_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Embedding-0.6B-Q8_0.gguf"))
 RERANKER_06B_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", str(RAG_ROOT / "models/qwen3-reranker-0.6b-q8_0.gguf"))
 RERANKER_8B_MODEL_PATH = os.getenv("RERANKER_8B_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-Reranker-8B-Q8_0.gguf"))
+GENERATOR_4B_MODEL_PATH = os.getenv("GENERATOR_MODEL_PATH", str(RAG_ROOT / "models/Qwen3-4B-Instruct-2507-Q8_0.gguf"))
 SPLADE_MODEL = "naver/splade-v3"
 
 EMBEDDING_8B_PORT = int(os.getenv("EMBEDDING_PORT", "8081"))
 EMBEDDING_06B_PORT = int(os.getenv("EMBEDDING_06B_PORT", "8084"))
 RERANKER_06B_PORT = int(os.getenv("RERANKER_PORT", "8082"))
 RERANKER_8B_PORT = int(os.getenv("RERANKER_8B_PORT", "8085"))
+GENERATOR_4B_PORT = int(os.getenv("GENERATOR_PORT", "8086"))
 SPLADE_PORT = int(os.getenv("SPLADE_PORT", "8083"))
 
 # Insertion order matters: when client calls find_server_url("embedding") and
@@ -89,6 +91,16 @@ SERVERS = {
         "required_for": ["rerank"],
         "default": False,
     },
+    "generator-4b": {
+        "default_port": GENERATOR_4B_PORT,
+        "model_path": GENERATOR_4B_MODEL_PATH,
+        "mode": "generate",
+        "type": "llama",
+        "extra_flags": ["-ngl", "99", "-c", "8192", "-np", "1", "-b", "4096", "-ub", "4096"],
+        "timeout": 90,
+        "required_for": ["generate"],
+        "default": False,
+    },
     "splade": {
         "default_port": SPLADE_PORT,
         "model_path": SPLADE_MODEL,
@@ -104,13 +116,20 @@ SERVERS = {
 # Preset names — arbitrary starts may not collide with these
 _PRESET_NAMES: frozenset[str] = frozenset(SERVERS.keys())
 
-# Map class-name (embedding / reranker / splade) → list of preset variant names,
-# in default-first order. Used by find_server_url() prefix-match for backward
+# Map llama-server mode → external class name used by find_server_url() prefix-match.
+# Modes that match their class name (embedding, splade) need no entry here.
+_MODE_TO_CLASS: dict[str, str] = {
+    "rerank": "reranker",
+    "generate": "generator",
+}
+
+# Map class-name (embedding / reranker / splade / generator) → list of preset variant
+# names, in default-first order. Used by find_server_url() prefix-match for backward
 # compatibility with client calls find_server_url("embedding") etc.
 _CLASS_MAP: dict[str, list[str]] = {}
 for _n, _c in SERVERS.items():
-    _CLASS_MAP.setdefault(_c["mode"] if _c["mode"] != "rerank" else "reranker", []).append(_n)
-# splade class name matches its mode already; keep insertion order = default first
+    _CLASS_MAP.setdefault(_MODE_TO_CLASS.get(_c["mode"], _c["mode"]), []).append(_n)
+# splade/embedding class names match their mode already; keep insertion order = default first
 
 
 # FUNCTIONS
