@@ -170,7 +170,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_cli.py (286 LOC)
+### server_cli.py (315 LOC)
 
 **Purpose:** CLI surface for `rag-cli server` / `workflow.py server`. Dispatches status, start, stop, restart, list, tail, errors, and presets subcommands. Formats tabular output for terminal display.
 **Reads:** `~/.rag-locks/server-port-{N}.json` state files; log files (for `tail` and idle display); error_log (for `errors` subcommand).
