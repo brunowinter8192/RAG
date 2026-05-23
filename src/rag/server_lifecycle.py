@@ -106,32 +106,12 @@ def start(name: str) -> bool:
         log_path=str(log_path),
     )
 
-    timeout = cfg["timeout"]
-    try:
-        for i in range(timeout):
-            time.sleep(1)
-            if _check_health_port(port):
-                actual_pid = find_pid_on_port(port)
-                if actual_pid is not None and actual_pid != proc.pid:
-                    _write_state_file(
-                        pid=actual_pid, port=port,
-                        model_path=cfg["model_path"], model_name=model_name,
-                        mode=cfg["mode"], name=name,
-                        log_path=str(log_path),
-                    )
-                final_pid = actual_pid or proc.pid
-                logging.info(
-                    f"{name} started on port {port} "
-                    f"(PID {final_pid}) after {i + 1}s"
-                )
-                error_log.write(name, "start_succeeded",
-                                f"{name} healthy on port {port} after {i + 1}s",
-                                caller="start", pid=final_pid, port=port, elapsed_s=i + 1)
-                return True
-        raise RuntimeError(f"Failed to start {name} after {timeout}s")
-    except Exception:
-        _unlink_state_file(port, caller="start", reason=f"start({name}) failed: did not become healthy in {cfg['timeout']}s")
-        raise
+    return _wait_for_health(
+        proc=proc, port=port,
+        model_path=cfg["model_path"], model_name=model_name,
+        mode=cfg["mode"], name=name, log_path=str(log_path),
+        timeout=cfg["timeout"], label=name, caller="start",
+    )
 
 
 # Stop a preset server; finds actual port via state file, falls back to default port
@@ -256,31 +236,12 @@ def start_arbitrary(model_path: str, port: int | None, mode: str, name: str | No
     error_log.write(label_for_log, "start_initiated",
                     f"start_arbitrary({label_for_log}, port={port}) called",
                     caller="start_arbitrary", model_path=model_path, mode=mode)
-    try:
-        for i in range(timeout):
-            time.sleep(1)
-            if _check_health_port(port):
-                actual_pid = find_pid_on_port(port)
-                if actual_pid is not None and actual_pid != proc.pid:
-                    _write_state_file(
-                        pid=actual_pid, port=port,
-                        model_path=model_path, model_name=model_name,
-                        mode=mode, name=name,
-                        log_path=str(log_path),
-                    )
-                final_pid = actual_pid or proc.pid
-                logging.info(
-                    f"Arbitrary server {label_for_log} started on port {port} "
-                    f"(PID {final_pid}) after {i + 1}s"
-                )
-                error_log.write(label_for_log, "start_succeeded",
-                                f"{label_for_log} healthy on port {port} after {i + 1}s",
-                                caller="start_arbitrary", pid=final_pid, port=port, elapsed_s=i + 1)
-                return True
-        raise RuntimeError(f"Failed to start arbitrary server on port {port} after {timeout}s")
-    except Exception:
-        _unlink_state_file(port, caller="start_arbitrary", reason=f"start_arbitrary({name or 'unnamed'}, port={port}) failed: did not become healthy in {timeout}s")
-        raise
+    return _wait_for_health(
+        proc=proc, port=port,
+        model_path=model_path, model_name=model_name,
+        mode=mode, name=name, log_path=str(log_path),
+        timeout=timeout, label=label_for_log, caller="start_arbitrary",
+    )
 
 
 # Resolve a class-name (embedding / reranker / splade) to the default variant preset name.
@@ -375,6 +336,32 @@ def check_health(name: str) -> bool:
     except Exception as e:
         logging.warning(f"Health check failed for {name} on port {port}: {e}")
         return False
+
+
+# Health-poll wait loop: polls until /health responds, rewrites state file with actual PID
+# if it differs from proc.pid, logs success; unlinks state file on any exception.
+def _wait_for_health(
+    proc: subprocess.Popen, port: int, model_path: str, model_name: str,
+    mode: str, name: str | None, log_path: str, timeout: int, label: str, caller: str,
+) -> bool:
+    try:
+        for i in range(timeout):
+            time.sleep(1)
+            if _check_health_port(port):
+                actual_pid = find_pid_on_port(port)
+                if actual_pid is not None and actual_pid != proc.pid:
+                    _write_state_file(pid=actual_pid, port=port, model_path=model_path,
+                                      model_name=model_name, mode=mode, name=name, log_path=log_path)
+                final_pid = actual_pid or proc.pid
+                logging.info(f"{label} started on port {port} (PID {final_pid}) after {i + 1}s")
+                error_log.write(label, "start_succeeded", f"{label} healthy on port {port} after {i + 1}s",
+                                caller=caller, pid=final_pid, port=port, elapsed_s=i + 1)
+                return True
+        raise RuntimeError(f"Failed to start {label} on port {port} after {timeout}s")
+    except Exception:
+        _unlink_state_file(port, caller=caller,
+                           reason=f"{caller}({label}, port={port}) failed: did not become healthy in {timeout}s")
+        raise
 
 
 # Mapping: llama-server mode → CLI flag. Modes not in this dict use llama-server's
