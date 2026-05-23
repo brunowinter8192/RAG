@@ -7,7 +7,7 @@ from typing import Union
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready, find_server_url
+from .server_manager import ensure_ready, find_server_url, _touch_state_file
 
 load_dotenv()
 
@@ -48,8 +48,10 @@ def _sparse_embed_url() -> str:
 
 # Generate sparse embeddings via SPLADE server API
 def generate_sparse_embeddings(texts: list[str]) -> list[dict]:
+    url = _sparse_embed_url()
+    _touch_state_file(int(url.split(":")[2].split("/")[0]))
     response = httpx.post(
-        _sparse_embed_url(),
+        url,
         json={"input": texts, "model": "splade"},
         timeout=300.0
     )
