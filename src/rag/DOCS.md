@@ -220,10 +220,10 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### error_log.py (48 LOC)
+### error_log.py (60 LOC)
 
-**Purpose:** Append structured error entries to `src/rag/logs/errors.jsonl`; O_APPEND write is POSIX-atomic for writes under PIPE_BUF, no locking needed.
-**Reads:** nothing (write-only).
+**Purpose:** Append structured error entries to `src/rag/logs/errors.jsonl`; O_APPEND write is POSIX-atomic for writes under PIPE_BUF, no locking needed. Defines `ERROR_CODES` (frozenset of 4 genuine anomaly codes) to separate lifecycle noise from real failures. `read_errors_today()` is the canonical anomaly filter query for display consumers (Monitor_CC, future callers).
+**Reads:** `src/rag/logs/errors.jsonl` (via `read_all`, `read_today`, `read_errors_today`).
 **Writes:** `src/rag/logs/errors.jsonl` (one JSON line per error event).
 **Called by:** server_utils.py, server_lifecycle.py, watchdog.py, server_cli.py
 **Calls out:** (none — stdlib only: json, pathlib)
