@@ -150,7 +150,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_lifecycle.py (402 LOC)
+### server_lifecycle.py (389 LOC)
 
 **Purpose:** Start/stop/restart logic for preset and arbitrary servers, plus state query functions. Manages single-instance enforcement, health polling on startup, port resolution, and process command construction. Provides `find_server_url` and `check_health` used by embedder/reranker/sparse_embedder callers.
 **Reads:** `~/.rag-locks/server-port-{N}.json` state files (via `find_server_url`, `start` single-instance check); httpx `/health` endpoints (via `check_health`).
