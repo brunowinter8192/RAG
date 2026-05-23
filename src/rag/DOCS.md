@@ -20,7 +20,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ## Modules
 
-### db.py (142 LOC)
+### db.py (140 LOC)
 
 **Purpose:** PostgreSQL connection factory, collection/document queries, and WHERE-clause filter builder shared across retrieval sub-modules.
 **Reads:** `.env` (POSTGRES_* connection params); PostgreSQL `documents` table.
@@ -30,31 +30,31 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### embedder.py (74 LOC)
+### embedder.py (76 LOC)
 
 **Purpose:** HTTP client for the llama-server dense embedding endpoint; auto-starts the embedding GPU server on first call via `server_manager.ensure_ready`.
 **Reads:** `EMBEDDING_URL` env (override) or `server_manager.find_server_url('embedding')` for URL; llama-server `/v1/embeddings` response.
-**Writes:** `src/rag/logs/embedder.log`.
+**Writes:** `src/rag/logs/embedder.log`; bumps `~/.rag-locks/server-port-{N}.json` mtime before each request (via `_touch_state_file`) so the watchdog idle timer reflects real inference activity.
 **Called by:** search_primitives.py, indexer.py
 **Calls out:** httpx
 
 ---
 
-### sparse_embedder.py (58 LOC)
+### sparse_embedder.py (60 LOC)
 
 **Purpose:** HTTP client for the SPLADE server sparse embedding endpoint; mirrors `embedder.py` interface.
 **Reads:** `SPLADE_URL` env (override) or `server_manager.find_server_url('splade')` for URL; SPLADE server `/v1/sparse-embeddings` response.
-**Writes:** `src/rag/logs/sparse_embedder.log`.
+**Writes:** `src/rag/logs/sparse_embedder.log`; bumps `~/.rag-locks/server-port-{N}.json` mtime before each request (via `_touch_state_file`).
 **Called by:** search_primitives.py, indexer.py
 **Calls out:** httpx
 
 ---
 
-### reranker.py (66 LOC)
+### reranker.py (68 LOC)
 
 **Purpose:** HTTP client for the llama-server cross-encoder reranking endpoint; re-scores candidate result lists by query-document relevance.
 **Reads:** `RERANKER_URL` env (override) or `server_manager.find_server_url('reranker')` for URL; llama-server `/v1/rerank` response.
-**Writes:** `src/rag/logs/reranker.log`.
+**Writes:** `src/rag/logs/reranker.log`; bumps `~/.rag-locks/server-port-{N}.json` mtime before each request (via `_touch_state_file`).
 **Called by:** retriever.py
 **Calls out:** httpx
 
@@ -140,17 +140,17 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_utils.py (266 LOC)
+### server_utils.py (293 LOC)
 
-**Purpose:** Shared constants + process utilities used by all server sub-modules. Contains the SERVERS preset dict, all path/port constants, `_CLASS_MAP`, and the eight process primitives (`find_pid_on_port`, `find_all_pids_on_port`, `pgrep_llama_server`, `_check_health_port`, `_stop_by_state`, `_pid_alive`, `_allocate_port`, `_resolve_port`) plus state-file I/O helpers (`_write_state_file`, `_unlink_state_file`). Dependency root — no imports from other server sub-modules.
+**Purpose:** Shared constants + process utilities used by all server sub-modules. Contains the SERVERS preset dict, all path/port constants, `_CLASS_MAP`, and the eight process primitives (`find_pid_on_port`, `find_all_pids_on_port`, `pgrep_llama_server`, `_check_health_port`, `_stop_by_state`, `_pid_alive`, `_allocate_port`, `_resolve_port`) plus state-file I/O helpers (`_write_state_file`, `_unlink_state_file`, `_touch_state_file`). Dependency root — no imports from other server sub-modules.
 **Reads:** env vars (RAG_PROJECT_ROOT, LLAMA_SERVER_PATH, port overrides, IDLE_TIMEOUT); `lsof`/`pgrep` subprocess; httpx `/health` endpoints; `~/.rag-locks/server-port-{N}.json` (state file reads in `_stop_by_state`, `_unlink_state_file`).
-**Writes:** `~/.rag-locks/server-port-{N}.json` (via `_write_state_file`, `_unlink_state_file`); kills processes (via `_stop_by_state`); `~/.rag-locks/logs/server_manager.log` (logging.basicConfig target). `LOG_DIR = ~/.rag-locks/logs/` — fixed worktree-independent path so server logs survive worktree cleanup (per-module Python loggers in chunker/embedder/etc. keep their own local `<project>/src/rag/logs/` paths).
+**Writes:** `~/.rag-locks/server-port-{N}.json` (via `_write_state_file`, `_unlink_state_file`; mtime bump via `_touch_state_file`); kills processes (via `_stop_by_state`); `~/.rag-locks/logs/server_manager.log` (logging.basicConfig target). `LOG_DIR = ~/.rag-locks/logs/` — fixed worktree-independent path so server logs survive worktree cleanup (per-module Python loggers in chunker/embedder/etc. keep their own local `<project>/src/rag/logs/` paths).
 **Called by:** server_lifecycle.py, watchdog.py, server_cli.py, server_manager.py.
 **Calls out:** httpx, subprocess, error_log.
 
 ---
 
-### server_lifecycle.py (395 LOC)
+### server_lifecycle.py (389 LOC)
 
 **Purpose:** Start/stop/restart logic for preset and arbitrary servers, plus state query functions. Manages single-instance enforcement, health polling on startup, port resolution, and process command construction. Provides `find_server_url` and `check_health` used by embedder/reranker/sparse_embedder callers.
 **Reads:** `~/.rag-locks/server-port-{N}.json` state files (via `find_server_url`, `start` single-instance check); httpx `/health` endpoints (via `check_health`).
@@ -160,17 +160,17 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### watchdog.py (118 LOC)
+### watchdog.py (112 LOC)
 
-**Purpose:** Watchdog subprocess management and idle-timeout enforcement. `_ensure_watchdog_process` spawns a detached singleton process; `_watchdog_loop` runs inside it (via `watchdog_main.py`). Per-tick: purges unregistered llama-server orphans, idle-stops servers whose log file mtime exceeds `IDLE_TIMEOUT`.
-**Reads:** `~/.rag-locks/server-port-{N}.json` state files; log file mtimes; `~/.rag-locks/watchdog.pid`.
+**Purpose:** Watchdog subprocess management and idle-timeout enforcement. `_ensure_watchdog_process` spawns a detached singleton process; `_watchdog_loop` runs inside it (via `watchdog_main.py`). Per-tick: purges unregistered llama-server orphans, idle-stops servers whose state-file mtime exceeds `IDLE_TIMEOUT`.
+**Reads:** `~/.rag-locks/server-port-{N}.json` state files (content + mtime for idle calculation); `~/.rag-locks/watchdog.pid`.
 **Writes:** kills orphan/idle server processes (via `_stop_by_state`); `~/.rag-locks/watchdog.pid`.
 **Called by:** server_manager.py (re-exports `_ensure_watchdog_process`, `_watchdog_loop`); watchdog_main.py (runs `_watchdog_loop`).
 **Calls out:** server_utils (constants + `_stop_by_state` + `_pid_alive` + `_check_health_port` + `pgrep_llama_server`), error_log.
 
 ---
 
-### server_cli.py (286 LOC)
+### server_cli.py (315 LOC)
 
 **Purpose:** CLI surface for `rag-cli server` / `workflow.py server`. Dispatches status, start, stop, restart, list, tail, errors, and presets subcommands. Formats tabular output for terminal display.
 **Reads:** `~/.rag-locks/server-port-{N}.json` state files; log files (for `tail` and idle display); error_log (for `errors` subcommand).
@@ -200,7 +200,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### lock.py (132 LOC)
+### lock.py (156 LOC)
 
 **Purpose:** Global RAG mutex via `fcntl.flock` + JSON lockfile; provides `acquire` context manager, `read`, `update_progress`, and `heartbeat` functions used by workflow and CLI.
 **Reads:** `~/.rag-locks/rag.flock` (fd hold); `~/.rag-locks/rag.lock` (JSON details).
@@ -220,10 +220,10 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### error_log.py (48 LOC)
+### error_log.py (60 LOC)
 
-**Purpose:** Append structured error entries to `src/rag/logs/errors.jsonl`; O_APPEND write is POSIX-atomic for writes under PIPE_BUF, no locking needed.
-**Reads:** nothing (write-only).
+**Purpose:** Append structured error entries to `src/rag/logs/errors.jsonl`; O_APPEND write is POSIX-atomic for writes under PIPE_BUF, no locking needed. Defines `ERROR_CODES` (frozenset of 4 genuine anomaly codes) to separate lifecycle noise from real failures. `read_errors_today()` is the canonical anomaly filter query for display consumers (Monitor_CC, future callers).
+**Reads:** `src/rag/logs/errors.jsonl` (via `read_all`, `read_today`, `read_errors_today`).
 **Writes:** `src/rag/logs/errors.jsonl` (one JSON line per error event).
 **Called by:** server_utils.py, server_lifecycle.py, watchdog.py, server_cli.py
 **Calls out:** (none — stdlib only: json, pathlib)

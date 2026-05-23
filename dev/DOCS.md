@@ -24,6 +24,21 @@ Schema is created automatically by `p4_db.py:ensure_schema()` on first use.
 - [indexing/DOCS.md](indexing/DOCS.md) — Indexing pipeline modules and scripts
 - [retrieval/DOCS.md](retrieval/DOCS.md) — Retrieval pipeline modules and scripts
 
+## error_log/
+
+`analyze_errors.py` — filter `src/rag/logs/errors.jsonl` to genuine anomaly codes (mirrors `ERROR_CODES` from `src/rag/error_log.py`) and print a summary + detail view. Lifecycle events (`start_*`, `stop_*`, `state_unlinked`) are excluded; only the four anomaly classes are shown.
+
+Flags: `--all` (full history; default: today only), `--tail N` (detail rows shown; default 10), `--raw` (JSONL dump to stdout for piping).
+
+```bash
+./venv/bin/python dev/error_log/analyze_errors.py --all
+./venv/bin/python dev/error_log/analyze_errors.py --all --raw | grep watchdog
+```
+
+**Note:** `ERROR_CODES` is inlined in this script (dev/ cannot import from src/); keep in sync with `src/rag/error_log.py` when adding new anomaly codes.
+
+---
+
 ## persisted_output_probe/
 
 Single-session probe (2026-05-10) for calibrating the CLI persisted-output threshold. `report.md` contains findings. No reusable scripts — probe purpose fulfilled.

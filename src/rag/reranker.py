@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready, find_server_url
+from .server_manager import ensure_ready, find_server_url, _touch_state_file
 
 load_dotenv()
 
@@ -51,8 +51,10 @@ def _rerank_url() -> str:
 
 # Rerank documents against query via llama-server API
 def rerank_documents(query: str, contents: list[str]) -> list[dict]:
+    url = _rerank_url()
+    _touch_state_file(int(url.split(":")[2].split("/")[0]))
     response = httpx.post(
-        _rerank_url(),
+        url,
         json={
             "query": query,
             "documents": contents,

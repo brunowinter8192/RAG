@@ -9,7 +9,7 @@ from .server_utils import (
     RAG_ROOT, LLAMA_SERVER_PATH, LOG_DIR,
     find_pid_on_port, find_all_pids_on_port, pgrep_llama_server,
     _pid_alive, _check_health_port, _allocate_port, _resolve_port,
-    _stop_by_state, _write_state_file, _unlink_state_file,
+    _stop_by_state, _write_state_file, _unlink_state_file, _touch_state_file,
 )
 from .server_lifecycle import (
     start, stop, restart, start_arbitrary,

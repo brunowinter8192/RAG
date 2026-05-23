@@ -6,7 +6,6 @@ import signal
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 from . import error_log
 from .server_utils import (
@@ -66,18 +65,13 @@ def _watchdog_tick() -> None:
             continue
         if not _check_health_port(port):
             continue
-        log = Path(state["log_path"])
-        try:
-            idle = now - log.stat().st_mtime
-        except FileNotFoundError:
-            logging.warning(f"Watchdog: log missing at {log}, skipping idle check")
-            continue
+        idle = now - state_file.stat().st_mtime
         if idle > IDLE_TIMEOUT:
             label = state.get("name") or f"port-{port}"
             logging.info(f"Watchdog: {label} idle {idle:.0f}s, stopping")
             _stop_by_state(state, state_file,
                            caller="watchdog",
-                           reason=f"idle {idle:.0f}s exceeds IDLE_TIMEOUT={IDLE_TIMEOUT}s (log {state['log_path']})")
+                           reason=f"idle {idle:.0f}s exceeds IDLE_TIMEOUT={IDLE_TIMEOUT}s")
 
 
 # Kill llama-server PIDs not registered in any state file (continuous orphan enforcement)
