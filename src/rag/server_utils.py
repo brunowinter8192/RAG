@@ -267,6 +267,14 @@ def _write_state_file(*, pid: int, port: int, model_path: str, model_name: str,
     return path
 
 
+# Bump state-file mtime to register activity; no-op if file was just unlinked (race: watchdog)
+def _touch_state_file(port: int) -> None:
+    try:
+        os.utime(TIMESTAMP_DIR / f"server-port-{port}.json", None)
+    except FileNotFoundError:
+        logging.debug(f"_touch_state_file: port {port} state file gone (watchdog race), skipping")
+
+
 # Remove state file for a port; safe if never written or already gone.
 # caller + reason are LIFECYCLE EVIDENCE — every state-file removal logged
 # so any future "where did my server go?" investigation has a starting point.

@@ -7,7 +7,7 @@ from typing import Union
 import httpx
 from dotenv import load_dotenv
 
-from .server_manager import ensure_ready, find_server_url
+from .server_manager import ensure_ready, find_server_url, _touch_state_file
 
 load_dotenv()
 
@@ -64,8 +64,10 @@ def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
 def generate_embeddings(texts: list[str], prefix: str | None = None) -> list[list[float]]:
     if prefix:
         texts = [f"{prefix}{t}" for t in texts]
+    url = _embedding_url()
+    _touch_state_file(int(url.split(":")[2].split("/")[0]))
     response = httpx.post(
-        _embedding_url(),
+        url,
         json={"input": texts, "model": EMBEDDING_MODEL},
         timeout=300.0
     )
