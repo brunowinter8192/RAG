@@ -144,7 +144,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 **Purpose:** Shared constants + process utilities used by all server sub-modules. Contains the SERVERS preset dict, all path/port constants, `_CLASS_MAP`, and the eight process primitives (`find_pid_on_port`, `find_all_pids_on_port`, `pgrep_llama_server`, `_check_health_port`, `_stop_by_state`, `_pid_alive`, `_allocate_port`, `_resolve_port`) plus state-file I/O helpers (`_write_state_file`, `_unlink_state_file`). Dependency root — no imports from other server sub-modules.
 **Reads:** env vars (RAG_PROJECT_ROOT, LLAMA_SERVER_PATH, port overrides, IDLE_TIMEOUT); `lsof`/`pgrep` subprocess; httpx `/health` endpoints; `~/.rag-locks/server-port-{N}.json` (state file reads in `_stop_by_state`, `_unlink_state_file`).
-**Writes:** `~/.rag-locks/server-port-{N}.json` (via `_write_state_file`, `_unlink_state_file`); kills processes (via `_stop_by_state`); `src/rag/logs/server_manager.log` (logging.basicConfig target).
+**Writes:** `~/.rag-locks/server-port-{N}.json` (via `_write_state_file`, `_unlink_state_file`); kills processes (via `_stop_by_state`); `~/.rag-locks/logs/server_manager.log` (logging.basicConfig target). `LOG_DIR = ~/.rag-locks/logs/` — fixed worktree-independent path so server logs survive worktree cleanup (per-module Python loggers in chunker/embedder/etc. keep their own local `<project>/src/rag/logs/` paths).
 **Called by:** server_lifecycle.py, watchdog.py, server_cli.py, server_manager.py.
 **Calls out:** httpx, subprocess, error_log.
 

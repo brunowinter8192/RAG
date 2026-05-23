@@ -377,14 +377,21 @@ def check_health(name: str) -> bool:
         return False
 
 
+# Mapping: llama-server mode → CLI flag. Modes not in this dict use llama-server's
+# default behavior (no mode flag) — that's the text-generation case.
+_MODE_FLAGS: dict[str, str] = {
+    "embedding": "--embedding",
+    "rerank": "--rerank",
+}
+
+
 # Build llama-server cmd for a given model, port, mode, and extra flags
 def _build_llama_cmd(model_path: str, port: int, mode: str, extra_flags: list[str]) -> list[str]:
-    mode_flag = "--embedding" if mode == "embedding" else "--rerank"
-    return [
-        LLAMA_SERVER_PATH, "-m", model_path,
-        mode_flag, "--host", "0.0.0.0", "--port", str(port),
-        *extra_flags,
-    ]
+    cmd = [LLAMA_SERVER_PATH, "-m", model_path]
+    if mode in _MODE_FLAGS:
+        cmd.append(_MODE_FLAGS[mode])
+    cmd.extend(["--host", "0.0.0.0", "--port", str(port), *extra_flags])
+    return cmd
 
 
 # Build uvicorn cmd for a given app and port

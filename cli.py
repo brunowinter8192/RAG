@@ -9,8 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import argparse
 
 from src.rag.retriever import (
-    search_workflow, format_results,
-    search_keyword_workflow,
+    format_results,
     search_hybrid_workflow,
     list_collections_workflow, format_collections,
     list_documents_workflow, format_documents,
@@ -29,18 +28,9 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="cli.py",
-        description="RAG CLI — semantic, hybrid, and keyword search over indexed document collections."
+        description="RAG CLI — hybrid search over indexed document collections."
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
-
-    # ── search ────────────────────────────────────────────────────────────────
-    p = sub.add_parser("search", help="Semantic (dense vector) search.")
-    p.add_argument("query", help="Natural language search query")
-    p.add_argument("collection", help="Collection to search in")
-    p.add_argument("--top-k", dest="top_k", type=int, default=12,
-                   help="Number of results (default 12, max 12)")
-    p.add_argument("--document", default=None,
-                   help="Filter by document name. %% as wildcard (e.g. 'arxiv_%%')")
 
     # ── search_hybrid ─────────────────────────────────────────────────────────
     p = sub.add_parser("search_hybrid", help="Hybrid search (vector + SPLADE + RRF fusion).")
@@ -52,15 +42,6 @@ def main():
                    help="Filter by document name. %% as wildcard")
     p.add_argument("--rerank", dest="rerank", action="store_true", default=False,
                    help="Enable cross-encoder reranking (slower, higher precision)")
-
-    # ── search_keyword ────────────────────────────────────────────────────────
-    p = sub.add_parser("search_keyword", help="BM25 keyword search for exact terms.")
-    p.add_argument("query", help="Keywords (space = AND). Case insensitive, stems words.")
-    p.add_argument("collection", help="Collection to search in")
-    p.add_argument("--top-k", dest="top_k", type=int, default=12,
-                   help="Number of results (default 12, max 12)")
-    p.add_argument("--document", default=None,
-                   help="Filter by document name. %% as wildcard")
 
     # ── list_collections ──────────────────────────────────────────────────────
     p = sub.add_parser("list_collections", help="List all indexed collections with chunk counts.")
@@ -155,21 +136,9 @@ def main():
 
 
 def _dispatch(args: argparse.Namespace) -> None:
-    if args.cmd == "search":
-        results = search_workflow(
-            args.query, args.top_k, args.collection, args.document
-        )
-        print(format_results(results))
-
-    elif args.cmd == "search_hybrid":
+    if args.cmd == "search_hybrid":
         results = search_hybrid_workflow(
             args.query, args.top_k, args.collection, args.document, args.rerank
-        )
-        print(format_results(results))
-
-    elif args.cmd == "search_keyword":
-        results = search_keyword_workflow(
-            args.query, args.top_k, args.collection, args.document
         )
         print(format_results(results))
 

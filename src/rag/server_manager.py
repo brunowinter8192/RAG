@@ -4,7 +4,7 @@
 # All server logic lives in server_utils / server_lifecycle / watchdog / server_cli.
 
 from .server_utils import (
-    SERVERS, _CLASS_MAP, _PRESET_NAMES,
+    SERVERS, _CLASS_MAP, _MODE_TO_CLASS, _PRESET_NAMES,
     TIMESTAMP_DIR, WATCHDOG_PID_FILE, IDLE_TIMEOUT, WATCHDOG_INTERVAL,
     RAG_ROOT, LLAMA_SERVER_PATH, LOG_DIR,
     find_pid_on_port, find_all_pids_on_port, pgrep_llama_server,
@@ -60,7 +60,7 @@ def ensure_ready(target: str) -> None:
 
     for name in needed_servers:
         # Skip if any variant of this class is already healthy.
-        cls = "reranker" if SERVERS[name]["mode"] == "rerank" else SERVERS[name]["mode"]
+        cls = _MODE_TO_CLASS.get(SERVERS[name]["mode"], SERVERS[name]["mode"])
         if any(check_health(v) for v in _CLASS_MAP.get(cls, [name])):
             continue
         start(name)

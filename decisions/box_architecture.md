@@ -2,7 +2,7 @@
 
 ## Status Quo (IST)
 
-All RAG GPU processes (llama-server presets embedding/reranker, uvicorn-based splade, arbitrary llama-server starts) are managed via `rag-cli server` as the sole sanctioned interface. Each box-managed process has a state file at `~/.rag-locks/server-port-{N}.json` containing pid, port, model_path, model_name, mode, start_time, log_path, name. stdout/stderr is redirected to per-process log files at `RAG/src/rag/logs/llama-port-{N}.log` for llama-server; splade writes its own `splade_server.log` via Python `logging`.
+All RAG GPU processes (llama-server presets embedding/reranker, uvicorn-based splade, arbitrary llama-server starts) are managed via `rag-cli server` as the sole sanctioned interface. Each box-managed process has a state file at `~/.rag-locks/server-port-{N}.json` containing pid, port, model_path, model_name, mode, start_time, log_path, name. stdout/stderr is redirected to per-process log files at `~/.rag-locks/logs/llama-port-{N}.log` for llama-server; splade writes its own `~/.rag-locks/logs/splade_server.log` via Python `logging`. `LOG_DIR` in `server_utils.py` is fixed to `~/.rag-locks/logs/` (NOT `<project>/src/rag/logs/`) so logs survive worktree cleanup — a server spawned from a worker-worktree keeps its log path stable after worktree removal, enabling watchdog idle-stop based on log mtime regardless of where the server was started.
 
 The watchdog (`_watchdog_loop` in `server_manager.py`) iterates state files, computes idle from log file mtime, sends SIGTERM after IDLE_TIMEOUT (default 3600s). On every tick it also runs `_purge_orphans` which kills any `pgrep -x llama-server` PID not in the state-file registry — out-of-box processes die within ~30s.
 

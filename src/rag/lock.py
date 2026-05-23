@@ -1,13 +1,22 @@
 # INFRASTRUCTURE
 import fcntl
 import json
+import logging
 import os
 import pathlib
+import threading
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 LOCK_DIR = pathlib.Path.home() / ".rag-locks"
 _FLOCK_FILE = LOCK_DIR / "rag.flock"   # held open while lock is active
 _DATA_FILE = LOCK_DIR / "rag.lock"     # JSON details (written atomically)
+
+# Auto-heartbeat interval — long-running operations (indexing/embedding) don't
+# call heartbeat()/update_progress() between steps; without periodic updates the
+# heartbeat goes stale and `rag-cli status` falsely reports the process as hung.
+_HEARTBEAT_INTERVAL = 30
 
 
 class LockBusyError(RuntimeError):
@@ -48,15 +57,30 @@ class acquire:
             "heartbeat": datetime.now(timezone.utc).isoformat(),
         }
         _write_atomic(data)
+        # Auto-heartbeat thread — keeps heartbeat fresh during long indexing loops
+        # without requiring callers to remember explicit heartbeat() calls.
+        # Daemon thread → dies with the process if __exit__ is skipped.
+        self._stop_heartbeat = threading.Event()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop, daemon=True
+        )
+        self._heartbeat_thread.start()
+
+    def _heartbeat_loop(self) -> None:
+        while not self._stop_heartbeat.wait(_HEARTBEAT_INTERVAL):
+            heartbeat()
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_):
+        self._stop_heartbeat.set()
         try:
             _DATA_FILE.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except OSError as e:
+            # Filesystem race during cleanup (file already removed, perm change)
+            # is non-fatal — process is exiting the lock context regardless.
+            logger.warning("lock data file cleanup failed: %s", e)
         fcntl.flock(self._fd.fileno(), fcntl.LOCK_UN)
         self._fd.close()
 
