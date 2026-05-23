@@ -7,6 +7,13 @@ LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 ERRORS_FILE = LOG_DIR / "errors.jsonl"
 
+ERROR_CODES = frozenset({
+    "single_instance_alive_replaced",  # had to replace an unhealthy existing server
+    "busy",                             # ServerBusyError — lock contention
+    "watchdog_unlinked_dead",           # watchdog found PID dead, cleaned up state
+    "watchdog_killed_orphan",           # watchdog killed an unregistered llama-server
+})
+
 
 # FUNCTIONS
 
@@ -29,6 +36,11 @@ def read_today() -> list[dict]:
     now_local = datetime.now().astimezone()
     today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
     return [e for e in read_all() if datetime.fromisoformat(e["ts"]) >= today_start]
+
+
+# Return today's entries that are genuine anomalies (code in ERROR_CODES)
+def read_errors_today() -> list[dict]:
+    return [e for e in read_today() if e["code"] in ERROR_CODES]
 
 
 # Return all error entries from the JSONL file
