@@ -49,6 +49,48 @@ def run_baseline(queries_path: str, config: dict) -> None:
     _write_report(query_results, collection, config, label="baseline")
 
 
+def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: dict) -> None:
+    for p in (param1, param2):
+        if p not in SWEEP_RANGES:
+            print(f"ERROR: '{p}' is not a sweepable parameter. Valid: {sorted(SWEEP_RANGES)}")
+            sys.exit(1)
+
+    collection = base_config["collection"]
+    values1 = SWEEP_RANGES[param1]
+    values2 = SWEEP_RANGES[param2]
+
+    # Determine which modes are exercised for server pre-check
+    modes_in_sweep = values1 if param1 == "mode" else (values2 if param2 == "mode" else [base_config["mode"]])
+    _check_servers(modes_in_sweep)
+
+    queries = _load_queries(queries_path)
+    _verify_drift(queries, collection)
+    print(f"Running cross-sweep: {param1} × {param2} | {len(values1)}×{len(values2)}={len(values1)*len(values2)} configs | {len(queries)} queries | collection={collection}")
+
+    # results[(v1, v2)] = (avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k)
+    results: dict[tuple, tuple] = {}
+    total_configs = len(values1) * len(values2)
+    done = 0
+    for v1 in values1:
+        for v2 in values2:
+            config = {**base_config, param1: v1, param2: v2}
+            query_results = []
+            for entry in queries:
+                hits = _run_query(entry["query"], collection, config)
+                query_results.append({
+                    "entry": entry,
+                    "hits": hits,
+                    "doc_match": _check_document_match(entry["expected_documents"], hits),
+                    "snippet_match": _check_snippet_match(entry["expected_chunks"], hits),
+                    "rank_metrics": _compute_rank_metrics(hits, entry["expected_chunks"], config["top_k"]),
+                })
+            results[(v1, v2)] = _compute_avg_metrics(query_results)
+            done += 1
+            print(f"  [{done}/{total_configs}] {param1}={v1} {param2}={v2}: snippet_recall={results[(v1,v2)][1]:.0%} NDCG={results[(v1,v2)][2]:.3f}")
+
+    _write_cross_sweep_report(results, param1, param2, base_config)
+
+
 def run_sweep(queries_path: str, param: str, base_config: dict) -> None:
     if param not in SWEEP_RANGES:
         print(f"ERROR: '{param}' is not a sweepable parameter. Valid: {sorted(SWEEP_RANGES)}")
@@ -423,6 +465,114 @@ def _write_sweep_comparison(rows: list[tuple], param: str, base_config: dict) ->
     print(f"Sweep comparison: {report_path}")
 
 
+# Write cross-product sweep comparison MD: primary snippet_recall matrix + secondary metric matrices
+def _write_cross_sweep_report(results: dict, param1: str, param2: str, base_config: dict) -> None:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_dir = Path(__file__).parent / "A_retrieval_eval_reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"cross_{param1}_{param2}_{base_config['collection']}_{timestamp}.md"
+
+    values1 = SWEEP_RANGES[param1]
+    values2 = SWEEP_RANGES[param2]
+    fixed = {k: v for k, v in base_config.items() if k not in (param1, param2)}
+    fixed_str = ", ".join(f"{k}={v}" for k, v in fixed.items())
+
+    lines = [
+        f"# Cross-Product Sweep: {param1} × {param2}",
+        f"",
+        f"**Timestamp:** {timestamp}",
+        f"**Collection:** {base_config['collection']}",
+        f"**Swept:** `{param1}` ({len(values1)} values) × `{param2}` ({len(values2)} values) = {len(values1)*len(values2)} configs",
+        f"**Fixed:** {fixed_str}",
+        f"",
+        f"---",
+        f"",
+        f"## Primary: Snippet Recall  (format: `snippet% (NDCG)`)",
+        f"",
+    ]
+
+    # Header row
+    col_header = " | ".join(f"{param2}={v}" for v in values2)
+    sep = " | ".join("---" for _ in values2)
+    lines.append(f"| {param1} \\ {param2} | {col_header} |")
+    lines.append(f"|---|{sep}|")
+    for v1 in values1:
+        cells = []
+        for v2 in values2:
+            avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k = results[(v1, v2)]
+            cells.append(f"{avg_snip:.0%} ({avg_ndcg:.3f})")
+        lines.append(f"| {v1} | " + " | ".join(cells) + " |")
+
+    # Find best cell by snippet_recall, tie-break NDCG
+    best_key = max(results.keys(), key=lambda k: (results[k][1], results[k][2]))
+    best = results[best_key]
+    lines += [
+        f"",
+        f"**Best cell:** `{param1}={best_key[0]}, {param2}={best_key[1]}` — snippet_recall={best[1]:.0%}, NDCG={best[2]:.3f}, MRR={best[3]:.3f}",
+        f"",
+        f"---",
+        f"",
+        f"## Secondary: NDCG@K",
+        f"",
+    ]
+
+    lines.append(f"| {param1} \\ {param2} | {col_header} |")
+    lines.append(f"|---|{sep}|")
+    for v1 in values1:
+        cells = [f"{results[(v1, v2)][2]:.3f}" for v2 in values2]
+        lines.append(f"| {v1} | " + " | ".join(cells) + " |")
+
+    lines += [f"", f"## Secondary: MRR@K", f""]
+    lines.append(f"| {param1} \\ {param2} | {col_header} |")
+    lines.append(f"|---|{sep}|")
+    for v1 in values1:
+        cells = [f"{results[(v1, v2)][3]:.3f}" for v2 in values2]
+        lines.append(f"| {v1} | " + " | ".join(cells) + " |")
+
+    lines += [f"", f"## Secondary: Recall@K (chunk-level)", f""]
+    lines.append(f"| {param1} \\ {param2} | {col_header} |")
+    lines.append(f"|---|{sep}|")
+    for v1 in values1:
+        cells = [f"{results[(v1, v2)][4]:.1%}" for v2 in values2]
+        lines.append(f"| {v1} | " + " | ".join(cells) + " |")
+
+    lines += [f"", f"## Secondary: Doc Recall (diagnostic)", f""]
+    lines.append(f"| {param1} \\ {param2} | {col_header} |")
+    lines.append(f"|---|{sep}|")
+    for v1 in values1:
+        cells = [f"{results[(v1, v2)][0]:.0%}" for v2 in values2]
+        lines.append(f"| {v1} | " + " | ".join(cells) + " |")
+
+    lines += [
+        f"",
+        f"---",
+        f"",
+        f"## Summary",
+        f"",
+        f"**Winner:** `{param1}={best_key[0]}, {param2}={best_key[1]}`",
+        f"- snippet_recall: {best[1]:.0%} (primary)",
+        f"- NDCG@{best_key[1]}: {best[2]:.3f} (tie-breaker)",
+        f"- MRR@{best_key[1]}: {best[3]:.3f}",
+        f"- Recall@{best_key[1]}: {best[4]:.1%}",
+        f"- doc_recall: {best[0]:.0%}",
+        f"",
+    ]
+
+    # Narrative: highlight any notable jumps across top_k dimension (only when param2 is top_k)
+    if param2 == "top_k":
+        lines.append("**Notes:**")
+        for v1 in values1:
+            snips = [results[(v1, v2)][1] for v2 in values2]
+            max_gain = max(snips) - min(snips)
+            if max_gain >= 0.10:
+                peak_v2 = values2[snips.index(max(snips))]
+                lines.append(f"- `{param1}={v1}`: snippet_recall spans {min(snips):.0%}–{max(snips):.0%} (gain {max_gain:.0%}); peaks at {param2}={peak_v2}")
+        lines.append("")
+
+    report_path.write_text("\n".join(lines) + "\n")
+    print(f"Cross-sweep report: {report_path}")
+
+
 # Build summary section with aggregate metrics
 def _build_summary(query_results: list[dict]) -> list[str]:
     total = len(query_results)
@@ -536,18 +686,21 @@ if __name__ == "__main__":
     parser.add_argument("--queries", default=None, help="Queries JSON path (default: auto-derived from collection)")
     parser.add_argument("--baseline", action="store_true", help="Run single pass at BASELINE config values")
     parser.add_argument("--sweep", metavar="PARAM", help="Sweep PARAM over SWEEP_RANGES[PARAM]; others fixed at BASELINE")
+    parser.add_argument("--sweep-cross", metavar=("PARAM1", "PARAM2"), nargs=2, help="Cross-product sweep PARAM1 × PARAM2 over SWEEP_RANGES; others fixed at BASELINE")
     parser.add_argument("--override", metavar="key=val", action="append", help="Override a BASELINE key (repeatable)")
     args = parser.parse_args()
 
-    if not args.baseline and not args.sweep:
-        parser.error("Specify --baseline or --sweep PARAM")
+    if not args.baseline and not args.sweep and not args.sweep_cross:
+        parser.error("Specify --baseline, --sweep PARAM, or --sweep-cross PARAM1 PARAM2")
 
     config = _parse_overrides(args.override, BASELINE)
     if args.collection:
         config["collection"] = args.collection
     queries_path = _resolve_queries_path(config["collection"], args.queries)
 
-    if args.sweep:
+    if args.sweep_cross:
+        run_cross_sweep(queries_path, args.sweep_cross[0], args.sweep_cross[1], config)
+    elif args.sweep:
         run_sweep(queries_path, args.sweep, config)
     else:
         run_baseline(queries_path, config)
