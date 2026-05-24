@@ -44,6 +44,8 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 |----------|-----------|-------------|
 | `get_connection` | `(db_name="rag_test") -> conn` | psycopg2 connection, creates pgvector extension before registering |
 | `ensure_schema` | `(conn, vector_dim=4096)` | Creates `documents` table with `vector(4096)` + `sparsevec(30522)` if not exists |
+| `ensure_collections_schema` | `(conn)` | Creates `collections` metadata table if not exists (idempotent) |
+| `upsert_collection_metadata` | `(conn, name, embedding_model, embedding_dims, sparse_model, chunk_size, overlap, db_name, indexed_at, doc_count, chunk_count, notes=None)` | INSERT … ON CONFLICT DO UPDATE for collection indexing config; called by `A_index_collection.py` after each full index run |
 | `clear_collection` | `(conn, collection) -> int` | DELETE all chunks for collection, returns count |
 | `store_chunks` | `(conn, chunks, embeddings, sparse_embeddings)` | Bulk INSERT chunks with both embedding types |
 | `search_dense` | `(conn, query_embedding, collection, top_k) -> list[dict]` | Cosine distance on `vector` column |
@@ -119,6 +121,8 @@ Prefixed `pN_` to indicate pipe position. Scripts add `dev/indexing/` to `sys.pa
 - Config (chunk_size, overlap, MRL dims, batch_size)
 - Per-document table: filename, chunks, avg chunk size
 - Summary: total docs, total chunks, total time, throughput (chunks/sec), error count
+
+After each successful index run the script upserts a row into the `collections` table in `rag_test` via `p4_db.upsert_collection_metadata`. Model/dims/sparse constants (`EMBEDDING_MODEL`, `EMBEDDING_DIMS`, `SPARSE_MODEL`) are defined in INFRASTRUCTURE; `doc_count`/`chunk_count` come from the `stats` dict returned by `index_directory()`.
 
 **Usage:**
 ```bash

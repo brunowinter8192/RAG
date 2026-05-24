@@ -197,3 +197,70 @@ def search_cc(conn, dense_results: list[dict], sparse_results: list[dict], alpha
 
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     return [{**chunks[key], "score": round(score, 6)} for key, score in ranked]
+
+
+# Create collections metadata table if not exists
+def ensure_collections_schema(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS collections (
+                name TEXT PRIMARY KEY,
+                embedding_model TEXT,
+                embedding_dims INTEGER,
+                sparse_model TEXT,
+                chunk_size INTEGER,
+                overlap INTEGER,
+                db_name TEXT,
+                indexed_at TIMESTAMPTZ,
+                doc_count INTEGER,
+                chunk_count INTEGER,
+                notes TEXT
+            )
+        """)
+    conn.commit()
+    logger.info("Collections schema ensured")
+
+
+# Upsert collection indexing config; overwrites all fields on re-index of same name
+def upsert_collection_metadata(
+    conn,
+    name: str,
+    embedding_model: str,
+    embedding_dims: int,
+    sparse_model: str | None,
+    chunk_size: int,
+    overlap: int,
+    db_name: str,
+    indexed_at,
+    doc_count: int,
+    chunk_count: int,
+    notes: str | None = None,
+) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO collections (
+                name, embedding_model, embedding_dims, sparse_model,
+                chunk_size, overlap, db_name, indexed_at,
+                doc_count, chunk_count, notes
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (name) DO UPDATE SET
+                embedding_model = EXCLUDED.embedding_model,
+                embedding_dims  = EXCLUDED.embedding_dims,
+                sparse_model    = EXCLUDED.sparse_model,
+                chunk_size      = EXCLUDED.chunk_size,
+                overlap         = EXCLUDED.overlap,
+                db_name         = EXCLUDED.db_name,
+                indexed_at      = EXCLUDED.indexed_at,
+                doc_count       = EXCLUDED.doc_count,
+                chunk_count     = EXCLUDED.chunk_count,
+                notes           = EXCLUDED.notes
+            """,
+            (
+                name, embedding_model, embedding_dims, sparse_model,
+                chunk_size, overlap, db_name, indexed_at,
+                doc_count, chunk_count, notes,
+            ),
+        )
+    conn.commit()
+    logger.info(f"Collection metadata upserted: {name} ({chunk_count} chunks, {doc_count} docs)")

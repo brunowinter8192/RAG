@@ -18,6 +18,11 @@ EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/
 SPLADE_HEALTH_URL = "http://localhost:8083/health"
 VECTOR_DIM = 1024
 
+EMBEDDING_MODEL = "Qwen3-Embedding-8B"
+EMBEDDING_DIMS = 4096    # full stored dimension; MRL truncation (1024d) is retrieval-time only
+SPARSE_MODEL = "naver/splade-v3"
+DB_NAME = "rag_test"
+
 
 # ORCHESTRATOR
 
@@ -34,6 +39,7 @@ def run_index(source_dir: str, collection: str, chunk_size: int, overlap: int) -
 
     conn = _db.get_connection("rag_test")
     _db.ensure_schema(conn, VECTOR_DIM)
+    _db.ensure_collections_schema(conn)
 
     deleted = _db.clear_collection(conn, collection)
     if deleted > 0:
@@ -41,6 +47,19 @@ def run_index(source_dir: str, collection: str, chunk_size: int, overlap: int) -
 
     print(f"Indexing {source_dir} -> collection '{collection}'")
     stats = _indexer.index_directory(source_dir, collection, conn)
+    _db.upsert_collection_metadata(
+        conn,
+        name=collection,
+        embedding_model=EMBEDDING_MODEL,
+        embedding_dims=EMBEDDING_DIMS,
+        sparse_model=SPARSE_MODEL,
+        chunk_size=chunk_size,
+        overlap=overlap,
+        db_name=DB_NAME,
+        indexed_at=datetime.now(),
+        doc_count=stats["files"],
+        chunk_count=stats["chunks"],
+    )
     conn.close()
 
     _write_report(stats, collection, chunk_size, overlap)

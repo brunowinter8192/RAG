@@ -20,7 +20,6 @@ logging.basicConfig(
 DEFAULT_TOP_K = 5
 HYBRID_CANDIDATES = 50
 RERANK_CANDIDATES = 50
-DENSE_SCORE_THRESHOLD = 0.01    # noise floor; was 0.5 (unverified Haiku heuristic)
 
 
 # ORCHESTRATOR
@@ -37,7 +36,6 @@ def search_workflow(
         validate_collection(conn, collection)
     query_vector = embed_query(query)
     results = search_vectors(conn, query_vector, top_k, collection, document)
-    results = filter_by_score(results, DENSE_SCORE_THRESHOLD)
     conn.close()
     logging.info(f"Search '{query[:50]}...' returned {len(results)} results")
     return results
@@ -101,8 +99,6 @@ def search_hybrid_workflow(
     if rerank:
         results = rerank_workflow(query, results, top_k)
         results = [r for r in results if r['score'] > 0]
-    else:
-        results = filter_by_score(results, DENSE_SCORE_THRESHOLD)
     conn.close()
     logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, splade={len(keyword_results)}, rerank={rerank})")
     return results
