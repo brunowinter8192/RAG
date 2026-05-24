@@ -13,10 +13,10 @@
 **Ground truth schema:** Per query, `expected_chunks: [{document, chunk_index, identifying_quote}]` — binary relevance by construction. Each entry is a chunk from which the query was formulated; `identifying_quote` is a verbatim substring unique within that document across all three collection variants. Supersedes the former flat `expected_snippets` approach.
 
 **Metrics:**
-- `NDCG@K` (primary) — binary relevance: rel=1 iff `(hit.document, hit.chunk_index) ∈ expected_chunks`. `total_relevant = len(expected_chunks)` per query. DCG@k = Σ (2^rel_i − 1) / log2(i+1), capped at 1.0.
-- `MRR@K` — 1/rank of first `expected_chunks` hit in top-K, 0 if none.
+- `snippet_recall` (primary) — per `identifying_quote` in expected_chunks, found as case-insensitive substring in any top-K hit's content. Primary metric: Claude consumes all top-K hits and synthesizes — presence-in-top-K matters more than position-within-top-K for RAG context injection. NDCG@K and MRR@K are secondary discriminators for snippet_recall ties.
+- `NDCG@K` (secondary tie-breaker) — binary relevance: rel=1 iff `(hit.document, hit.chunk_index) ∈ expected_chunks`. `total_relevant = len(expected_chunks)` per query. DCG@k = Σ (2^rel_i − 1) / log2(i+1), capped at 1.0.
+- `MRR@K` (secondary tie-breaker) — 1/rank of first `expected_chunks` hit in top-K, 0 if none.
 - `Recall@K` (chunk-level) — |expected_chunks in top-K| / |expected_chunks total|.
-- `snippet_recall` (sanity check) — per `identifying_quote` in expected_chunks, found as case-insensitive substring in any top-K hit's content? Fraction found. Detects wording drift but secondary to chunk-level metrics.
 - `doc_recall` (diagnostic) — per `expected_documents`, any chunk from it in top-K? Used to distinguish "doc found, wrong chunk" from "doc not found at all".
 
 **Drift-detector:** `_verify_drift()` runs at eval startup — for each `expected_chunks` entry, asserts the `identifying_quote` IS a substring of `content` at `(collection, document, chunk_index)` via DB SELECT. Any miss → eval prints error and exits 1. Catches re-indexing with different chunk boundaries without silent metric degradation.
@@ -57,7 +57,10 @@ Server URLs configurable via env: `EMBEDDING_URL`, `EMBEDDING_HEALTH_URL`, `SPLA
 
 ## Recommendation (SOLL)
 
-Baseline established (2026-05-24, see IST table). Next: `--sweep mode` on test_db to answer SPLADE question (dense vs hybrid vs cc) → IST update in `decisions/retrieval03_fusion.md`. Then `--sweep alpha` and `--sweep top_k`. Chunk-size sweep (test_db vs test_db_2 vs test_db_3 baseline comparison) already in IST — feed into `decisions/index01_chunking.md`.
+- **After cross-product sweep:** pick winning (mode, top_k) by primary snippet_recall, tie-break by NDCG@12 → IST updates in `decisions/retrieval03_fusion.md` (mode choice) and `decisions/retrieval01_top_k.md` (top_k choice).
+- **Hard-fix top_k:** set `DEFAULT_TOP_K` in `src/rag/retriever.py` to the winning value; remove the `--top-k` CLI flag from `cli.py` (separate follow-up worker).
+- **Remove top_k from tool-use docs:** update `~/.claude/shared-rules/global/tool-use.md` RAG-CLI section to remove top_k references (separate follow-up worker).
+- **Sweep top_k range correction applied:** `SWEEP_RANGES['top_k']` corrected from `[5, 10, 20]` (the 20 gets silently clamped to 12 by `min(top_k, 12)` in `search_workflow`) to `[3, 5, 7, 10, 12]` covering the agent's typical choice range plus the 12-ceiling.
 
 ## Offene Fragen
 

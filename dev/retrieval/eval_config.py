@@ -14,7 +14,7 @@ BASELINE = {
 
 SWEEP_RANGES = {
     "mode":            ["dense", "sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank", "bm25"],
-    "top_k":           [5, 10, 20],
+    "top_k":           [3, 5, 7, 10, 12],
     "alpha":           [0.5, 0.6, 0.7, 0.8, 0.9],
     "rrf_k":           [30, 60, 90],
     "score_threshold": [0.0, 0.3, 0.5],
