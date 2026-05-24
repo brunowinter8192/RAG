@@ -14,11 +14,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 import httpx
 
 import p1_retriever as _retriever
-from eval_config import BASELINE, COLLECTION, SWEEP_RANGES
+from eval_config import BASELINE, SWEEP_RANGES
 
 EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/health")
-SPLADE_HEALTH_URL = "http://localhost:8083/health"
-RERANKER_HEALTH_URL = "http://localhost:8082/health"
+SPLADE_HEALTH_URL = os.getenv("SPLADE_HEALTH_URL", "http://localhost:8083/health")
+RERANKER_HEALTH_URL = os.getenv("RERANKER_HEALTH_URL", "http://localhost:8082/health")
 
 # Modes where score_threshold is not meaningful (score scale not comparable to cosine)
 THRESHOLD_IGNORED_MODES = {"hybrid", "hybrid+rerank", "bm25"}
@@ -28,11 +28,12 @@ PREFIX_NOOP_MODES = {"sparse", "bm25"}
 
 # ORCHESTRATOR
 
-def run_baseline(collection: str, queries_path: str, config: dict) -> None:
+def run_baseline(queries_path: str, config: dict) -> None:
+    collection = config["collection"]
     _check_servers([config["mode"]])
     queries = _load_queries(queries_path)
-    chunk_counts = _fetch_collection_chunk_counts(collection)
-    print(f"Running baseline: {len(queries)} queries | mode={config['mode']} | top_k={config['top_k']}")
+    _verify_drift(queries, collection)
+    print(f"Running baseline: {len(queries)} queries | mode={config['mode']} | top_k={config['top_k']} | collection={collection}")
 
     query_results = []
     for entry in queries:
@@ -41,24 +42,25 @@ def run_baseline(collection: str, queries_path: str, config: dict) -> None:
             "entry": entry,
             "hits": hits,
             "doc_match": _check_document_match(entry["expected_documents"], hits),
-            "snippet_match": _check_snippet_match(entry["expected_snippets"], hits),
-            "rank_metrics": _compute_rank_metrics(hits, entry["expected_documents"], chunk_counts, config["top_k"]),
+            "snippet_match": _check_snippet_match(entry["expected_chunks"], hits),
+            "rank_metrics": _compute_rank_metrics(hits, entry["expected_chunks"], config["top_k"]),
         })
 
     _write_report(query_results, collection, config, label="baseline")
 
 
-def run_sweep(collection: str, queries_path: str, param: str, base_config: dict) -> None:
+def run_sweep(queries_path: str, param: str, base_config: dict) -> None:
     if param not in SWEEP_RANGES:
         print(f"ERROR: '{param}' is not a sweepable parameter. Valid: {sorted(SWEEP_RANGES)}")
         sys.exit(1)
 
+    collection = base_config["collection"]
     values = SWEEP_RANGES[param]
     modes_in_sweep = [base_config["mode"]] if param != "mode" else values
     _check_servers(modes_in_sweep)
 
     queries = _load_queries(queries_path)
-    chunk_counts = _fetch_collection_chunk_counts(collection)
+    _verify_drift(queries, collection)
     print(f"Running sweep: {param} over {values} | {len(queries)} queries | collection={collection}")
 
     comparison_rows = []
@@ -71,8 +73,8 @@ def run_sweep(collection: str, queries_path: str, param: str, base_config: dict)
                 "entry": entry,
                 "hits": hits,
                 "doc_match": _check_document_match(entry["expected_documents"], hits),
-                "snippet_match": _check_snippet_match(entry["expected_snippets"], hits),
-                "rank_metrics": _compute_rank_metrics(hits, entry["expected_documents"], chunk_counts, config["top_k"]),
+                "snippet_match": _check_snippet_match(entry["expected_chunks"], hits),
+                "rank_metrics": _compute_rank_metrics(hits, entry["expected_chunks"], config["top_k"]),
             })
 
         label = f"sweep_{param}_{val}"
@@ -89,7 +91,7 @@ def run_sweep(collection: str, queries_path: str, param: str, base_config: dict)
 def _check_servers(modes: list[str]) -> None:
     checks = []
     if any(m not in PREFIX_NOOP_MODES for m in modes):  # dense embedding needed for all except sparse/bm25
-        checks.append(("embedding (8081)", EMBEDDING_HEALTH_URL))
+        checks.append(("embedding (51589)", EMBEDDING_HEALTH_URL))
     if any(m in modes for m in ["sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank"]):
         checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
     if any("rerank" in m for m in modes):
@@ -119,6 +121,40 @@ def _load_queries(queries_path: str) -> list[dict]:
         return data
     print("ERROR: queries file must contain a JSON object with 'queries' key or a JSON array")
     sys.exit(1)
+
+
+# Resolve queries file path: explicit --queries path or auto-derive from collection name
+def _resolve_queries_path(collection: str, explicit_path: str | None) -> str:
+    if explicit_path:
+        return explicit_path
+    derived = Path(__file__).parent / f"queries_{collection}.json"
+    return str(derived)
+
+
+# Assert each expected_chunks identifying_quote is a substring of its chunk content in the active collection
+def _verify_drift(queries: list[dict], collection: str) -> None:
+    from p4_db import get_connection
+    conn = get_connection()
+    errors = []
+    try:
+        with conn.cursor() as cur:
+            for qi, entry in enumerate(queries, 1):
+                for ec in entry.get("expected_chunks", []):
+                    cur.execute(
+                        "SELECT 1 FROM documents WHERE collection=%s AND document=%s AND chunk_index=%s AND content LIKE %s",
+                        (collection, ec["document"], ec["chunk_index"], f"%{ec['identifying_quote']}%"),
+                    )
+                    if not cur.fetchone():
+                        errors.append(
+                            f"Q{qi} {ec['document']}[{ec['chunk_index']}]: quote not in collection={collection}: '{ec['identifying_quote'][:60]}'"
+                        )
+    finally:
+        conn.close()
+    if errors:
+        print("ERROR: Drift-detector — identifying_quotes do not match current index:")
+        for e in errors:
+            print(f"  {e}")
+        sys.exit(1)
 
 
 # Run a single query with full config and return hits list
@@ -158,7 +194,7 @@ def _run_query(query: str, collection: str, config: dict) -> list[dict]:
     return hits
 
 
-# Check which expected documents were found and at which ranks
+# Check which expected documents were found and at which ranks (diagnostic)
 def _check_document_match(expected_docs: list[str], hits: list[dict]) -> list[dict]:
     results = []
     for doc in expected_docs:
@@ -167,64 +203,49 @@ def _check_document_match(expected_docs: list[str], hits: list[dict]) -> list[di
     return results
 
 
-# Check which expected snippets were found as substrings in any hit's content
-def _check_snippet_match(expected_snippets: list[str], hits: list[dict]) -> list[dict]:
+# Check which expected_chunks identifying_quotes appear as substrings in any hit's content
+def _check_snippet_match(expected_chunks: list[dict], hits: list[dict]) -> list[dict]:
     results = []
-    for snippet in expected_snippets:
+    for ec in expected_chunks:
+        quote = ec["identifying_quote"]
         found_rank = None
         for rank, h in enumerate(hits, 1):
-            if snippet.lower() in h.get("content", "").lower():
+            if quote.lower() in h.get("content", "").lower():
                 found_rank = rank
                 break
-        results.append({"snippet": snippet, "found": found_rank is not None, "rank": found_rank})
+        results.append({"snippet": quote, "found": found_rank is not None, "rank": found_rank})
     return results
 
 
-# Fetch per-document chunk counts for collection (needed for IDCG denominator and Recall@K)
-def _fetch_collection_chunk_counts(collection: str) -> dict[str, int]:
-    from p4_db import get_connection
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT document, COUNT(*) FROM documents WHERE collection = %s GROUP BY document",
-                (collection,)
-            )
-            return {row[0]: row[1] for row in cur.fetchall()}
-    finally:
-        conn.close()
-
-
-# Compute NDCG@K with binary relevance (rel=1 if hit.document in expected_docs_set)
+# Compute NDCG@K with binary relevance (rel=1 if (hit.document, hit.chunk_index) in expected_set)
 # DCG@k = Σ (2^rel_i - 1) / log2(i+1), IDCG = DCG of perfect ranking using total_relevant
-# Capped at 1.0: if the same document spans multiple ranks, DCG can technically exceed IDCG
-def _compute_ndcg_at_k(hits: list[dict], expected_docs_set: set, total_relevant: int, k: int) -> float:
-    rels = [1 if h.get("document") in expected_docs_set else 0 for h in hits[:k]]
+def _compute_ndcg_at_k(hits: list[dict], expected_set: set, total_relevant: int, k: int) -> float:
+    rels = [1 if (h.get("document"), h.get("chunk_index")) in expected_set else 0 for h in hits[:k]]
     dcg = sum(r / math.log2(i + 2) for i, r in enumerate(rels))
     idcg = sum(1.0 / math.log2(i + 2) for i in range(min(total_relevant, k)))
     return min(1.0, dcg / idcg) if idcg > 0 else 0.0
 
 
 # Compute MRR@K: 1/rank of first relevant hit in top K, 0 if none
-def _compute_mrr_at_k(hits: list[dict], expected_docs_set: set, k: int) -> float:
+def _compute_mrr_at_k(hits: list[dict], expected_set: set, k: int) -> float:
     for rank, h in enumerate(hits[:k], 1):
-        if h.get("document") in expected_docs_set:
+        if (h.get("document"), h.get("chunk_index")) in expected_set:
             return 1.0 / rank
     return 0.0
 
 
-# Compute Recall@K: chunks retrieved from expected docs in top K / total relevant chunks in collection
-def _compute_recall_at_k(hits: list[dict], expected_docs_set: set, total_relevant: int, k: int) -> float:
+# Compute Recall@K: expected_chunks retrieved in top K / total expected_chunks
+def _compute_recall_at_k(hits: list[dict], expected_set: set, total_relevant: int, k: int) -> float:
     if total_relevant == 0:
         return 0.0
-    retrieved_relevant = sum(1 for h in hits[:k] if h.get("document") in expected_docs_set)
+    retrieved_relevant = sum(1 for h in hits[:k] if (h.get("document"), h.get("chunk_index")) in expected_set)
     return retrieved_relevant / total_relevant
 
 
-# Bundle NDCG@K, MRR@K, Recall@K for a single query
-def _compute_rank_metrics(hits: list[dict], expected_docs: list[str], chunk_counts: dict[str, int], k: int) -> dict:
-    expected_set = set(expected_docs)
-    total_relevant = sum(chunk_counts.get(d, 0) for d in expected_docs)
+# Bundle NDCG@K, MRR@K, Recall@K using expected_chunks as binary ground truth
+def _compute_rank_metrics(hits: list[dict], expected_chunks: list[dict], k: int) -> dict:
+    expected_set = {(ec["document"], ec["chunk_index"]) for ec in expected_chunks}
+    total_relevant = len(expected_chunks)
     return {
         "ndcg_at_k": _compute_ndcg_at_k(hits, expected_set, total_relevant, k),
         "mrr_at_k": _compute_mrr_at_k(hits, expected_set, k),
@@ -300,14 +321,14 @@ def _write_report(query_results: list[dict], collection: str, config: dict, labe
         snip_pct = int(100 * snip_found / snip_total) if snip_total else 0
 
         lines += [f"", f"## Query {qi}: \"{entry['query']}\"", f""]
-        lines.append(f"**Document Match:** {doc_found}/{doc_total} ({doc_pct}%)")
+        lines.append(f"**Document Match (diagnostic):** {doc_found}/{doc_total} ({doc_pct}%)")
         for dm in doc_match:
             ranks_str = _format_ranks(dm["ranks"])
             status = f"Found (Rank {ranks_str})" if dm["found"] else "MISSING"
             lines.append(f"- {dm['doc']} — {status}")
 
         lines.append(f"")
-        lines.append(f"**Snippet Match:** {snip_found}/{snip_total} ({snip_pct}%)")
+        lines.append(f"**Snippet Recall (identifying_quotes):** {snip_found}/{snip_total} ({snip_pct}%)")
         for sm in snippet_match:
             status = f"Found in Rank {sm['rank']}" if sm["found"] else "MISSING"
             lines.append(f"- \"{sm['snippet']}\" — {status}")
@@ -452,8 +473,8 @@ def _build_summary(query_results: list[dict]) -> list[str]:
     avg_ndcg = sum(ndcg_vals) / total if total else 0
     avg_mrr = sum(mrr_vals) / total if total else 0
     avg_recall_k = sum(recall_k_vals) / total if total else 0
-    top_k_label = len(query_results[0]['hits']) if query_results else '?'
-    k_label = query_results[0]['rank_metrics']['k'] if query_results and query_results[0].get('rank_metrics') else top_k_label
+    top_k_label = len(query_results[0]["hits"]) if query_results else "?"
+    k_label = query_results[0]["rank_metrics"]["k"] if query_results and query_results[0].get("rank_metrics") else top_k_label
 
     lines = [
         f"",
@@ -461,8 +482,8 @@ def _build_summary(query_results: list[dict]) -> list[str]:
         f"",
         f"| Metric | Value |",
         f"|--------|-------|",
-        f"| Document Recall @{top_k_label} (avg) | {avg_doc:.0%} |",
-        f"| Snippet Recall @{top_k_label} (avg) | {avg_snip:.0%} |",
+        f"| Document Recall @{top_k_label} (diagnostic, avg) | {avg_doc:.0%} |",
+        f"| Snippet Recall @{top_k_label} (identifying_quotes, avg) | {avg_snip:.0%} |",
         f"| NDCG@{k_label} (avg) | {avg_ndcg:.3f} |",
         f"| MRR@{k_label} (avg) | {avg_mrr:.3f} |",
         f"| Recall@{k_label} chunk-level (avg) | {avg_recall_k:.1%} |",
@@ -510,9 +531,9 @@ def _parse_overrides(override_list: list[str], base_config: dict) -> dict:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate retrieval against ground truth documents and snippets")
-    parser.add_argument("--collection", default=COLLECTION, help=f"Collection to query (default: {COLLECTION})")
-    parser.add_argument("--queries", default="dev/retrieval/queries_test_db.json", help="Queries JSON path")
+    parser = argparse.ArgumentParser(description="Evaluate retrieval against expected_chunks ground truth")
+    parser.add_argument("--collection", default=None, help="Collection to query — shorthand for --override collection=X")
+    parser.add_argument("--queries", default=None, help="Queries JSON path (default: auto-derived from collection)")
     parser.add_argument("--baseline", action="store_true", help="Run single pass at BASELINE config values")
     parser.add_argument("--sweep", metavar="PARAM", help="Sweep PARAM over SWEEP_RANGES[PARAM]; others fixed at BASELINE")
     parser.add_argument("--override", metavar="key=val", action="append", help="Override a BASELINE key (repeatable)")
@@ -522,8 +543,11 @@ if __name__ == "__main__":
         parser.error("Specify --baseline or --sweep PARAM")
 
     config = _parse_overrides(args.override, BASELINE)
+    if args.collection:
+        config["collection"] = args.collection
+    queries_path = _resolve_queries_path(config["collection"], args.queries)
 
     if args.sweep:
-        run_sweep(args.collection, args.queries, args.sweep, config)
+        run_sweep(queries_path, args.sweep, config)
     else:
-        run_baseline(args.collection, args.queries, config)
+        run_baseline(queries_path, config)

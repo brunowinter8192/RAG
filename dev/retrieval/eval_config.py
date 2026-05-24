@@ -3,6 +3,7 @@
 COLLECTION = "test_db"
 
 BASELINE = {
+    "collection": "test_db",
     "mode": "cc",
     "top_k": 12,
     "alpha": 0.8,

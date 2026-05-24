@@ -164,7 +164,7 @@
       ]
     },
     {
-      "query": "Which embedding model architecture benefits more from larger chunk sizes — decoder-based or encoder-based — according to the Rethinking Chunk Size paper?",
+      "query": "Which embedding model architecture benefits more from larger chunk sizes \u2014 decoder-based or encoder-based \u2014 according to the Rethinking Chunk Size paper?",
       "type": "conceptual",
       "expected_documents": [
         "Rethinking_Chunk_Size_Long_Document.md"
@@ -258,7 +258,7 @@
       ]
     },
     {
-      "query": "How do SPLADE-v3 and the Rethinking Chunk Size paper each evaluate retrieval quality — what datasets and evaluation approaches do they use?",
+      "query": "How do SPLADE-v3 and the Rethinking Chunk Size paper each evaluate retrieval quality \u2014 what datasets and evaluation approaches do they use?",
       "type": "cross-document",
       "expected_documents": [
         "SPLADE_v3.md",
@@ -278,7 +278,7 @@
       ]
     },
     {
-      "query": "Both RAGAS and the RAG Evaluation Survey 2025 address evaluation without relying solely on human annotations — what approaches do they each describe?",
+      "query": "Both RAGAS and the RAG Evaluation Survey 2025 address evaluation without relying solely on human annotations \u2014 what approaches do they each describe?",
       "type": "cross-document",
       "expected_documents": [
         "RAGAS_Evaluation_Framework.md",
