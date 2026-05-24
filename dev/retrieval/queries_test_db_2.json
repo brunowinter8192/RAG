@@ -1,5 +1,5 @@
 {
-  "collection": "test_db",
+  "collection": "test_db_2",
   "description": "17 queries over 7 RAG-reference papers (RAGAS, RAG_Evaluation_Survey_2025, Pipeline_Optimization, Fusion_Functions_Hybrid_Retrieval, Qwen3_Embedding, SPLADE_v3, Rethinking_Chunk_Size_Long_Document). expected_chunks with DB-verified identifying_quotes; binary relevance ground truth. Generated 2026-05-24.",
   "queries": [
     {
@@ -11,13 +11,18 @@
       "expected_chunks": [
         {
           "document": "SPLADE_v3.md",
-          "chunk_index": 7,
+          "chunk_index": 15,
           "identifying_quote": "SPLADE-v3 | 40.2 | 72.3 | 75.4"
         },
         {
           "document": "SPLADE_v3.md",
           "chunk_index": 0,
-          "identifying_quote": "it gets more than 40 MRR @ 10 on the MS MARCO dev set"
+          "identifying_quote": "Carlos Lassance Cohere"
+        },
+        {
+          "document": "SPLADE_v3.md",
+          "chunk_index": 1,
+          "identifying_quote": "This technical report is a companion to the release of the latest version of the SPLADE library"
         }
       ]
     },
@@ -30,12 +35,12 @@
       "expected_chunks": [
         {
           "document": "SPLADE_v3.md",
-          "chunk_index": 2,
+          "chunk_index": 6,
           "identifying_quote": "two main distillation losses have proven to be effective"
         },
         {
           "document": "SPLADE_v3.md",
-          "chunk_index": 3,
+          "chunk_index": 7,
           "identifying_quote": "starting from SPLADE++ Self Distil4"
         }
       ]
@@ -49,17 +54,17 @@
       "expected_chunks": [
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 0,
+          "chunk_index": 1,
           "identifying_quote": "0.571 versus 0.412 for GTElarge"
         },
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 8,
+          "chunk_index": 18,
           "identifying_quote": "GTE-large (1024-dim) scores 0.412"
         },
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 17,
+          "chunk_index": 36,
           "identifying_quote": "achieving Top-3 accuracy of 0.571 versus 0.412 for GTE-large (1024 dimensions)"
         }
       ]
@@ -73,13 +78,13 @@
       "expected_chunks": [
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 10,
+          "chunk_index": 23,
           "identifying_quote": "9.4 percentage point gain"
         },
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 12,
-          "identifying_quote": "reranking bridges approximately half the performance gap"
+          "chunk_index": 26,
+          "identifying_quote": "a gain of approximately 9.4 percentage points"
         }
       ]
     },
@@ -92,13 +97,13 @@
       "expected_chunks": [
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 12,
-          "identifying_quote": "reranking bridges approximately half the performance gap"
+          "chunk_index": 27,
+          "identifying_quote": "suggesting that re-rankers can partially compensate for suboptimal chunking configurations"
         },
         {
           "document": "Pipeline_Optimization.md",
-          "chunk_index": 13,
-          "identifying_quote": "semantically coherent boundaries are beneficial regardless of the specific segmentation algorithm employed"
+          "chunk_index": 28,
+          "identifying_quote": "The service-based semantic chunking (variable sizes) performs comparably to the 512-character recursive split"
         }
       ]
     },
@@ -111,7 +116,7 @@
       "expected_chunks": [
         {
           "document": "RAGAS_Evaluation_Framework.md",
-          "chunk_index": 15,
+          "chunk_index": 29,
           "identifying_quote": "faithfulness (i.e. is the answer grounded in the retrieved context), answer relevance (i.e. does the answer address the question) and context relevance"
         }
       ]
@@ -125,7 +130,7 @@
       "expected_chunks": [
         {
           "document": "RAGAS_Evaluation_Framework.md",
-          "chunk_index": 8,
+          "chunk_index": 14,
           "identifying_quote": "we first use an LLM to extract a set of statements"
         }
       ]
@@ -139,7 +144,7 @@
       "expected_chunks": [
         {
           "document": "RAG_Evaluation_Survey_2025.md",
-          "chunk_index": 12,
+          "chunk_index": 26,
           "identifying_quote": "Recall @ K is the portion of relevant instances that have been retrieved over the total amount of relevant cases, considering only the top k results."
         }
       ]
@@ -153,18 +158,18 @@
       "expected_chunks": [
         {
           "document": "RAG_Evaluation_Survey_2025.md",
-          "chunk_index": 12,
+          "chunk_index": 25,
           "identifying_quote": "whether an item is relevant or not, without taking into account the item"
         },
         {
           "document": "RAG_Evaluation_Survey_2025.md",
-          "chunk_index": 13,
+          "chunk_index": 27,
           "identifying_quote": "The rank-based metrics focuse on the sequential presentation of relevant items, assigning greater significance to the positioning of these items within the ranking list."
         }
       ]
     },
     {
-      "query": "Which embedding model architecture benefits more from larger chunk sizes \u2014 decoder-based or encoder-based \u2014 according to the Rethinking Chunk Size paper?",
+      "query": "Which embedding model architecture benefits more from larger chunk sizes — decoder-based or encoder-based — according to the Rethinking Chunk Size paper?",
       "type": "conceptual",
       "expected_documents": [
         "Rethinking_Chunk_Size_Long_Document.md"
@@ -172,8 +177,13 @@
       "expected_chunks": [
         {
           "document": "Rethinking_Chunk_Size_Long_Document.md",
-          "chunk_index": 16,
+          "chunk_index": 31,
           "identifying_quote": "Stella is a decoder-based model, whereas Snowflake is encoder-based"
+        },
+        {
+          "document": "Rethinking_Chunk_Size_Long_Document.md",
+          "chunk_index": 32,
+          "identifying_quote": "Snowflake maintains competitive performance on small-chunk datasets"
         }
       ]
     },
@@ -186,7 +196,7 @@
       "expected_chunks": [
         {
           "document": "Rethinking_Chunk_Size_Long_Document.md",
-          "chunk_index": 9,
+          "chunk_index": 18,
           "identifying_quote": "64-token chunks yield the highest recall @ 1 which is 64.1%"
         }
       ]
@@ -200,7 +210,7 @@
       "expected_chunks": [
         {
           "document": "Qwen3_Embedding.md",
-          "chunk_index": 4,
+          "chunk_index": 8,
           "identifying_quote": "surpassing the previous state-of-the-art proprietary embedding model, Gemini-Embedding"
         }
       ]
@@ -214,7 +224,7 @@
       "expected_chunks": [
         {
           "document": "Qwen3_Embedding.md",
-          "chunk_index": 12,
+          "chunk_index": 24,
           "identifying_quote": "approximately 150 million pairs of multi-task weak supervision training data"
         }
       ]
@@ -228,12 +238,12 @@
       "expected_chunks": [
         {
           "document": "Fusion_Functions_Hybrid_Retrieval.md",
-          "chunk_index": 0,
+          "chunk_index": 1,
           "identifying_quote": "convex combination outperforms RRF in in-domain and out-of-domain settings"
         },
         {
           "document": "Fusion_Functions_Hybrid_Retrieval.md",
-          "chunk_index": 5,
+          "chunk_index": 12,
           "identifying_quote": "a tuned RRF generalizes poorly to out-of-domain datasets"
         }
       ]
@@ -247,18 +257,13 @@
       "expected_chunks": [
         {
           "document": "Fusion_Functions_Hybrid_Retrieval.md",
-          "chunk_index": 17,
+          "chunk_index": 36,
           "identifying_quote": "the range of f_S E M can be quite different from f_L E X"
-        },
-        {
-          "document": "Fusion_Functions_Hybrid_Retrieval.md",
-          "chunk_index": 18,
-          "identifying_quote": "min-max scaling is the de facto method in the literature"
         }
       ]
     },
     {
-      "query": "How do SPLADE-v3 and the Rethinking Chunk Size paper each evaluate retrieval quality \u2014 what datasets and evaluation approaches do they use?",
+      "query": "How do SPLADE-v3 and the Rethinking Chunk Size paper each evaluate retrieval quality — what datasets and evaluation approaches do they use?",
       "type": "cross-document",
       "expected_documents": [
         "SPLADE_v3.md",
@@ -272,13 +277,13 @@
         },
         {
           "document": "Rethinking_Chunk_Size_Long_Document.md",
-          "chunk_index": 3,
+          "chunk_index": 8,
           "identifying_quote": "recall @ k trends for different chunk sizes and embedding models"
         }
       ]
     },
     {
-      "query": "Both RAGAS and the RAG Evaluation Survey 2025 address evaluation without relying solely on human annotations \u2014 what approaches do they each describe?",
+      "query": "Both RAGAS and the RAG Evaluation Survey 2025 address evaluation without relying solely on human annotations — what approaches do they each describe?",
       "type": "cross-document",
       "expected_documents": [
         "RAGAS_Evaluation_Framework.md",
@@ -292,8 +297,13 @@
         },
         {
           "document": "RAG_Evaluation_Survey_2025.md",
-          "chunk_index": 3,
-          "identifying_quote": "LLM-based evaluation methods"
+          "chunk_index": 7,
+          "identifying_quote": "Internal Evaluation (Section 3) and External Evaluation (Section 4)"
+        },
+        {
+          "document": "RAG_Evaluation_Survey_2025.md",
+          "chunk_index": 8,
+          "identifying_quote": "# 2.1 Large Language Model (LLM)"
         }
       ]
     }

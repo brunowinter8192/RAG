@@ -1,5 +1,6 @@
 # INFRASTRUCTURE
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from p4_db import get_connection, search_dense, search_sparse, search_hybrid, se
 logger = logging.getLogger(__name__)
 
 INSTRUCT_PREFIX = "Instruct: Given a search query, retrieve relevant passages that answer the query\nQuery: "
-RERANKER_URL = "http://localhost:8082/v1/rerank"
+RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8082/v1/rerank")
 CANDIDATES = 50
 
 

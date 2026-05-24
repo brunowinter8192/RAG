@@ -1,11 +1,12 @@
 # INFRASTRUCTURE
 import logging
+import os
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-SPLADE_URL = "http://localhost:8083/v1/sparse-embeddings"
+SPLADE_URL = os.getenv("SPLADE_URL", "http://localhost:8083/v1/sparse-embeddings")
 
 
 # FUNCTIONS
