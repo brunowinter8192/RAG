@@ -146,11 +146,12 @@ def find_pid_on_port(port: int) -> int | None:
     return pids[0] if pids else None
 
 
-# Find all PIDs listening on a port
+# Find all PIDs listening on a port (-sTCP:LISTEN excludes outbound connectors
+# that share the port number — prevents killing proxy/client processes on stop)
 def find_all_pids_on_port(port: int) -> list[int]:
     try:
         result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
+            ["lsof", "-ti", f":{port}", "-sTCP:LISTEN"],
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
