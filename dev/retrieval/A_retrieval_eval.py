@@ -3,6 +3,7 @@ import argparse
 import json
 import math
 import os
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -19,17 +20,44 @@ from eval_config import BASELINE, SWEEP_RANGES
 EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/health")
 SPLADE_HEALTH_URL = os.getenv("SPLADE_HEALTH_URL", "http://localhost:8083/health")
 RERANKER_HEALTH_URL = os.getenv("RERANKER_HEALTH_URL", "http://localhost:8082/health")
+RERANKER_8B_HEALTH_URL = os.getenv("RERANKER_8B_HEALTH_URL", "http://localhost:8085/health")
+
+TIMESTAMP_DIR = Path.home() / ".rag-locks"
+RAG_ROOT = Path(__file__).parent.parent.parent
+VENV_PYTHON = str(RAG_ROOT / "venv/bin/python")
+
+# mode → required server presets (used by _ensure_constellation_for_mode)
+MODE_CONSTELLATIONS: dict[str, list[str]] = {
+    "dense":               ["embedding-8b"],
+    "sparse":              ["splade"],
+    "bm25":                [],
+    "hybrid":              ["embedding-8b", "splade"],
+    "cc":                  ["embedding-8b", "splade"],
+    "cc+rerank":           ["embedding-8b", "splade", "reranker-0.6b"],
+    "hybrid+rerank":       ["embedding-8b", "splade", "reranker-0.6b"],
+    "cc+rerank-8b":        ["embedding-8b", "splade", "reranker-8b"],
+    "hybrid+rerank-8b":    ["embedding-8b", "splade", "reranker-8b"],
+    "dense+rerank-0.6b":   ["embedding-8b", "reranker-0.6b"],
+    "dense+rerank-8b":     ["embedding-8b", "reranker-8b"],
+}
 
 # Modes where score_threshold is not meaningful (score scale not comparable to cosine)
-THRESHOLD_IGNORED_MODES = {"hybrid", "hybrid+rerank", "bm25"}
+THRESHOLD_IGNORED_MODES = {
+    "hybrid", "hybrid+rerank", "bm25",
+    "cc+rerank-8b", "hybrid+rerank-8b", "dense+rerank-0.6b", "dense+rerank-8b",
+}
 # Modes where query_prefix has no effect (no dense embedding step)
 PREFIX_NOOP_MODES = {"sparse", "bm25"}
+
+# rerank candidates fetched before cross-encoder reranking
+_RERANK_CANDIDATES = 50
 
 
 # ORCHESTRATOR
 
 def run_baseline(queries_path: str, config: dict) -> None:
     collection = config["collection"]
+    _ensure_constellation_for_mode(config["mode"])
     _check_servers([config["mode"]])
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
@@ -59,9 +87,10 @@ def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: di
     values1 = SWEEP_RANGES[param1]
     values2 = SWEEP_RANGES[param2]
 
-    # Determine which modes are exercised for server pre-check
-    modes_in_sweep = values1 if param1 == "mode" else (values2 if param2 == "mode" else [base_config["mode"]])
-    _check_servers(modes_in_sweep)
+    # For non-mode sweeps, do upfront server check; for mode sweeps, constellation is managed per-iteration.
+    mode_is_swept = param1 == "mode" or param2 == "mode"
+    if not mode_is_swept:
+        _check_servers([base_config["mode"]])
 
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
@@ -72,7 +101,11 @@ def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: di
     total_configs = len(values1) * len(values2)
     done = 0
     for v1 in values1:
+        if param1 == "mode":
+            _ensure_constellation_for_mode(v1)
         for v2 in values2:
+            if param2 == "mode":
+                _ensure_constellation_for_mode(v2)
             config = {**base_config, param1: v1, param2: v2}
             query_results = []
             for entry in queries:
@@ -98,8 +131,8 @@ def run_sweep(queries_path: str, param: str, base_config: dict) -> None:
 
     collection = base_config["collection"]
     values = SWEEP_RANGES[param]
-    modes_in_sweep = [base_config["mode"]] if param != "mode" else values
-    _check_servers(modes_in_sweep)
+    if param != "mode":
+        _check_servers([base_config["mode"]])
 
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
@@ -108,6 +141,8 @@ def run_sweep(queries_path: str, param: str, base_config: dict) -> None:
     comparison_rows = []
     for val in values:
         config = {**base_config, param: val}
+        if param == "mode":
+            _ensure_constellation_for_mode(val)
         query_results = []
         for entry in queries:
             hits = _run_query(entry["query"], collection, config)
@@ -133,11 +168,14 @@ def run_sweep(queries_path: str, param: str, base_config: dict) -> None:
 def _check_servers(modes: list[str]) -> None:
     checks = []
     if any(m not in PREFIX_NOOP_MODES for m in modes):  # dense embedding needed for all except sparse/bm25
-        checks.append(("embedding (51589)", EMBEDDING_HEALTH_URL))
-    if any(m in modes for m in ["sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank"]):
+        checks.append(("embedding (8081)", EMBEDDING_HEALTH_URL))
+    _splade_modes = {"sparse", "hybrid", "cc", "cc+rerank", "hybrid+rerank", "cc+rerank-8b", "hybrid+rerank-8b"}
+    if any(m in _splade_modes for m in modes):
         checks.append(("SPLADE (8083)", SPLADE_HEALTH_URL))
-    if any("rerank" in m for m in modes):
-        checks.append(("reranker (8082)", RERANKER_HEALTH_URL))
+    if any(m in modes for m in ["cc+rerank", "hybrid+rerank", "dense+rerank-0.6b"]):
+        checks.append(("reranker-0.6b (8082)", RERANKER_HEALTH_URL))
+    if any(m in modes for m in ["cc+rerank-8b", "hybrid+rerank-8b", "dense+rerank-8b"]):
+        checks.append(("reranker-8b (8085)", RERANKER_8B_HEALTH_URL))
     for name, url in checks:
         try:
             resp = httpx.get(url, timeout=3.0)
@@ -147,6 +185,52 @@ def _check_servers(modes: list[str]) -> None:
         except Exception as e:
             print(f"ERROR: {name} server not reachable ({e}). Start servers: ./start.sh")
             sys.exit(1)
+
+
+# Ensure the correct server constellation is running for a mode (subprocess, dev convention).
+# Idempotent: healthy servers are left alone; only missing/wrong servers are changed.
+def _ensure_constellation_for_mode(mode: str) -> None:
+    servers = MODE_CONSTELLATIONS.get(mode, [])
+    if not servers:
+        return
+    names_json = json.dumps(servers)
+    script = (
+        f"from src.rag.server_manager import ensure_constellation; "
+        f"ensure_constellation({names_json})"
+    )
+    print(f"  [constellation] {mode} → {servers}")
+    subprocess.run([VENV_PYTHON, "-c", script], cwd=str(RAG_ROOT), check=True, timeout=360)
+
+
+# Read ~/.rag-locks state files to find the URL for a named preset server.
+def _lookup_server_url(server_name: str, path: str = "/v1/rerank") -> str:
+    for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
+        try:
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if state.get("name") == server_name:
+            return f"http://localhost:{state['port']}{path}"
+    raise RuntimeError(f"No running state file for server: {server_name}")
+
+
+# Rerank results using a cross-encoder at an explicit URL (avoids p1_retriever's hardcoded port).
+def _rerank_at(query: str, results: list[dict], top_k: int, url: str) -> list[dict]:
+    contents = [r["content"] for r in results]
+    response = httpx.post(
+        url,
+        json={"query": query, "documents": contents, "top_n": len(contents)},
+        timeout=60.0,
+    )
+    response.raise_for_status()
+    data = response.json()
+    ranked = sorted(data.get("results", data), key=lambda x: x["relevance_score"], reverse=True)
+    reranked = []
+    for item in ranked[:top_k]:
+        doc = results[item["index"]].copy()
+        doc["score"] = round(item["relevance_score"], 6)
+        reranked.append(doc)
+    return reranked
 
 
 # Load query objects from JSON file
@@ -224,6 +308,22 @@ def _run_query(query: str, collection: str, config: dict) -> list[dict]:
         elif mode == "hybrid+rerank":
             hits = _retriever.retrieve_hybrid(query, collection, top_k * 5, rrf_k=rrf_k, query_prefix=query_prefix)
             hits = _retriever.rerank(query, hits, top_k)
+        elif mode == "cc+rerank-8b":
+            url = _lookup_server_url("reranker-8b")
+            hits = _retriever.retrieve_cc(query, collection, _RERANK_CANDIDATES, alpha=alpha, query_prefix=query_prefix)
+            hits = _rerank_at(query, hits, top_k, url)
+        elif mode == "hybrid+rerank-8b":
+            url = _lookup_server_url("reranker-8b")
+            hits = _retriever.retrieve_hybrid(query, collection, top_k * 5, rrf_k=rrf_k, query_prefix=query_prefix)
+            hits = _rerank_at(query, hits, top_k, url)
+        elif mode == "dense+rerank-0.6b":
+            url = _lookup_server_url("reranker-0.6b")
+            hits = _retriever.retrieve_dense(query, collection, _RERANK_CANDIDATES, query_prefix=query_prefix)
+            hits = _rerank_at(query, hits, top_k, url)
+        elif mode == "dense+rerank-8b":
+            url = _lookup_server_url("reranker-8b")
+            hits = _retriever.retrieve_dense(query, collection, _RERANK_CANDIDATES, query_prefix=query_prefix)
+            hits = _rerank_at(query, hits, top_k, url)
         else:
             hits = []
     except Exception as e:
