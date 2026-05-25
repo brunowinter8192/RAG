@@ -3,8 +3,7 @@ import logging
 from pathlib import Path
 
 from .db import get_connection, validate_collection, query_collections, query_documents, query_progress, fetch_chunk_range
-from .search_primitives import embed_query, search_vectors, bm25_search, splade_search
-from .fusion import cc_fusion
+from .search_primitives import embed_query, search_vectors
 from .formatting import format_results, format_collections, format_documents, format_progress
 from .reranker import rerank_workflow
 
@@ -17,7 +16,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-HYBRID_CANDIDATES = 50
 RERANK_CANDIDATES = 30
 
 
@@ -82,54 +80,21 @@ def read_document_workflow(collection: str, document: str, chunk_index: int, bef
 def search_hybrid_workflow(
     query: str,
     collection: str | None = None,
-    document: str | None = None,
-    rerank: bool = False
+    document: str | None = None
 ) -> list[dict]:
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
     query_vector = embed_query(query)
-    if rerank:
-        # Dense-only first stage: fetch RERANK_CANDIDATES, rerank to top 12.
-        # No SPLADE call — constellation is embedding + reranker only (C3).
-        vector_results = search_vectors(conn, query_vector, RERANK_CANDIDATES, collection, document)
-        conn.close()
-        results = rerank_workflow(query, vector_results, 12)
-        results = [r for r in results if r['score'] > 0]
-        logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (dense+rerank, candidates={RERANK_CANDIDATES})")
-    else:
-        # CC-fusion path: dense + SPLADE → cc_fusion → top 12.
-        vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
-        keyword_results = splade_search(conn, query, HYBRID_CANDIDATES, collection, document)
-        conn.close()
-        results = cc_fusion(vector_results, keyword_results, 12)
-        logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (cc-fusion, vec={len(vector_results)}, splade={len(keyword_results)})")
-    return results
-
-
-def search_keyword_workflow(
-    query: str,
-    top_k: int = 12,
-    collection: str | None = None,
-    document: str | None = None
-) -> list[dict]:
-    top_k = min(top_k, 12)
-    conn = get_connection()
-    if collection:
-        validate_collection(conn, collection)
-    results = bm25_search(conn, query, top_k, collection, document)
-    results = filter_by_score(results, 0.05)
+    vector_results = search_vectors(conn, query_vector, RERANK_CANDIDATES, collection, document)
     conn.close()
-    logging.info(f"BM25 search '{query[:50]}...' returned {len(results)} results")
+    results = rerank_workflow(query, vector_results, 12)
+    results = [r for r in results if r['score'] > 0]
+    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (dense+rerank, candidates={RERANK_CANDIDATES})")
     return results
 
 
 # FUNCTIONS
-
-# Filter results below minimum relevance score
-def filter_by_score(results: list[dict], min_score: float) -> list[dict]:
-    return [r for r in results if r['score'] >= min_score]
-
 
 # Merge chunks into continuous text with overlap deduplication
 def merge_chunks(chunks: list[dict]) -> str:

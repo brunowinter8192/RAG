@@ -289,7 +289,7 @@ Implication for prod config: **default rerank=False protects the technical-doc c
 
 ---
 
-## SPLADE Indexing — Parked
+## SPLADE Indexing — Resolved (UNPARKED 2026-05-26 — see Architecture Lean-Completion below)
 
 When `rerank=True` is used, SPLADE-search is bypassed at query time (architecture split above). But: SPLADE-INDEXING is currently global across all collections. If a collection is ever queried with `rerank=False`, the SPLADE index is required for cc-fusion.
 
@@ -297,7 +297,32 @@ A future optimization could make SPLADE indexing per-collection optional — aca
 
 This would require: a per-collection metadata flag (e.g., `splade_indexed: false`), schema migration, indexer-side routing to skip SPLADE for flagged collections, and runtime guard in `search_hybrid_workflow(rerank=False)` to error or fall back gracefully on collections without SPLADE.
 
-**Parked.** Larger change, separate decision. Today: SPLADE-indexing stays global, all collections SPLADE-indexed.
+**Resolution:** The rerank=False cc-fusion path was removed entirely (2026-05-26). New chunks get NULL in sparse_embedding column. No per-collection flag needed — SPLADE indexing is globally off for new chunks. The `sparse_embedding` schema column and `backfill_splade_workflow` are retained for manual historical-data use.
+
+---
+
+## Architecture Lean-Completion (2026-05-26, post-Phase-C)
+
+Phase C (2026-05-25) introduced a two-path split in `search_hybrid_workflow`: `rerank=True` → dense-only → reranker; `rerank=False` → cc-fusion (dense + SPLADE). This split was a structural prerequisite — it confirmed empirically that the SPLADE server was not needed on the rerank path and that cc_fusion could be isolated cleanly.
+
+**User decision in the same session:** commit to the lean config. The `rerank=False` branch is removed. SPLADE is out of prod in all three dimensions: workflow (no cc-fusion), CLI (no `--rerank` toggle, no `search_keyword`), and indexer (new chunks get NULL sparse_embedding).
+
+**What changed in commit `f8f35c0` (2026-05-26):**
+- `search_hybrid_workflow()` signature: `rerank` parameter removed, function body is unconditionally dense+rerank
+- `HYBRID_CANDIDATES = 50` constant removed; `RERANK_CANDIDATES = 30` kept
+- `search_keyword_workflow()` removed from `retriever.py` (no CLI caller existed)
+- `--rerank` flag removed from `rag-cli search_hybrid` argparse
+- `fusion.py` deleted (`cc_fusion` + `rrf_fusion` had zero src/ callers after the change)
+- `splade_search()` removed from `search_primitives.py`; `sparse_embed_workflow` import removed from that file
+- `indexer.py`: `parallel_embed()` (dense + sparse in parallel) removed; `index_json_workflow` now calls `embed_workflow` only; `store_chunks()` writes NULL for sparse_embedding on new chunks; `backfill_splade_workflow` retained
+- `sparse_embedder.py`, `splade_server.py`, SPLADE preset in `server_utils.py`: all retained — archival, not auto-started by prod paths
+
+**Architecture as of 2026-05-26:**
+- Single prod constellation: embedding-8b + reranker-0.6b (C3, 15.93 GB VRAM)
+- SPLADE server preset retained in config; not started by default prod paths
+- `sparse_embedding` column kept in schema; existing values preserved; new chunks get NULL
+
+**Prod-config basis:** exclusively the reproducible test_db measurements (Phases A + B + Quote Coverage Audit on `dev/retrieval/A_retrieval_eval.py` + `dev/chunker/A_quote_coverage.py`). Historical April-2026 data (non-reproducible, pre-A_retrieval_eval scaffold) is an orientation reference — not a decision-blocking argument. A future extension of test_db with cross-domain queries (technical-doc queries) would provide new belastbare Datenbasis if domain-dependency needs to be re-evaluated.
 
 ---
 

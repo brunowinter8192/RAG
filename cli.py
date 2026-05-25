@@ -33,13 +33,11 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     # ── search_hybrid ─────────────────────────────────────────────────────────
-    p = sub.add_parser("search_hybrid", help="Hybrid search (vector + SPLADE + CC fusion, top_k=12 fixed).")
+    p = sub.add_parser("search_hybrid", help="Dense vector search with cross-encoder reranking; top_k=12 fixed.")
     p.add_argument("query", help="Natural language search query")
     p.add_argument("collection", help="Collection to search in")
     p.add_argument("--document", default=None,
                    help="Filter by document name. %% as wildcard")
-    p.add_argument("--rerank", dest="rerank", action="store_true", default=False,
-                   help="Enable cross-encoder reranking (dense-only first stage, slower, higher precision)")
 
     # ── list_collections ──────────────────────────────────────────────────────
     p = sub.add_parser("list_collections", help="List all indexed collections with chunk counts.")
@@ -136,7 +134,7 @@ def main():
 def _dispatch(args: argparse.Namespace) -> None:
     if args.cmd == "search_hybrid":
         results = search_hybrid_workflow(
-            args.query, args.collection, args.document, args.rerank
+            args.query, args.collection, args.document
         )
         print(format_results(results))
 

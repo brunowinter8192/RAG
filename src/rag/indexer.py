@@ -2,7 +2,6 @@
 import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -53,8 +52,8 @@ def index_json_workflow(json_path: str) -> int:
     for i in range(0, total, BATCH_SIZE):
         batch = chunks[i:i + BATCH_SIZE]
         texts = [c["content"] for c in batch]
-        embeddings, sparse_embeddings = parallel_embed(texts)
-        skipped = store_chunks(conn, batch, embeddings, sparse_embeddings)
+        embeddings = embed_workflow(texts, "search_document: ")
+        skipped = store_chunks(conn, batch, embeddings)
         skipped_total += skipped
         suffix = f" ({skipped} NULL skipped)" if skipped else ""
         print(f"Indexed {min(i + BATCH_SIZE, total)}/{total} chunks{suffix}")
@@ -124,18 +123,6 @@ def backfill_splade_workflow(collection: str) -> int:
 
 
 # FUNCTIONS
-
-# Generate dense and sparse embeddings in parallel.
-# `search_document: ` prefix is REQUIRED for Qwen3-Embedding-8B — without it, ~3-4% of
-# code-heavy chunks (those starting with bare `import` statements or similar dense
-# code patterns) silently produce all-None embeddings due to a tokenizer edge case.
-# See decisions/OldThemes/null_embedding_qwen3_prefix.md for the full diagnosis.
-def parallel_embed(texts: list[str]) -> tuple[list[list[float]], list[dict]]:
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        emb_future = executor.submit(embed_workflow, texts, "search_document: ")
-        sparse_future = executor.submit(sparse_embed_workflow, texts)
-        return emb_future.result(), sparse_future.result()
-
 
 # Load chunks from JSON file
 def load_chunks_json(json_path: str) -> list[dict]:
@@ -245,16 +232,17 @@ def format_sparsevec(sparse: dict, dimensions: int = 30522) -> str:
     return f"{{{pairs}}}/{dimensions}"
 
 
-# Store chunks with dense and sparse embeddings in PostgreSQL. Returns count of
-# chunks SKIPPED because the embedding model returned a NULL vector.
-def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]], sparse_embeddings: list[dict]) -> int:
+# Store chunks with dense embeddings in PostgreSQL; sparse_embedding stays NULL for new chunks.
+# Returns count of chunks SKIPPED because the embedding model returned a NULL vector.
+def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]], sparse_embeddings: list[dict] | None = None) -> int:
     skipped = 0
     with conn.cursor() as cur:
-        for chunk, embedding, sparse in zip(chunks, embeddings, sparse_embeddings):
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             if embedding is None or all(v is None for v in embedding):
                 logging.warning(f"NULL embedding skipped: collection={chunk['collection']} document={chunk['document']} chunk_index={chunk['chunk_index']}")
                 skipped += 1
                 continue
+            sparse_val = format_sparsevec(sparse_embeddings[i]) if sparse_embeddings else None
             cur.execute(
                 """
                 INSERT INTO documents (content, collection, document, chunk_index, total_chunks, embedding, sparse_embedding)
@@ -267,7 +255,7 @@ def store_chunks(conn, chunks: list[dict], embeddings: list[list[float]], sparse
                     chunk["chunk_index"],
                     chunk["total_chunks"],
                     embedding,
-                    format_sparsevec(sparse)
+                    sparse_val
                 )
             )
     conn.commit()
