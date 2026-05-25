@@ -652,8 +652,8 @@ def _write_cross_sweep_report(results: dict, param1: str, param2: str, values1: 
     for v1 in values1:
         cells = []
         for v2 in values2:
-            avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k = results[(v1, v2)]
-            cells.append(f"{avg_snip:.0%} ({avg_ndcg:.3f})")
+            avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k, mean_lat = results[(v1, v2)]
+            cells.append(f"{avg_snip:.0%} ({avg_ndcg:.3f}) [{mean_lat:.0f}ms]")
         lines.append(f"| {v1} | " + " | ".join(cells) + " |")
 
     # Find best cell by snippet_recall, tie-break NDCG
