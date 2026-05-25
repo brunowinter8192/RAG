@@ -268,7 +268,7 @@ def _rerank_at(query: str, results: list[dict], top_k: int, url: str) -> list[di
     response = httpx.post(
         url,
         json={"query": query, "documents": contents, "top_n": len(contents)},
-        timeout=60.0,
+        timeout=300.0,
     )
     response.raise_for_status()
     data = response.json()
