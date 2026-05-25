@@ -14,7 +14,7 @@ Core implementation of the RAG pipeline: dense (Qwen3) embedding, PostgreSQL/pgv
 
 **Retrieval (per query):** `retriever.py` workflow → `db.py` opens connection + validates collection → `search_primitives.py` embeds query and runs vector search (RERANK_CANDIDATES=30) → `reranker.py` re-scores top 30 → `formatting.py` serializes output. Context expansion (neighboring chunks) via `read_document_workflow` using `--before`/`--after`.
 
-**Indexing (per batch):** `chunker.py` splits document → `indexer.py` embeds chunks via `embedder.py` + `sparse_embedder.py` and inserts into PostgreSQL. `server_manager.py` ensures GPU servers are running before embedding starts.
+**Indexing (per batch):** `chunker.py` splits document → `indexer.py` embeds chunks via `embedder.py` (dense only; `sparse_embedder.py` called only from `backfill_splade_workflow` for manual backfill) and inserts into PostgreSQL. `server_manager.py` ensures GPU servers are running before embedding starts.
 
 **Manifest-driven sync (per project, end of session):** `sync.py` reads `<project>/.rag-docs.json`, expands the include-globs, hashes each matched `.md` file, and diffs against the `indexed_files` tracking table. Only added/updated files are re-chunked + re-embedded; removed files are deleted from the index; unchanged files are skipped. Reuses chunker/indexer/server_manager primitives — no re-implementation of embedding or storage.
 
@@ -42,10 +42,10 @@ Core implementation of the RAG pipeline: dense (Qwen3) embedding, PostgreSQL/pgv
 
 ### sparse_embedder.py (60 LOC)
 
-**Purpose:** HTTP client for the SPLADE server sparse embedding endpoint; mirrors `embedder.py` interface.
+**Purpose:** HTTP client for the SPLADE server sparse embedding endpoint; mirrors `embedder.py` interface. Not called on the prod indexing path — only used by `backfill_splade_workflow` in `indexer.py` (manual backfill of existing chunks).
 **Reads:** `SPLADE_URL` env (override) or `server_manager.find_server_url('splade')` for URL; SPLADE server `/v1/sparse-embeddings` response.
 **Writes:** `src/rag/logs/sparse_embedder.log`; bumps `~/.rag-locks/server-port-{N}.json` mtime before each request (via `_touch_state_file`).
-**Called by:** search_primitives.py, indexer.py
+**Called by:** indexer.py (`backfill_splade_workflow` only)
 **Calls out:** httpx
 
 ---
