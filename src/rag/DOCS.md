@@ -130,9 +130,9 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_manager.py (68 LOC)
+### server_manager.py (120 LOC)
 
-**Purpose:** Thin coordinator. Defines `ensure_ready` (composes lifecycle + watchdog) and re-exports the full public surface from the four sub-modules below so all callers remain unchanged. All server logic lives in the sub-modules.
+**Purpose:** Thin coordinator. Defines `ensure_ready` and `ensure_constellation` (API entry points), `_stop_exclusive` / `_get_running_presets` (exclusivity helpers), and re-exports the full public surface from the four sub-modules so all callers remain unchanged. All server logic lives in the sub-modules.
 **Reads:** (via sub-modules)
 **Writes:** (via sub-modules)
 **Called by:** embedder.py, sparse_embedder.py, reranker.py, workflow.py (lazy import for `index-dir` and `server` subcommands), cli.py (lazy import for `server` subcommand), sync.py (`ensure_ready` before embed), indexer.py (lazy import of `RAG_ROOT`), status.py, watchdog_main.py (`_watchdog_loop`).
@@ -140,7 +140,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_utils.py (293 LOC)
+### server_utils.py (299 LOC)
 
 **Purpose:** Shared constants + process utilities used by all server sub-modules. Contains the SERVERS preset dict, all path/port constants, `_CLASS_MAP`, and the eight process primitives (`find_pid_on_port`, `find_all_pids_on_port`, `pgrep_llama_server`, `_check_health_port`, `_stop_by_state`, `_pid_alive`, `_allocate_port`, `_resolve_port`) plus state-file I/O helpers (`_write_state_file`, `_unlink_state_file`, `_touch_state_file`). Dependency root — no imports from other server sub-modules.
 **Reads:** env vars (RAG_PROJECT_ROOT, LLAMA_SERVER_PATH, port overrides, IDLE_TIMEOUT); `lsof`/`pgrep` subprocess; httpx `/health` endpoints; `~/.rag-locks/server-port-{N}.json` (state file reads in `_stop_by_state`, `_unlink_state_file`).

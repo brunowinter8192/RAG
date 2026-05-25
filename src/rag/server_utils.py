@@ -60,6 +60,7 @@ SERVERS = {
         "timeout": 90,
         "required_for": ["search", "index"],
         "default": True,
+        "exclusive_with": ["embedding-0.6b"],
     },
     "embedding-0.6b": {
         "default_port": EMBEDDING_06B_PORT,
@@ -70,26 +71,29 @@ SERVERS = {
         "timeout": 90,
         "required_for": ["search", "index"],
         "default": False,
+        "exclusive_with": ["embedding-8b"],
     },
     "reranker-0.6b": {
         "default_port": RERANKER_06B_PORT,
         "model_path": RERANKER_06B_MODEL_PATH,
         "mode": "rerank",
         "type": "llama",
-        "extra_flags": ["-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096"],
+        "extra_flags": ["-ngl", "99", "-c", "32768", "-np", "1", "-b", "4096", "-ub", "4096"],
         "timeout": 90,
         "required_for": ["rerank"],
         "default": True,
+        "exclusive_with": ["reranker-8b"],
     },
     "reranker-8b": {
         "default_port": RERANKER_8B_PORT,
         "model_path": RERANKER_8B_MODEL_PATH,
         "mode": "rerank",
         "type": "llama",
-        "extra_flags": ["-ngl", "99", "-c", "32768", "-ub", "4096", "-b", "4096"],
+        "extra_flags": ["-ngl", "99", "-c", "32768", "-np", "1", "-b", "4096", "-ub", "4096"],
         "timeout": 90,
         "required_for": ["rerank"],
         "default": False,
+        "exclusive_with": ["reranker-0.6b"],
     },
     "generator-4b": {
         "default_port": GENERATOR_4B_PORT,
@@ -100,6 +104,7 @@ SERVERS = {
         "timeout": 90,
         "required_for": ["generate"],
         "default": False,
+        "exclusive_with": [],
     },
     "splade": {
         "default_port": SPLADE_PORT,
@@ -110,6 +115,7 @@ SERVERS = {
         "timeout": 60,
         "required_for": ["search", "index"],
         "default": True,
+        "exclusive_with": [],
     },
 }
 

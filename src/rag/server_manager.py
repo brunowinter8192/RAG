@@ -1,7 +1,10 @@
 # INFRASTRUCTURE
 # Coordinator: re-exports full public surface so all callers are unchanged.
-# Defines ensure_ready (composes lifecycle + watchdog) and status (aggregate view).
+# Defines ensure_ready / ensure_constellation (API entry points) + private helpers.
 # All server logic lives in server_utils / server_lifecycle / watchdog / server_cli.
+
+import json
+import logging
 
 from .server_utils import (
     SERVERS, _CLASS_MAP, _MODE_TO_CLASS, _PRESET_NAMES,
@@ -29,6 +32,7 @@ def ensure_ready(target: str) -> None:
     # Direct preset name
     if target in SERVERS:
         if not check_health(target):
+            _stop_exclusive(target)
             start(target)
         _ensure_watchdog_process()
         return
@@ -41,7 +45,8 @@ def ensure_ready(target: str) -> None:
             if check_health(v):
                 _ensure_watchdog_process()
                 return
-        # Otherwise start the default variant.
+        # Otherwise start the default variant (after exclusivity stop).
+        _stop_exclusive(preset)
         start(preset)
         _ensure_watchdog_process()
         return
@@ -63,6 +68,53 @@ def ensure_ready(target: str) -> None:
         cls = _MODE_TO_CLASS.get(SERVERS[name]["mode"], SERVERS[name]["mode"])
         if any(check_health(v) for v in _CLASS_MAP.get(cls, [name])):
             continue
+        _stop_exclusive(name)
         start(name)
 
     _ensure_watchdog_process()
+
+
+# Ensure EXACTLY the given set of preset servers is running.
+# Stops all running presets not in the list; starts any missing ones via ensure_ready.
+# Caller declares "I want EXACTLY these servers", system diffs and acts.
+# Cross-class and same-class exclusive_with rules are enforced transitively through
+# ensure_ready → _stop_exclusive on the start side.
+def ensure_constellation(server_names: list[str]) -> None:
+    running = _get_running_presets()
+    for name in running:
+        if name not in server_names:
+            logging.info(
+                f"constellation-stop: {name} stopped, not in requested constellation {server_names}"
+            )
+            stop(name)
+    for name in server_names:
+        ensure_ready(name)
+    _ensure_watchdog_process()
+
+
+# FUNCTIONS
+
+# Stop all exclusive_with entries for name before it starts; checks alive PID, not health.
+# Unhealthy-but-alive servers are stopped to free GPU memory regardless of health status.
+def _stop_exclusive(name: str) -> None:
+    running = _get_running_presets()
+    for exclusive_name in SERVERS[name].get("exclusive_with", []):
+        if exclusive_name in running:
+            logging.info(
+                f"exclusive-stop: {exclusive_name} stopped because {name} requires exclusivity"
+            )
+            stop(exclusive_name)
+
+
+# Return names of all preset servers with a live state file and alive PID.
+def _get_running_presets() -> list[str]:
+    running = []
+    for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
+        try:
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        name = state.get("name")
+        if name and name in SERVERS and _pid_alive(state.get("pid", -1)):
+            running.append(name)
+    return running
