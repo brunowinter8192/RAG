@@ -57,8 +57,11 @@ PREFIX_NOOP_MODES = {"sparse", "bm25"}
 
 def run_baseline(queries_path: str, config: dict) -> None:
     collection = config["collection"]
-    _ensure_constellation_for_mode(config["mode"])
-    _check_servers([config["mode"]])
+    mode = config["mode"]
+    if MODE_CONSTELLATIONS.get(mode):
+        _ensure_constellation_for_mode(mode)   # starts servers + patches dynamic-port URLs
+    else:
+        _check_servers([mode])
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
     print(f"Running baseline: {len(queries)} queries | mode={config['mode']} | top_k={config['top_k']} | collection={collection}")
@@ -142,7 +145,11 @@ def run_sweep(queries_path: str, param: str, base_config: dict,
     collection = base_config["collection"]
     values = restrict_values if restrict_values is not None else SWEEP_RANGES[param]
     if param != "mode":
-        _check_servers([base_config["mode"]])
+        mode = base_config["mode"]
+        if MODE_CONSTELLATIONS.get(mode):
+            _ensure_constellation_for_mode(mode)   # starts servers + patches dynamic-port URLs
+        else:
+            _check_servers([mode])
 
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
@@ -652,8 +659,8 @@ def _write_cross_sweep_report(results: dict, param1: str, param2: str, values1: 
     for v1 in values1:
         cells = []
         for v2 in values2:
-            avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k = results[(v1, v2)]
-            cells.append(f"{avg_snip:.0%} ({avg_ndcg:.3f})")
+            avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k, mean_lat = results[(v1, v2)]
+            cells.append(f"{avg_snip:.0%} ({avg_ndcg:.3f}) [{mean_lat:.0f}ms]")
         lines.append(f"| {v1} | " + " | ".join(cells) + " |")
 
     # Find best cell by snippet_recall, tie-break NDCG

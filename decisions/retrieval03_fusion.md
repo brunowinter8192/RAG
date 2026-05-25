@@ -2,14 +2,14 @@
 
 ## Status Quo (IST)
 
-**Code:** `src/rag/retriever.py:search_hybrid_workflow` → calls `cc_fusion` (from `src/rag/fusion.py`, `CC_ALPHA = 0.8`)
+**Code:** `search_hybrid_workflow()` in `src/rag/retriever.py` → calls `cc_fusion` (from `src/rag/fusion.py`, `CC_ALPHA = 0.8`) **only on the `rerank=False` path**
 **Method:** Convex Combination (CC) with min-max normalization
 **Formula:** `score(d) = α * (dense_score - min_dense) / (max_dense - min_dense) + (1-α) * (sparse_score / max_sparse)`
 **α parameter:** 0.8 (`CC_ALPHA` constant in `fusion.py`)
-**Input:** Top 50 Dense + Top 50 Sparse candidates
-**Output:** Fused ranking, top_k returned
+**Input:** Top 50 Dense + Top 50 Sparse candidates (`HYBRID_CANDIDATES=50`)
+**Output:** Fused ranking, top 12 returned (hardcoded)
 
-`cc_fusion` is the live default in `search_hybrid_workflow()`. `rrf_fusion` is retained in `fusion.py` as a reference implementation but is not called from the workflow. `search_workflow()` (pure dense) returns dense results directly without fusion.
+`cc_fusion` is the live default in `search_hybrid_workflow(rerank=False)`. On the `rerank=True` path, `cc_fusion` is **not called** — dense-only first stage feeds directly into `rerank_workflow`. See `decisions/retrieval04_reranking.md` for the full architecture split. `rrf_fusion` is retained in `fusion.py` as a reference implementation but is not called from any workflow. `search_workflow()` (pure dense) returns dense results directly without fusion.
 
 ### Code-Drift-Closure 2026-05-11
 

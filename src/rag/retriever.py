@@ -17,16 +17,15 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-DEFAULT_TOP_K = 5
 HYBRID_CANDIDATES = 50
-RERANK_CANDIDATES = 50
+RERANK_CANDIDATES = 30
 
 
 # ORCHESTRATOR
 
 def search_workflow(
     query: str,
-    top_k: int = DEFAULT_TOP_K,
+    top_k: int = 12,
     collection: str | None = None,
     document: str | None = None
 ) -> list[dict]:
@@ -82,31 +81,35 @@ def read_document_workflow(collection: str, document: str, chunk_index: int, bef
 
 def search_hybrid_workflow(
     query: str,
-    top_k: int = DEFAULT_TOP_K,
     collection: str | None = None,
     document: str | None = None,
     rerank: bool = False
 ) -> list[dict]:
-    top_k = min(top_k, 12)
     conn = get_connection()
     if collection:
         validate_collection(conn, collection)
     query_vector = embed_query(query)
-    vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
-    keyword_results = splade_search(conn, query, HYBRID_CANDIDATES, collection, document)
-    rrf_top = RERANK_CANDIDATES if rerank else top_k
-    results = cc_fusion(vector_results, keyword_results, rrf_top)
     if rerank:
-        results = rerank_workflow(query, results, top_k)
+        # Dense-only first stage: fetch RERANK_CANDIDATES, rerank to top 12.
+        # No SPLADE call — constellation is embedding + reranker only (C3).
+        vector_results = search_vectors(conn, query_vector, RERANK_CANDIDATES, collection, document)
+        conn.close()
+        results = rerank_workflow(query, vector_results, 12)
         results = [r for r in results if r['score'] > 0]
-    conn.close()
-    logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (vec={len(vector_results)}, splade={len(keyword_results)}, rerank={rerank})")
+        logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (dense+rerank, candidates={RERANK_CANDIDATES})")
+    else:
+        # CC-fusion path: dense + SPLADE → cc_fusion → top 12.
+        vector_results = search_vectors(conn, query_vector, HYBRID_CANDIDATES, collection, document)
+        keyword_results = splade_search(conn, query, HYBRID_CANDIDATES, collection, document)
+        conn.close()
+        results = cc_fusion(vector_results, keyword_results, 12)
+        logging.info(f"Hybrid search '{query[:50]}...' returned {len(results)} results (cc-fusion, vec={len(vector_results)}, splade={len(keyword_results)})")
     return results
 
 
 def search_keyword_workflow(
     query: str,
-    top_k: int = DEFAULT_TOP_K,
+    top_k: int = 12,
     collection: str | None = None,
     document: str | None = None
 ) -> list[dict]:
