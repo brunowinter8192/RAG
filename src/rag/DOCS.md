@@ -90,9 +90,9 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### retriever.py (147 LOC)
+### retriever.py (150 LOC)
 
-**Purpose:** Workflow orchestration for all six retrieval operations (search, search_hybrid, search_keyword, list_collections, list_documents, read_document). Thin shell composing db, search_primitives, fusion, formatting, and reranker sub-modules. Hosts `merge_chunks` + `find_overlap` helpers (chunk context expansion for read_document). Re-exports `format_*` functions for cli.py backward compatibility.
+**Purpose:** Workflow orchestration for all six retrieval operations (search, search_hybrid, search_keyword, list_collections, list_documents, read_document). Thin shell composing db, search_primitives, fusion, formatting, and reranker sub-modules. `search_hybrid_workflow` has two code paths: `rerank=False` → dense + SPLADE + cc_fusion → top 12; `rerank=True` → dense-only (RERANK_CANDIDATES=30) → rerank_workflow → top 12 (no SPLADE call). top_k hardcoded 12 in both paths. Hosts `merge_chunks` + `find_overlap` helpers. Re-exports `format_*` functions for cli.py backward compatibility.
 **Reads:** PostgreSQL via db; embedding/SPLADE/reranker servers via search_primitives/reranker.
 **Writes:** `src/rag/logs/retriever.log` (via `logging.basicConfig`).
 **Called by:** cli.py, workflow.py

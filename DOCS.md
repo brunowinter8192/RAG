@@ -16,7 +16,7 @@
 | Subcommand | Description |
 |---|---|
 | `search` | Dense vector search (cosine similarity) |
-| `search_hybrid` | Dense + SPLADE + CC fusion; optional cross-encoder reranking |
+| `search_hybrid` | Dense + SPLADE + CC fusion (rerank=False) OR dense + reranker (rerank=True); top_k=12 fixed |
 | `search_keyword` | BM25 full-text keyword search |
 | `list_collections` | All indexed collections with chunk counts |
 | `list_documents` | Documents in a collection |
@@ -26,7 +26,8 @@
 ```bash
 rag-cli list_collections
 rag-cli list_documents my_collection
-rag-cli search_hybrid "transformer attention" my_collection --top-k 20
+rag-cli search_hybrid "transformer attention" my_collection
+rag-cli search_hybrid "transformer attention" my_collection --rerank
 rag-cli search "semantic similarity" my_collection --top-k 30
 rag-cli search_keyword "learning_rate dropout" my_collection --top-k 20
 rag-cli read_document my_collection paper.md 42 --before 2 --after 5

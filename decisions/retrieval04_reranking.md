@@ -23,7 +23,7 @@
 **Constants** (`src/rag/retriever.py`):
 - `RERANK_CANDIDATES = 30` (Phase B plateau: rc=30 hits 97% snippet recall, identical to rc=50 at 37% lower latency)
 - `HYBRID_CANDIDATES = 50`
-- `DEFAULT_TOP_K` removed
+- DEFAULT_TOP_K removed (top_k hardcoded 12 in workflow body)
 
 Auto-started on first use (same lifecycle pattern as embedding server).
 
