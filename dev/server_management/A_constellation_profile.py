@@ -197,13 +197,13 @@ def _get_server_url(preset_name: str) -> str | None:
     return None
 
 
-# Sum all Metal buffer sizes from llama startup logs for the given preset names.
-# Metal buffer size lines appear once at startup and reflect model weights allocation.
-# KV cache (dynamic, bounded by -np 1 × -c 32768) is NOT included — model-weights
-# footprint is the stable per-server contribution to total GPU memory.
+# Sum all MTL0 Metal buffer sizes from llama startup logs for the given preset names.
+# Matches all three MTL0 allocation lines (model weights + KV cache + compute scratch),
+# which together equal the total Metal GPU allocation announced by llama_params_fit_impl.
+# CPU buffer lines (CPU_Mapped, CPU output, CPU compute) are excluded — GPU only.
 def _sample_vram_from_logs(names: list[str]) -> float:
     total_mib = 0.0
-    pattern = re.compile(r"Metal buffer size\s*=\s*([\d.]+)\s*MiB")
+    pattern = re.compile(r"MTL0[^=]*?buffer size\s*=\s*([\d.]+)\s*MiB")
     for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
         try:
             state = json.loads(sf.read_text())
