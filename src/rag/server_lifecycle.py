@@ -1,8 +1,6 @@
 # INFRASTRUCTURE
 import json
 import logging
-import os
-import signal
 import subprocess
 import time
 from pathlib import Path
@@ -12,8 +10,8 @@ import httpx
 from . import error_log
 from .server_utils import (
     SERVERS, _CLASS_MAP, _PRESET_NAMES, TIMESTAMP_DIR, LOG_DIR, RAG_ROOT,
-    LLAMA_SERVER_PATH, _pid_alive, find_pid_on_port, find_all_pids_on_port,
-    _check_health_port, _allocate_port, _resolve_port, _stop_by_state,
+    LLAMA_SERVER_PATH, _pid_alive, find_pid_on_port,
+    _check_health_port, _resolve_port, _stop_by_state,
     _write_state_file, _unlink_state_file,
 )
 
@@ -114,43 +112,26 @@ def start(name: str) -> bool:
     )
 
 
-# Stop a preset server; finds actual port via state file, falls back to default port
+# Stop a preset server; kills the PID recorded in the state file only.
+# No port-based fallback — if no state file exists, the server is not running.
+# This prevents killing unrelated processes (e.g. proxy connectors) that happen
+# to share the default_port when the server was never started on that port.
 def stop(name: str) -> bool:
     if name not in SERVERS:
         raise ValueError(f"Unknown server: {name}. Available: {list(SERVERS.keys())}")
 
-    cfg = SERVERS[name]
-    url = find_server_url(name)
-    port = int(url.split(":")[-1]) if url else cfg["default_port"]
-
-    pids = find_all_pids_on_port(port)
-    if not pids:
-        logging.info(f"{name} not running on port {port}")
-        return False
-
-    logging.info(f"Stopping {name} (PIDs {pids}) on port {port}...")
-    for pid in pids:
+    for sf in sorted(TIMESTAMP_DIR.glob("server-port-*.json")):
         try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-
-    for _ in range(10):
-        time.sleep(0.5)
-        remaining = find_all_pids_on_port(port)
-        if not remaining:
-            logging.info(f"{name} stopped")
-            _unlink_state_file(port, caller="stop", reason=f"stop({name}): exited cleanly after SIGTERM")
+            state = json.loads(sf.read_text())
+        except (json.JSONDecodeError, FileNotFoundError, OSError):
+            continue
+        if state.get("name") == name:
+            _stop_by_state(state, sf, caller="stop",
+                           reason=f"user-requested stop({name})")
             return True
 
-    for pid in find_all_pids_on_port(port):
-        try:
-            os.kill(pid, signal.SIGKILL)
-            logging.warning(f"{name} force-killed (PID {pid})")
-        except ProcessLookupError:
-            pass
-    _unlink_state_file(port, caller="stop", reason=f"stop({name}): force-killed after 5s SIGTERM grace expired")
-    return True
+    logging.info(f"{name} not running (no state file)")
+    return False
 
 
 # Restart a server
