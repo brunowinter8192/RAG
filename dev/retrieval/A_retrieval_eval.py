@@ -142,7 +142,11 @@ def run_sweep(queries_path: str, param: str, base_config: dict,
     collection = base_config["collection"]
     values = restrict_values if restrict_values is not None else SWEEP_RANGES[param]
     if param != "mode":
-        _check_servers([base_config["mode"]])
+        mode = base_config["mode"]
+        if MODE_CONSTELLATIONS.get(mode):
+            _ensure_constellation_for_mode(mode)   # starts servers + patches dynamic-port URLs
+        else:
+            _check_servers([mode])
 
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
