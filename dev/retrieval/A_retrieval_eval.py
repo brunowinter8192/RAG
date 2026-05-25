@@ -52,9 +52,6 @@ THRESHOLD_IGNORED_MODES = {
 # Modes where query_prefix has no effect (no dense embedding step)
 PREFIX_NOOP_MODES = {"sparse", "bm25"}
 
-# rerank candidates fetched before cross-encoder reranking
-_RERANK_CANDIDATES = 50
-
 
 # ORCHESTRATOR
 
