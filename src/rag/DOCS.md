@@ -2,7 +2,7 @@
 
 ## Role
 
-Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) embedding, PostgreSQL/pgvector storage, retrieval with CC/RRF fusion and cross-encoder reranking, and GPU server lifecycle management. Touch this package when changing retrieval logic, embedding models, search algorithms, indexing behavior, or server startup. Do NOT touch for Skills/Commands (project root) or dev scripts (`dev/`).
+Core implementation of the RAG pipeline: dense (Qwen3) embedding, PostgreSQL/pgvector storage, dense retrieval with cross-encoder reranking (always-on), and GPU server lifecycle management. Touch this package when changing retrieval logic, embedding models, indexing behavior, or server startup. Do NOT touch for Skills/Commands (project root) or dev scripts (`dev/`).
 
 ## Public Interface
 
@@ -12,7 +12,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ## Flow
 
-**Retrieval (per query):** `retriever.py` workflow → `db.py` opens connection + validates collection → `search_primitives.py` embeds query and runs vector / BM25 / SPLADE search → `fusion.py` fuses results → `reranker.py` re-scores → `formatting.py` serializes output. Context expansion (neighboring chunks) is done on demand via `read_document_workflow` using `--before`/`--after`.
+**Retrieval (per query):** `retriever.py` workflow → `db.py` opens connection + validates collection → `search_primitives.py` embeds query and runs vector search (RERANK_CANDIDATES=30) → `reranker.py` re-scores top 30 → `formatting.py` serializes output. Context expansion (neighboring chunks) via `read_document_workflow` using `--before`/`--after`.
 
 **Indexing (per batch):** `chunker.py` splits document → `indexer.py` embeds chunks via `embedder.py` + `sparse_embedder.py` and inserts into PostgreSQL. `server_manager.py` ensures GPU servers are running before embedding starts.
 
@@ -60,25 +60,16 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### search_primitives.py (173 LOC)
+### search_primitives.py (129 LOC)
 
-**Purpose:** Low-level search functions — `embed_query`, vector cosine search, BM25 full-text search, and SPLADE sparse search against PostgreSQL.
-**Reads:** PostgreSQL `documents` table (via `conn` parameter); embedding and SPLADE servers (via embedder/sparse_embedder).
+**Purpose:** Low-level search functions — `embed_query`, vector cosine search, BM25 full-text search against PostgreSQL. `splade_search` removed (2026-05-26).
+**Reads:** PostgreSQL `documents` table (via `conn` parameter); embedding server (via embedder).
 **Writes:** nothing.
 **Called by:** retriever.py
-**Calls out:** (none — all via internal modules: db, embedder, sparse_embedder)
+**Calls out:** (none — all via internal modules: db, embedder)
 
 ---
 
-### fusion.py (54 LOC)
-
-**Purpose:** Fuse two ranked result lists via Reciprocal Rank Fusion (`rrf_fusion`) or Convex Combination with min-max normalization (`cc_fusion`). Pure Python, no I/O.
-**Reads:** in-memory result lists.
-**Writes:** nothing.
-**Called by:** retriever.py
-**Calls out:** (none — pure Python)
-
----
 
 ### formatting.py (59 LOC)
 
@@ -90,10 +81,10 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### retriever.py (150 LOC)
+### retriever.py (115 LOC)
 
-**Purpose:** Workflow orchestration for all six retrieval operations (search, search_hybrid, search_keyword, list_collections, list_documents, read_document). Thin shell composing db, search_primitives, fusion, formatting, and reranker sub-modules. `search_hybrid_workflow` has two code paths: `rerank=False` → dense + SPLADE + cc_fusion → top 12; `rerank=True` → dense-only (RERANK_CANDIDATES=30) → rerank_workflow → top 12 (no SPLADE call). top_k hardcoded 12 in both paths. Hosts `merge_chunks` + `find_overlap` helpers. Re-exports `format_*` functions for cli.py backward compatibility.
-**Reads:** PostgreSQL via db; embedding/SPLADE/reranker servers via search_primitives/reranker.
+**Purpose:** Workflow orchestration for retrieval operations (search, search_hybrid, list_collections, list_documents, read_document). `search_hybrid_workflow` is unconditionally dense+rerank: `search_vectors(RERANK_CANDIDATES=30)` → `rerank_workflow(top_k=12)`. No cc-fusion path, no SPLADE call, no `rerank` parameter. Hosts `merge_chunks` + `find_overlap` helpers. Re-exports `format_*` functions for cli.py backward compatibility.
+**Reads:** PostgreSQL via db; embedding/reranker servers via search_primitives/reranker.
 **Writes:** `src/rag/logs/retriever.log` (via `logging.basicConfig`).
 **Called by:** cli.py, workflow.py
 **Calls out:** (none — all external calls delegated to sub-modules)
@@ -110,9 +101,9 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### indexer.py (301 LOC)
+### indexer.py (289 LOC)
 
-**Purpose:** Index chunks into PostgreSQL with dense + sparse embeddings; handles schema creation, batch insert, SPLADE backfill, deletion by collection/document, and per-document completeness check (`doc_is_complete`) used by workflow.py for adopt-on-complete skip logic.
+**Purpose:** Index chunks into PostgreSQL with dense embeddings (sparse_embedding stays NULL for new chunks); handles schema creation, batch insert, SPLADE backfill (manual only), deletion by collection/document, and per-document completeness check (`doc_is_complete`) used by workflow.py for adopt-on-complete skip logic.
 **Reads:** `chunks.json` from disk; `.env` for connection params; PostgreSQL schema state.
 **Writes:** PostgreSQL `documents` table (insert, delete, schema init).
 **Called by:** workflow.py, sync.py, cli.py (lazy import for `delete` subcommand)
@@ -150,7 +141,7 @@ Core implementation of the hybrid RAG pipeline: dense (Qwen3) + sparse (SPLADE) 
 
 ---
 
-### server_lifecycle.py (389 LOC)
+### server_lifecycle.py (370 LOC)
 
 **Purpose:** Start/stop/restart logic for preset and arbitrary servers, plus state query functions. Manages single-instance enforcement, health polling on startup, port resolution, and process command construction. Provides `find_server_url` and `check_health` used by embedder/reranker/sparse_embedder callers.
 **Reads:** `~/.rag-locks/server-port-{N}.json` state files (via `find_server_url`, `start` single-instance check); httpx `/health` endpoints (via `check_health`).

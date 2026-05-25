@@ -13,12 +13,12 @@
 
 - First stage: `search_vectors()` fetches `RERANK_CANDIDATES=30` dense candidates
 - `rerank_workflow()` re-scores all 30 candidates, returns top 12; score == 0 excluded
-- No `splade_search()` call, no `cc_fusion()` call, no SPLADE server needed
+- No SPLADE search call, no fusion step, no SPLADE server needed
 - Constellation: embedding-8b + reranker-0.6b (C3, 15.93 GB VRAM)
 
 **Constants** (`src/rag/retriever.py`):
 - `RERANK_CANDIDATES = 30` (Phase B plateau: rc=30 hits 97% snippet recall, identical to rc=50 at 37% lower latency)
-- `HYBRID_CANDIDATES` removed (cc-fusion path eliminated)
+- HYBRID_CANDIDATES removed (cc-fusion path eliminated)
 - `rerank` parameter removed from signature (no toggle — always-rerank)
 
 Auto-started on first use (same lifecycle pattern as embedding server).

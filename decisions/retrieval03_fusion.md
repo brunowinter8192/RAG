@@ -6,7 +6,7 @@
 
 Both `cc_fusion` and `rrf_fusion` had zero callers in `src/` after the always-rerank migration. The cc-fusion path (`rerank=False` branch) was removed in full — no dev/ scaffold copies exist either. `search_workflow()` (pure dense, no fusion) is unchanged.
 
-**Historical IST (superseded):** `cc_fusion` (CC α=0.8, `HYBRID_CANDIDATES=50`) was the default in `search_hybrid_workflow(rerank=False)`. Evidenz for that choice is preserved below. Superseded values and the code-drift closure are in `decisions/OldThemes/server_management/2026-05-25_phase_a_results.md`.
+**Historical IST (superseded):** cc_fusion (CC α=0.8, HYBRID_CANDIDATES=50) was the default in `search_hybrid_workflow(rerank=False)`. Evidenz for that choice is preserved below. Superseded values and the code-drift closure are in `decisions/OldThemes/server_management/2026-05-25_phase_a_results.md`.
 
 ## Evidenz
 
