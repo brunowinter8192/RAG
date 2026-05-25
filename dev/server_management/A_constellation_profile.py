@@ -383,12 +383,16 @@ if __name__ == "__main__":
                         help="Override COLD_N (default: 5)")
     parser.add_argument("--warm-n", type=int, default=None, metavar="N",
                         help="Override WARM_N (default: 50)")
+    parser.add_argument("--rerank-docs", type=int, default=None, metavar="N",
+                        help="Override rerank batch size (default: 50 docs)")
     args = parser.parse_args()
 
     if args.cold_n is not None:
         COLD_N = args.cold_n
     if args.warm_n is not None:
         WARM_N = args.warm_n
+    if args.rerank_docs is not None:
+        RERANK_TEST_DOCS = RERANK_TEST_DOCS[:args.rerank_docs]
 
     names_to_run = list(CONSTELLATIONS.keys()) if args.all else [args.constellation]
 
