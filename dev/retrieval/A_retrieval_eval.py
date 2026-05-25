@@ -57,8 +57,11 @@ PREFIX_NOOP_MODES = {"sparse", "bm25"}
 
 def run_baseline(queries_path: str, config: dict) -> None:
     collection = config["collection"]
-    _ensure_constellation_for_mode(config["mode"])
-    _check_servers([config["mode"]])
+    mode = config["mode"]
+    if MODE_CONSTELLATIONS.get(mode):
+        _ensure_constellation_for_mode(mode)   # starts servers + patches dynamic-port URLs
+    else:
+        _check_servers([mode])
     queries = _load_queries(queries_path)
     _verify_drift(queries, collection)
     print(f"Running baseline: {len(queries)} queries | mode={config['mode']} | top_k={config['top_k']} | collection={collection}")
