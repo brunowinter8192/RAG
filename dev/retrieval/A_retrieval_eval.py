@@ -5,6 +5,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -64,11 +65,14 @@ def run_baseline(queries_path: str, config: dict) -> None:
     print(f"Running baseline: {len(queries)} queries | mode={config['mode']} | top_k={config['top_k']} | collection={collection}")
 
     query_results = []
-    for entry in queries:
-        hits = _run_query(entry["query"], collection, config)
+    total_q = len(queries)
+    for qi, entry in enumerate(queries, 1):
+        hits, latency_ms = _run_query(entry["query"], collection, config)
+        print(f"  [q{qi}/{total_q}] mode={config['mode']} top_k={config['top_k']} latency={latency_ms:.0f}ms", flush=True)
         query_results.append({
             "entry": entry,
             "hits": hits,
+            "latency_ms": latency_ms,
             "doc_match": _check_document_match(entry["expected_documents"], hits),
             "snippet_match": _check_snippet_match(entry["expected_chunks"], hits),
             "rank_metrics": _compute_rank_metrics(hits, entry["expected_chunks"], config["top_k"]),
@@ -98,9 +102,10 @@ def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: di
     _verify_drift(queries, collection)
     print(f"Running cross-sweep: {param1} × {param2} | {len(values1)}×{len(values2)}={len(values1)*len(values2)} configs | {len(queries)} queries | collection={collection}")
 
-    # results[(v1, v2)] = (avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k)
+    # results[(v1, v2)] = (avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k, mean_latency_ms)
     results: dict[tuple, tuple] = {}
     total_configs = len(values1) * len(values2)
+    total_q = len(queries)
     done = 0
     for v1 in values1:
         if param1 == "mode":
@@ -110,20 +115,23 @@ def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: di
                 _ensure_constellation_for_mode(v2)
             config = {**base_config, param1: v1, param2: v2}
             query_results = []
-            for entry in queries:
-                hits = _run_query(entry["query"], collection, config)
+            for qi, entry in enumerate(queries, 1):
+                hits, latency_ms = _run_query(entry["query"], collection, config)
+                print(f"  [q{qi}/{total_q}] mode={config['mode']} top_k={config['top_k']} latency={latency_ms:.0f}ms", flush=True)
                 query_results.append({
                     "entry": entry,
                     "hits": hits,
+                    "latency_ms": latency_ms,
                     "doc_match": _check_document_match(entry["expected_documents"], hits),
                     "snippet_match": _check_snippet_match(entry["expected_chunks"], hits),
                     "rank_metrics": _compute_rank_metrics(hits, entry["expected_chunks"], config["top_k"]),
                 })
             results[(v1, v2)] = _compute_avg_metrics(query_results)
             done += 1
-            print(f"  [{done}/{total_configs}] {param1}={v1} {param2}={v2}: snippet_recall={results[(v1,v2)][1]:.0%} NDCG={results[(v1,v2)][2]:.3f}")
+            r = results[(v1, v2)]
+            print(f"  [{done}/{total_configs}] {param1}={v1} {param2}={v2}: snippet_recall={r[1]:.0%} NDCG={r[2]:.3f} mean_lat={r[5]:.0f}ms")
 
-    _write_cross_sweep_report(results, param1, param2, base_config)
+    _write_cross_sweep_report(results, param1, param2, values1, values2, base_config)
 
 
 def run_sweep(queries_path: str, param: str, base_config: dict,
@@ -142,16 +150,19 @@ def run_sweep(queries_path: str, param: str, base_config: dict,
     print(f"Running sweep: {param} over {values} | {len(queries)} queries | collection={collection}")
 
     comparison_rows = []
+    total_q = len(queries)
     for val in values:
         config = {**base_config, param: val}
         if param == "mode":
             _ensure_constellation_for_mode(val)
         query_results = []
-        for entry in queries:
-            hits = _run_query(entry["query"], collection, config)
+        for qi, entry in enumerate(queries, 1):
+            hits, latency_ms = _run_query(entry["query"], collection, config)
+            print(f"  [q{qi}/{total_q}] mode={config['mode']} top_k={config['top_k']} latency={latency_ms:.0f}ms", flush=True)
             query_results.append({
                 "entry": entry,
                 "hits": hits,
+                "latency_ms": latency_ms,
                 "doc_match": _check_document_match(entry["expected_documents"], hits),
                 "snippet_match": _check_snippet_match(entry["expected_chunks"], hits),
                 "rank_metrics": _compute_rank_metrics(hits, entry["expected_chunks"], config["top_k"]),
@@ -159,8 +170,8 @@ def run_sweep(queries_path: str, param: str, base_config: dict,
 
         label = f"sweep_{param}_{val}"
         _write_report(query_results, collection, config, label=label, sweep_param=param)
-        avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k = _compute_avg_metrics(query_results)
-        comparison_rows.append((param, val, config["mode"], avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k))
+        avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k, mean_lat = _compute_avg_metrics(query_results)
+        comparison_rows.append((param, val, config["mode"], avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k, mean_lat))
 
     _write_sweep_comparison(comparison_rows, param, base_config)
 
@@ -286,8 +297,8 @@ def _verify_drift(queries: list[dict], collection: str) -> None:
         sys.exit(1)
 
 
-# Run a single query with full config and return hits list
-def _run_query(query: str, collection: str, config: dict) -> list[dict]:
+# Run a single query with full config; returns (hits, latency_ms)
+def _run_query(query: str, collection: str, config: dict) -> tuple[list[dict], float]:
     mode = config["mode"]
     top_k = config["top_k"]
     alpha = config["alpha"]
@@ -295,6 +306,7 @@ def _run_query(query: str, collection: str, config: dict) -> list[dict]:
     score_threshold = config["score_threshold"]
     query_prefix = config["query_prefix"]
 
+    t0 = time.perf_counter()
     try:
         if mode == "dense":
             hits = _retriever.retrieve_dense(query, collection, top_k, query_prefix=query_prefix)
@@ -307,36 +319,42 @@ def _run_query(query: str, collection: str, config: dict) -> list[dict]:
         elif mode == "cc":
             hits = _retriever.retrieve_cc(query, collection, top_k, alpha=alpha, query_prefix=query_prefix)
         elif mode == "cc+rerank":
-            hits = _retriever.retrieve_cc_rerank(query, collection, top_k, alpha=alpha, query_prefix=query_prefix)
+            url = _lookup_server_url("reranker-0.6b")
+            hits = _retriever.retrieve_cc(query, collection, config["rerank_candidates"], alpha=alpha, query_prefix=query_prefix)
+            hits = _rerank_at(query, hits, top_k, url)
         elif mode == "hybrid+rerank":
-            hits = _retriever.retrieve_hybrid(query, collection, top_k * 5, rrf_k=rrf_k, query_prefix=query_prefix)
-            hits = _retriever.rerank(query, hits, top_k)
+            url = _lookup_server_url("reranker-0.6b")
+            hits = _retriever.retrieve_hybrid(query, collection, config["rerank_candidates"], rrf_k=rrf_k, query_prefix=query_prefix)
+            hits = _rerank_at(query, hits, top_k, url)
         elif mode == "cc+rerank-8b":
             url = _lookup_server_url("reranker-8b")
-            hits = _retriever.retrieve_cc(query, collection, _RERANK_CANDIDATES, alpha=alpha, query_prefix=query_prefix)
+            hits = _retriever.retrieve_cc(query, collection, config["rerank_candidates"], alpha=alpha, query_prefix=query_prefix)
             hits = _rerank_at(query, hits, top_k, url)
         elif mode == "hybrid+rerank-8b":
             url = _lookup_server_url("reranker-8b")
-            hits = _retriever.retrieve_hybrid(query, collection, top_k * 5, rrf_k=rrf_k, query_prefix=query_prefix)
+            hits = _retriever.retrieve_hybrid(query, collection, config["rerank_candidates"], rrf_k=rrf_k, query_prefix=query_prefix)
             hits = _rerank_at(query, hits, top_k, url)
         elif mode == "dense+rerank-0.6b":
             url = _lookup_server_url("reranker-0.6b")
-            hits = _retriever.retrieve_dense(query, collection, _RERANK_CANDIDATES, query_prefix=query_prefix)
+            hits = _retriever.retrieve_dense(query, collection, config["rerank_candidates"], query_prefix=query_prefix)
             hits = _rerank_at(query, hits, top_k, url)
         elif mode == "dense+rerank-8b":
             url = _lookup_server_url("reranker-8b")
-            hits = _retriever.retrieve_dense(query, collection, _RERANK_CANDIDATES, query_prefix=query_prefix)
+            hits = _retriever.retrieve_dense(query, collection, config["rerank_candidates"], query_prefix=query_prefix)
             hits = _rerank_at(query, hits, top_k, url)
         else:
             hits = []
     except Exception as e:
+        latency_ms = (time.perf_counter() - t0) * 1000
         print(f"WARNING: query failed ({e}): {query[:60]}")
-        return []
+        return [], latency_ms
+
+    latency_ms = (time.perf_counter() - t0) * 1000
 
     if score_threshold > 0.0 and mode not in THRESHOLD_IGNORED_MODES:
         hits = [h for h in hits if h.get("score", 0) >= score_threshold]
 
-    return hits
+    return hits, latency_ms
 
 
 # Check which expected documents were found and at which ranks (diagnostic)
@@ -499,13 +517,14 @@ def _write_report(query_results: list[dict], collection: str, config: dict, labe
     print(f"Report: {report_path}")
 
 
-# Compute average doc recall, snippet recall, and rank metrics across all query results
-def _compute_avg_metrics(query_results: list[dict]) -> tuple[float, float, float, float, float]:
+# Compute average doc recall, snippet recall, rank metrics, and latency across all query results
+def _compute_avg_metrics(query_results: list[dict]) -> tuple[float, float, float, float, float, float]:
     doc_recalls = []
     snip_recalls = []
     ndcg_vals = []
     mrr_vals = []
     recall_k_vals = []
+    lat_vals = []
     for qr in query_results:
         doc_match = qr["doc_match"]
         snippet_match = qr["snippet_match"]
@@ -515,6 +534,7 @@ def _compute_avg_metrics(query_results: list[dict]) -> tuple[float, float, float
         ndcg_vals.append(rm.get("ndcg_at_k", 0.0))
         mrr_vals.append(rm.get("mrr_at_k", 0.0))
         recall_k_vals.append(rm.get("recall_at_k", 0.0))
+        lat_vals.append(qr.get("latency_ms", 0.0))
     total = len(query_results)
     return (
         sum(doc_recalls) / total if total else 0,
@@ -522,6 +542,7 @@ def _compute_avg_metrics(query_results: list[dict]) -> tuple[float, float, float
         sum(ndcg_vals) / total if total else 0,
         sum(mrr_vals) / total if total else 0,
         sum(recall_k_vals) / total if total else 0,
+        sum(lat_vals) / total if total else 0,
     )
 
 
@@ -558,25 +579,23 @@ def _write_sweep_comparison(rows: list[tuple], param: str, base_config: dict) ->
 
     lines += [
         "",
-        f"| {param} | Mode | Doc Recall | Snippet Recall | NDCG@K | MRR@K | Recall@K |",
-        f"|{'-'*len(param)}-|------|-----------|----------------|--------|-------|---------|",
+        f"| {param} | Mode | Doc Recall | Snippet Recall | NDCG@K | MRR@K | Recall@K | Latency (mean_ms) |",
+        f"|{'-'*len(param)}-|------|-----------|----------------|--------|-------|---------|-----------------|",
     ]
-    for swept_param, val, mode, avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k in rows:
-        lines.append(f"| {val} | {mode} | {avg_doc:.0%} | {avg_snip:.0%} | {avg_ndcg:.3f} | {avg_mrr:.3f} | {avg_recall_k:.1%} |")
+    for swept_param, val, mode, avg_doc, avg_snip, avg_ndcg, avg_mrr, avg_recall_k, mean_lat in rows:
+        lines.append(f"| {val} | {mode} | {avg_doc:.0%} | {avg_snip:.0%} | {avg_ndcg:.3f} | {avg_mrr:.3f} | {avg_recall_k:.1%} | {mean_lat:.0f}ms |")
 
     report_path.write_text("\n".join(lines) + "\n")
     print(f"Sweep comparison: {report_path}")
 
 
 # Write cross-product sweep comparison MD: primary snippet_recall matrix + secondary metric matrices
-def _write_cross_sweep_report(results: dict, param1: str, param2: str, base_config: dict) -> None:
+def _write_cross_sweep_report(results: dict, param1: str, param2: str, values1: list, values2: list, base_config: dict) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_dir = Path(__file__).parent / "A_retrieval_eval_reports"
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f"cross_{param1}_{param2}_{base_config['collection']}_{timestamp}.md"
 
-    values1 = SWEEP_RANGES[param1]
-    values2 = SWEEP_RANGES[param2]
     fixed = {k: v for k, v in base_config.items() if k not in (param1, param2)}
     fixed_str = ", ".join(f"{k}={v}" for k, v in fixed.items())
 
@@ -646,6 +665,13 @@ def _write_cross_sweep_report(results: dict, param1: str, param2: str, base_conf
         cells = [f"{results[(v1, v2)][0]:.0%}" for v2 in values2]
         lines.append(f"| {v1} | " + " | ".join(cells) + " |")
 
+    lines += [f"", f"## Secondary: Latency (mean_warm_ms)", f""]
+    lines.append(f"| {param1} \\ {param2} | {col_header} |")
+    lines.append(f"|---|{sep}|")
+    for v1 in values1:
+        cells = [f"{results[(v1, v2)][5]:.0f}ms" for v2 in values2]
+        lines.append(f"| {v1} | " + " | ".join(cells) + " |")
+
     lines += [
         f"",
         f"---",
@@ -658,6 +684,7 @@ def _write_cross_sweep_report(results: dict, param1: str, param2: str, base_conf
         f"- MRR@{best_key[1]}: {best[3]:.3f}",
         f"- Recall@{best_key[1]}: {best[4]:.1%}",
         f"- doc_recall: {best[0]:.0%}",
+        f"- mean_latency: {best[5]:.0f}ms",
         f"",
     ]
 
@@ -726,6 +753,8 @@ def _build_summary(query_results: list[dict]) -> list[str]:
     avg_ndcg = sum(ndcg_vals) / total if total else 0
     avg_mrr = sum(mrr_vals) / total if total else 0
     avg_recall_k = sum(recall_k_vals) / total if total else 0
+    lat_vals = [qr.get("latency_ms", 0.0) for qr in query_results]
+    mean_lat = sum(lat_vals) / total if total else 0
     top_k_label = len(query_results[0]["hits"]) if query_results else "?"
     k_label = query_results[0]["rank_metrics"]["k"] if query_results and query_results[0].get("rank_metrics") else top_k_label
 
@@ -740,6 +769,7 @@ def _build_summary(query_results: list[dict]) -> list[str]:
         f"| NDCG@{k_label} (avg) | {avg_ndcg:.3f} |",
         f"| MRR@{k_label} (avg) | {avg_mrr:.3f} |",
         f"| Recall@{k_label} chunk-level (avg) | {avg_recall_k:.1%} |",
+        f"| Mean Query Latency (warm_ms) | {mean_lat:.0f}ms |",
         f"| Queries with 100% doc match | {full_doc_match}/{total} |",
         f"| Queries with 100% snippet match | {full_snip_match}/{total} |",
         f"| Queries with 0 snippet match | {zero_snip_match}/{total} |",
