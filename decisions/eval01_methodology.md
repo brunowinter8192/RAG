@@ -57,7 +57,7 @@ Server URLs configurable via env: `EMBEDDING_URL`, `EMBEDDING_HEALTH_URL`, `SPLA
 
 ## Recommendation (SOLL)
 
-- **After cross-product sweep:** pick winning (mode, top_k) by primary snippet_recall, tie-break by NDCG@12 → IST updates in `decisions/retrieval03_fusion.md` (mode choice) and `decisions/retrieval01_top_k.md` (top_k choice).
+- ~~**After cross-product sweep:**~~ **DONE (2026-05-25):** sweep completed on test_db (8 modes × 5 top_k); winning config is always-rerank dense+rerank-0.6b, top_k=12. IST updated in `decisions/retrieval04_reranking.md` (rerank config) and `decisions/retrieval03_fusion.md` (fusion removed). (`decisions/retrieval01_top_k.md` was never created — top_k is now hardcoded, no separate decision file needed.)
 - ~~**Hard-fix top_k:**~~ **DONE (2026-05-25):** top_k=12 hardcoded in `search_hybrid_workflow()` in `src/rag/retriever.py`; DEFAULT_TOP_K constant removed; --top-k CLI flag removed from `cli.py`.
 - **Remove top_k from tool-use docs:** update `~/.claude/shared-rules/global/tool-use.md` RAG-CLI section to remove top_k references (separate follow-up — Opus-side).
 - **Sweep top_k range correction applied:** `SWEEP_RANGES['top_k']` corrected from `[5, 10, 20]` (the 20 gets silently clamped to 12 by `min(top_k, 12)` in `search_workflow`) to `[3, 5, 7, 10, 12]` covering the agent's typical choice range plus the 12-ceiling.

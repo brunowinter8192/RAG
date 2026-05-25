@@ -2,18 +2,11 @@
 
 ## Status Quo (IST)
 
-**Code:** `search_hybrid_workflow()` in `src/rag/retriever.py` → calls `cc_fusion` (from `src/rag/fusion.py`, `CC_ALPHA = 0.8`) **only on the `rerank=False` path**
-**Method:** Convex Combination (CC) with min-max normalization
-**Formula:** `score(d) = α * (dense_score - min_dense) / (max_dense - min_dense) + (1-α) * (sparse_score / max_sparse)`
-**α parameter:** 0.8 (`CC_ALPHA` constant in `fusion.py`)
-**Input:** Top 50 Dense + Top 50 Sparse candidates (`HYBRID_CANDIDATES=50`)
-**Output:** Fused ranking, top 12 returned (hardcoded)
+`cc_fusion` and `rrf_fusion` are **no longer in the production search path**. `fusion.py` deleted (2026-05-26, commit `f8f35c0`). `search_hybrid_workflow()` in `src/rag/retriever.py` is now unconditionally dense+rerank — no fusion step.
 
-`cc_fusion` is the live default in `search_hybrid_workflow(rerank=False)`. On the `rerank=True` path, `cc_fusion` is **not called** — dense-only first stage feeds directly into `rerank_workflow`. See `decisions/retrieval04_reranking.md` for the full architecture split. `rrf_fusion` is retained in `fusion.py` as a reference implementation but is not called from any workflow. `search_workflow()` (pure dense) returns dense results directly without fusion.
+Both `cc_fusion` and `rrf_fusion` had zero callers in `src/` after the always-rerank migration. The cc-fusion path (`rerank=False` branch) was removed in full — no dev/ scaffold copies exist either. `search_workflow()` (pure dense, no fusion) is unchanged.
 
-### Code-Drift-Closure 2026-05-11
-
-`cc_fusion` in `fusion.py` was previously max-only normalization (`score / max_vec`) despite the IST claim of "min-max normalization". Commit `309c018` introduced proper min-max for the dense branch: `(score - min_vec) / range_vec` with `range_vec == 0 → norm = 1.0` fallback. Sparse branch (`score / max_kw`) unchanged — SPLADE scores are non-negative, max-only is correct there. IST formula and statement now match the code.
+**Historical IST (superseded):** `cc_fusion` (CC α=0.8, `HYBRID_CANDIDATES=50`) was the default in `search_hybrid_workflow(rerank=False)`. Evidenz for that choice is preserved below. Superseded values and the code-drift closure are in `decisions/OldThemes/server_management/2026-05-25_phase_a_results.md`.
 
 ## Evidenz
 
@@ -40,9 +33,9 @@ Report: `dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448
 
 ## Recommendation (SOLL)
 
-- **Keep:** CC α=0.8 (Convex Combination with min-max normalization). CC outperforms RRF on Snippet Recall (+3pp) while matching Doc Recall. Based on Bruch et al. 2023 ("An Analysis of Fusion Functions for Hybrid Retrieval"), confirmed on RAG_MCP collection (2026-04-08, re-confirmed 2026-04-28). `cc_fusion` is the active default; `rrf_fusion` retained in `fusion.py` as reference.
-- **Keep:** Hybrid as separate MCP tool (`search_hybrid`), not default search path
-- **Keep:** Rerank=False as default — reranker costs 1pp Snippet Recall and adds latency. Only +4pp Doc Recall does not justify the trade-off for MCP tool responses where snippet quality matters more.
+- **Keep:** No fusion in prod path — cc_fusion removed; always-rerank makes fusion redundant (Phase A confirmed all three rerank-0.6b modes converge identically, SPLADE adds zero signal when reranker active).
+- **Keep:** `search_hybrid` as the prod search command (now always-rerank, no cc-fusion).
+- Fusion implementations (`cc_fusion`, `rrf_fusion`) are permanently removed from src/. If a future architecture re-introduces hybrid-without-rerank, implement from scratch referencing the Evidenz tables below.
 
 ## Offene Fragen
 

@@ -5,49 +5,29 @@
 **Code:** `search_hybrid_workflow()` in `src/rag/retriever.py`
 **Model:** Qwen3-Reranker-0.6B Q8_0 via llama-server
 **Server:** llama-server on port 8082, `--rerank -c 32768 -np 1`
-**top_k:** Hardcoded 12 (no parameter). `search_hybrid_workflow()` signature no longer accepts `top_k`.
+**top_k:** Hardcoded 12 (no parameter). `search_hybrid_workflow()` signature accepts no `top_k` or `rerank` parameter.
 
-### Two code paths based on `rerank` parameter
+### Single prod path (always-rerank)
 
-**`rerank=True` (dense+rerank path):**
+`search_hybrid_workflow()` is unconditionally: dense-only first stage → reranker.
+
 - First stage: `search_vectors()` fetches `RERANK_CANDIDATES=30` dense candidates
-- No `splade_search()` call, no `cc_fusion()` call
-- Constellation: embedding-8b + reranker-0.6b (C3, 15.93 GB VRAM — no SPLADE server needed)
 - `rerank_workflow()` re-scores all 30 candidates, returns top 12; score == 0 excluded
-
-**`rerank=False` (cc-fusion path, default):**
-- First stage: `search_vectors()` + `splade_search()`, each fetching `HYBRID_CANDIDATES=50` candidates
-- `cc_fusion()` merges and returns top 12
-- Constellation: embedding-8b + splade (C2, 9.01 GB VRAM)
+- No `splade_search()` call, no `cc_fusion()` call, no SPLADE server needed
+- Constellation: embedding-8b + reranker-0.6b (C3, 15.93 GB VRAM)
 
 **Constants** (`src/rag/retriever.py`):
 - `RERANK_CANDIDATES = 30` (Phase B plateau: rc=30 hits 97% snippet recall, identical to rc=50 at 37% lower latency)
-- `HYBRID_CANDIDATES = 50`
-- DEFAULT_TOP_K removed (top_k hardcoded 12 in workflow body)
+- `HYBRID_CANDIDATES` removed (cc-fusion path eliminated)
+- `rerank` parameter removed from signature (no toggle — always-rerank)
 
 Auto-started on first use (same lifecycle pattern as embedding server).
 
 ## Evidenz
 
-### Pipeline Optimization Paper (external)
+### Aktuelle Evidenz — reproduzierbar via `dev/retrieval/A_retrieval_eval.py`
 
-Adding BGE cross-encoder to GTE-large pipeline: Acc@3 from 0.412 to 0.506 (+9.4pp).
-Reranking bridges ~50% of the gap between 2000-char and 512-char chunking.
-
-### Reranker on CC Fusion (RAG_MCP, 20 queries, 483 chunks — mixed, 2026-04-08)
-
-| Mode | Doc Recall @10 | Snippet Recall @10 |
-|---|---|---|
-| CC α=0.8 | 80% | **78%** |
-| CC+Rerank α=0.8 | **84%** | 77% |
-| Hybrid+Rerank K=60 | **84%** | 77% |
-
-Reranker adds +4pp Doc Recall but costs -1pp Snippet Recall. CC+Rerank = Hybrid+Rerank (reranker normalizes fusion method). For MCP tool responses where snippet quality matters more than document discovery, reranking is not recommended on technical-doc collections.
-
-Script: pre-A_retrieval_eval.py eval harness (not committed to repo — non-reproducible; data preserved in report).
-Report: `dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448.md`
-
-### Cross-Mode + top_k Sweep (test_db, 8 modes × 5 top_k, 2026-05-25)
+#### Cross-Mode + top_k Sweep (test_db, 8 modes × 5 top_k, 2026-05-25)
 
 Script: `dev/retrieval/A_retrieval_eval.py --sweep-cross mode top_k --collection test_db`
 Report: `dev/retrieval/A_retrieval_eval_reports/cross_mode_top_k_test_db_20260525_2028.md`
@@ -93,29 +73,48 @@ All 28 identifying_quotes in queries_test_db.json are present verbatim in single
 
 97% snippet recall on test_db is the verified ceiling for this query set with the current chunking strategy.
 
+### Historische Richtwerte (April 2026, nicht-reproduzierbar)
+
+Script: pre-A_retrieval_eval.py eval harness (not committed to repo — eval infrastructure incompatible with current codebase, results not re-producible).
+Report: `dev/retrieval/A_retrieval_eval_reports/sweep_comparison_20260408_190448.md`
+
+**RAG_MCP Collection (20 queries, 483 chunks — mixed academic+technical, 2026-04-08):**
+
+| Mode | Doc Recall @10 | Snippet Recall @10 |
+|---|---|---|
+| CC α=0.8 | 80% | **78%** |
+| CC+Rerank α=0.8 | **84%** | 77% |
+| Hybrid+Rerank K=60 | **84%** | 77% |
+
+**Pipeline Optimization Paper (external):** Adding BGE cross-encoder to GTE-large pipeline: Acc@3 from 0.412 to 0.506 (+9.4pp). Reranking bridges ~50% of the gap between 2000-char and 512-char chunking.
+
+These are orientation values from a prior eval infrastructure. Prod-config decisions are based on the reproducible test_db measurements above.
+
+### Lean-Completion Note (2026-05-26)
+
+Phase C introduced the architecture split (rerank=True dense-only path vs rerank=False cc-fusion path) as a structural prerequisite. This commit completes the lean: the rerank=False cc-fusion branch is removed. `search_hybrid_workflow` is now unconditionally dense+rerank. `--rerank` CLI flag removed. SPLADE indexing skipped for new chunks (sparse_embedding column retained, existing values preserved, backfill workflow kept for manual use).
+
 ## Recommendation (SOLL)
 
-- **Keep:** `rerank=False` as default — for technical-doc collections (code, API refs, configs, monitoring logs) reranker hurts NDCG and adds 45× latency. Use `--rerank` only for academic/prose collections.
-- **Keep:** `RERANK_CANDIDATES=30` — plateau confirmed on test_db, 37% latency saving vs rc=50 at identical recall.
-- **Keep:** dense-only first stage for `rerank=True` path (no SPLADE) — SPLADE adds zero signal when reranker is active; simpler constellation (C3 vs C5), saves 600 MB VRAM.
-- **Keep:** Qwen3-Reranker-0.6B model — 97% snippet recall on academic text, ~4.5s/query at rc=30.
-- **Usage guidance — domain dependency:**
-  - Academic / prose collections (papers, wiki, documentation): `--rerank` appropriate. +17pp snippet recall, ~4.5s/query.
-  - Technical collections (code, configs, API references, monitoring): omit `--rerank`. CC-fusion at 131–157ms/query, NDCG superior (0.708 vs 0.665).
-- **Resolved:** reranker-8b eliminated — ~20s/query warm latency on M4 Pro 48GB (C4/C6 smell test), unusable for interactive and batch.
+- **Keep:** always-rerank prod path — 97% snippet recall on test_db (academic text), RERANK_CANDIDATES=30 plateau confirmed.
+- **Keep:** `RERANK_CANDIDATES=30` — plateau confirmed, 37% latency saving vs rc=50 at identical recall.
+- **Keep:** Qwen3-Reranker-0.6B model — 97% snippet recall on test_db, ~4.5s/query at rc=30.
+- **Resolved:** reranker-8b eliminated — ~20s/query warm latency on M4 Pro 48GB, unusable for interactive and batch.
+- **Resolved:** cc-fusion path removed — SPLADE adds zero signal when reranker is active (Phase A Insight 1: all three rerank-0.6b modes converge identically at top_k=12).
 
-### CLI Default + Threshold Changes 2026-05-11
+### Prior changes (history)
 
-**CLI default flip (commit `f6fecc8`):** `cli.py` `search_hybrid` flag changed from `--no-rerank` (default=True) to `--rerank` (default=False). CLI default now matches `search_hybrid_workflow(rerank: bool = False)` function signature and the SOLL statement "Keep rerank=False as default". Previous CLI-vs-Decision inconsistency resolved.
-
-**Post-rerank score threshold removed (commit `1d80fd4`):** Hard 0.3 threshold eliminated. `rerank_workflow` internal `[:top_k]` handles candidate selection; only exact score == 0 excluded via inline list comprehension. Threshold calibration Pending item removed — no longer applicable for the rerank path.
+**CLI default flip (commit `f6fecc8`):** `--no-rerank` (default=True) → `--rerank` (default=False). Resolved CLI-vs-decision inconsistency.
+**Post-rerank score threshold removed (commit `1d80fd4`):** Hard 0.3 threshold eliminated. Only exact score == 0 excluded.
+**always-rerank (commit `f8f35c0`, 2026-05-26):** `rerank` param removed, cc-fusion path deleted.
 
 ## Offene Fragen
 
-- ~~What is the actual NDCG improvement on our data?~~ **RESOLVED:** -8.5pp NDCG on RAG_MCP (technical/mixed); +17pp snippet recall on test_db (academic). Domain-dependent.
-- ~~Latency: How much time does reranking add per query?~~ **RESOLVED:** ~4.5s/query (rc=30, reranker-0.6b, warm). 45× overhead vs cc-fusion (157ms).
+- ~~What is the actual NDCG improvement on our data?~~ **RESOLVED:** +17pp snippet recall on test_db (academic) at 45× latency cost.
+- ~~Latency: How much time does reranking add per query?~~ **RESOLVED:** ~4.5s/query (rc=30, reranker-0.6b, warm).
 - Is 0.6B sufficient or would 4B/8B reranker improve quality? Reranker-8b measured at ~20s/query — eliminated. No further 8B eval planned.
 - ColBERT reranking (late interaction) as alternative? VectorChord blog shows ColBERT + pgvector integration with +30% NDCG@10.
+- **Domain-dependency on technical-doc collections:** Historical April-2026 measurements (non-reproducible, pre-A_retrieval_eval scaffold) observed rerank degrading retrieval on technical collections. Whether this holds under current prod-config on a reproducible eval suite is unknown. A re-evaluation would require extending `test_db` with technical-doc queries (cross-domain eval suite) — not decision-blocking for the current prod-config choice, which is grounded in reproducible test_db measurements.
 
 ## Quellen
 

@@ -2,13 +2,13 @@
 
 ## Status Quo (IST)
 
-**Code:** `src/rag/search_primitives.py:search_vectors()`, `splade_search()`, `bm25_search()` (called via `retriever.py` imports)
-**Dense Search:** pgvector cosine distance (`embedding <=> query::vector`)
-**Sparse Search:** pgvector sparsevec cosine distance (`sparse_embedding <=> query::sparsevec`)
-**BM25 Search:** PostgreSQL tsvector full-text search (`ts_rank`)
+**Code:** `src/rag/search_primitives.py:search_vectors()`, `bm25_search()` (called via `retriever.py` imports)
+**Dense Search:** pgvector cosine distance (`embedding <=> query::vector`) — active prod path via `search_hybrid_workflow`
+**BM25 Search:** PostgreSQL tsvector full-text search (`ts_rank`) — available but not exposed in prod CLI
+**Sparse (SPLADE) Search:** `splade_search()` removed from `search_primitives.py` (2026-05-26, commit `f8f35c0`). `sparse_embedding` column retained in schema; existing values preserved; new chunks get NULL. `sparse_embed_workflow` still importable via `sparse_embedder.py` for `backfill_splade_workflow` (manual maintenance only).
 **Index:** Sequential scan (no HNSW). GIN index on tsvector column.
 
-**Candidates:** Top 50 per search method (HYBRID_CANDIDATES = 50)
+**Candidates:** `RERANK_CANDIDATES = 30` dense candidates fetched for prod path (always-rerank)
 
 ### Why No HNSW Index
 
