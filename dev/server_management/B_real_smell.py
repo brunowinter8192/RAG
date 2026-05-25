@@ -32,6 +32,8 @@ sys.path.insert(0, str(RAG_ROOT / "dev" / "retrieval"))
 sys.path.insert(0, str(RAG_ROOT / "dev" / "indexing"))
 
 import p1_retriever as _retriever  # noqa: E402 (after sys.path setup)
+import p2_embedder as _embedder    # noqa: E402 (for URL patching after constellation switch)
+import p3_sparse_embedder as _sparse_embedder  # noqa: E402
 
 QUERIES_PATH = RAG_ROOT / "dev" / "retrieval" / "queries_test_db.json"
 COLLECTION = "test_db"
@@ -107,6 +109,7 @@ def main() -> None:
         elapsed = time.time() - t_health
         print(f"[{label}] health check: OK after {elapsed:.0f}s", flush=True)
 
+        _patch_retriever_urls(servers)
         vram_mib = _sample_vram(servers)
         print(f"[{label}] VRAM: {vram_mib/1024:.2f} GB ({vram_mib:.0f} MiB)", flush=True)
 
@@ -212,6 +215,28 @@ def _lookup_server_url(server_name: str, path: str = "/v1/rerank") -> str | None
         if state.get("name") == server_name:
             return f"http://localhost:{state['port']}{path}"
     return None
+
+
+def _patch_retriever_urls(servers: list[str]) -> None:
+    """Patch module-level URL globals in p2/p3/p1 so retriever calls hit dynamic ports."""
+    if "embedding-8b" in servers or "embedding-0.6b" in servers:
+        server = "embedding-8b" if "embedding-8b" in servers else "embedding-0.6b"
+        url = _lookup_server_url(server, path="/v1/embeddings")
+        if url:
+            _embedder.EMBEDDING_URL = url
+            print(f"    [url-patch] embedding → {url}", flush=True)
+    if "splade" in servers:
+        url = _lookup_server_url("splade", path="/v1/sparse-embeddings")
+        if url:
+            _sparse_embedder.SPLADE_URL = url
+            print(f"    [url-patch] splade → {url}", flush=True)
+    for reranker in ("reranker-0.6b", "reranker-8b"):
+        if reranker in servers:
+            url = _lookup_server_url(reranker, path="/v1/rerank")
+            if url:
+                _retriever.RERANKER_URL = url
+                print(f"    [url-patch] reranker → {url}", flush=True)
+            break
 
 
 def _rerank_at(query: str, results: list[dict], top_k: int, url: str) -> list[dict]:
