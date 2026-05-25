@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 import httpx
 
 import p1_retriever as _retriever
+import p2_embedder as _embedder
+import p3_sparse_embedder as _sparse_embedder
 from eval_config import BASELINE, SWEEP_RANGES
 
 EMBEDDING_HEALTH_URL = os.getenv("EMBEDDING_HEALTH_URL", "http://localhost:8081/health")
@@ -214,6 +216,38 @@ def _ensure_constellation_for_mode(mode: str) -> None:
     )
     print(f"  [constellation] {mode} → {servers}")
     subprocess.run([VENV_PYTHON, "-c", script], cwd=str(RAG_ROOT), check=True, timeout=360)
+    _patch_retriever_urls(servers)
+
+
+# Patch module-level URL globals in p2/p3/p1 to reflect dynamic ports from ~/.rag-locks state files.
+def _patch_retriever_urls(servers: list[str]) -> None:
+    if "embedding-8b" in servers or "embedding-0.6b" in servers:
+        server = "embedding-8b" if "embedding-8b" in servers else "embedding-0.6b"
+        try:
+            url = _lookup_server_url(server, path="/v1/embeddings")
+        except RuntimeError as e:
+            print(f"    [url-patch] WARNING: {e}", flush=True)
+        else:
+            _embedder.EMBEDDING_URL = url
+            print(f"    [url-patch] embedding → {url}", flush=True)
+    if "splade" in servers:
+        try:
+            url = _lookup_server_url("splade", path="/v1/sparse-embeddings")
+        except RuntimeError as e:
+            print(f"    [url-patch] WARNING: {e}", flush=True)
+        else:
+            _sparse_embedder.SPLADE_URL = url
+            print(f"    [url-patch] splade → {url}", flush=True)
+    for reranker in ("reranker-0.6b", "reranker-8b"):
+        if reranker in servers:
+            try:
+                url = _lookup_server_url(reranker, path="/v1/rerank")
+            except RuntimeError as e:
+                print(f"    [url-patch] WARNING: {e}", flush=True)
+            else:
+                _retriever.RERANKER_URL = url
+                print(f"    [url-patch] reranker → {url}", flush=True)
+            break
 
 
 # Read ~/.rag-locks state files to find the URL for a named preset server.
