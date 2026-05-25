@@ -385,7 +385,6 @@ if __name__ == "__main__":
                         help="Override WARM_N (default: 50)")
     args = parser.parse_args()
 
-    global COLD_N, WARM_N
     if args.cold_n is not None:
         COLD_N = args.cold_n
     if args.warm_n is not None:
