@@ -77,15 +77,17 @@ def run_baseline(queries_path: str, config: dict) -> None:
     _write_report(query_results, collection, config, label="baseline")
 
 
-def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: dict) -> None:
+def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: dict,
+                    restrict_values: list[str] | None = None) -> None:
     for p in (param1, param2):
         if p not in SWEEP_RANGES:
             print(f"ERROR: '{p}' is not a sweepable parameter. Valid: {sorted(SWEEP_RANGES)}")
             sys.exit(1)
 
     collection = base_config["collection"]
-    values1 = SWEEP_RANGES[param1]
-    values2 = SWEEP_RANGES[param2]
+    # restrict_values applies to whichever param is "mode"
+    values1 = (restrict_values if restrict_values and param1 == "mode" else None) or SWEEP_RANGES[param1]
+    values2 = (restrict_values if restrict_values and param2 == "mode" else None) or SWEEP_RANGES[param2]
 
     # For non-mode sweeps, do upfront server check; for mode sweeps, constellation is managed per-iteration.
     mode_is_swept = param1 == "mode" or param2 == "mode"
@@ -124,13 +126,14 @@ def run_cross_sweep(queries_path: str, param1: str, param2: str, base_config: di
     _write_cross_sweep_report(results, param1, param2, base_config)
 
 
-def run_sweep(queries_path: str, param: str, base_config: dict) -> None:
+def run_sweep(queries_path: str, param: str, base_config: dict,
+              restrict_values: list[str] | None = None) -> None:
     if param not in SWEEP_RANGES:
         print(f"ERROR: '{param}' is not a sweepable parameter. Valid: {sorted(SWEEP_RANGES)}")
         sys.exit(1)
 
     collection = base_config["collection"]
-    values = SWEEP_RANGES[param]
+    values = restrict_values if restrict_values is not None else SWEEP_RANGES[param]
     if param != "mode":
         _check_servers([base_config["mode"]])
 
@@ -788,6 +791,8 @@ if __name__ == "__main__":
     parser.add_argument("--sweep", metavar="PARAM", help="Sweep PARAM over SWEEP_RANGES[PARAM]; others fixed at BASELINE")
     parser.add_argument("--sweep-cross", metavar=("PARAM1", "PARAM2"), nargs=2, help="Cross-product sweep PARAM1 × PARAM2 over SWEEP_RANGES; others fixed at BASELINE")
     parser.add_argument("--override", metavar="key=val", action="append", help="Override a BASELINE key (repeatable)")
+    parser.add_argument("--restrict-modes", metavar="M1,M2,...", default=None,
+                        help="Restrict --sweep/--sweep-cross mode dimension to this comma-separated subset of SWEEP_RANGES['mode']")
     args = parser.parse_args()
 
     if not args.baseline and not args.sweep and not args.sweep_cross:
@@ -798,9 +803,16 @@ if __name__ == "__main__":
         config["collection"] = args.collection
     queries_path = _resolve_queries_path(config["collection"], args.queries)
 
+    restrict_values = None
+    if args.restrict_modes:
+        restrict_values = [m.strip() for m in args.restrict_modes.split(",")]
+        unknown = [m for m in restrict_values if m not in SWEEP_RANGES["mode"]]
+        if unknown:
+            parser.error(f"Unknown modes in --restrict-modes: {unknown}. Valid: {SWEEP_RANGES['mode']}")
+
     if args.sweep_cross:
-        run_cross_sweep(queries_path, args.sweep_cross[0], args.sweep_cross[1], config)
+        run_cross_sweep(queries_path, args.sweep_cross[0], args.sweep_cross[1], config, restrict_values)
     elif args.sweep:
-        run_sweep(queries_path, args.sweep, config)
+        run_sweep(queries_path, args.sweep, config, restrict_values)
     else:
         run_baseline(queries_path, config)
