@@ -43,11 +43,11 @@ from pathlib import Path
 
 from .chunker import chunk_workflow
 from .db import get_connection
+from .embedder import embed_workflow
 from .indexer import (
     BATCH_SIZE,
     delete_chunks,
     ensure_schema,
-    parallel_embed,
     store_chunks,
 )
 from .server_manager import ensure_ready
@@ -318,7 +318,7 @@ def index_file(
     for i in range(0, total, BATCH_SIZE):
         batch = chunks[i:i + BATCH_SIZE]
         texts = [c["content"] for c in batch]
-        embeddings, sparse = parallel_embed(texts)
-        store_chunks(conn, batch, embeddings, sparse)
+        embeddings = embed_workflow(texts, "search_document: ")
+        store_chunks(conn, batch, embeddings)
 
     return total
