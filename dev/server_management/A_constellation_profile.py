@@ -379,7 +379,18 @@ if __name__ == "__main__":
         "--all", action="store_true",
         help="Profile all constellations in sequence (writes single combined report)",
     )
+    parser.add_argument("--cold-n", type=int, default=None, metavar="N",
+                        help="Override COLD_N (default: 5)")
+    parser.add_argument("--warm-n", type=int, default=None, metavar="N",
+                        help="Override WARM_N (default: 50)")
     args = parser.parse_args()
+
+    if args.cold_n is not None:
+        global COLD_N
+        COLD_N = args.cold_n
+    if args.warm_n is not None:
+        global WARM_N
+        WARM_N = args.warm_n
 
     names_to_run = list(CONSTELLATIONS.keys()) if args.all else [args.constellation]
 
