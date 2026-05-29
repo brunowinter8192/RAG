@@ -113,7 +113,11 @@ SERVERS = {
         "type": "uvicorn",
         "uvicorn_app": "src.rag.splade_server:app",
         "timeout": 60,
-        "required_for": ["search", "index"],
+        # splade is used by NEITHER indexing (index_json_workflow is dense-only; sparse
+        # stays NULL) NOR retrieval (no search/fusion path references sparse_embedding).
+        # Only backfill-splade uses it, via ensure_ready("splade") direct-preset path.
+        # Empty required_for → ensure_ready("index"/"search") will NOT auto-start it.
+        "required_for": [],
         "default": True,
         "exclusive_with": [],
     },
