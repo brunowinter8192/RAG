@@ -33,7 +33,7 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     # ── search_hybrid ─────────────────────────────────────────────────────────
-    p = sub.add_parser("search_hybrid", help="Dense vector search with cross-encoder reranking; top_k=12 fixed.")
+    p = sub.add_parser("search_hybrid", help="Dense vector search with cross-encoder reranking; top_k=10 fixed.")
     p.add_argument("query", help="Natural language search query")
     p.add_argument("collection", help="Collection to search in")
     p.add_argument("--document", default=None,
