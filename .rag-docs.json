@@ -4,7 +4,6 @@
     "DOCS.md",
     "decisions/*.md",
     "decisions/OldThemes/**/*.md",
-    "sources/*.md",
     "src/**/DOCS.md",
     "dev/**/DOCS.md"
   ]
